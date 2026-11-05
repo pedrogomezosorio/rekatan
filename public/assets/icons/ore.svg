@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="oreBg" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="55%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </radialGradient>
+    <linearGradient id="rockFaceLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="rockFaceDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#64748b" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#oreBg)" stroke="#d4af37" stroke-width="3" />
+  <!-- Faceted 3D Iron/Silver Ore Boulder -->
+  <polygon points="32,12 49,24 45,46 19,46 15,24" fill="url(#rockFaceDark)" stroke="#0f172a" stroke-width="2" stroke-linejoin="round" />
+  <polygon points="32,12 34,30 15,24" fill="url(#rockFaceLight)" />
+  <polygon points="32,12 49,24 34,30" fill="#94a3b8" />
+  <polygon points="15,24 34,30 19,46" fill="#475569" />
+  <polygon points="34,30 49,24 45,46 19,46" fill="#334155" />
+  <!-- Metallic Mineral Veins -->
+  <polygon points="28,22 33,20 31,26" fill="#f8fafc" />
+  <polygon points="38,33 43,31 41,38" fill="#cbd5e1" />
+  <polygon points="23,35 27,33 25,40" fill="#e2e8f0" />
+</svg>
+

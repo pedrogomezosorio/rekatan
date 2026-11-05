@@ -1,0 +1,61 @@
+import React, { useState } from 'react';
+import { RESOURCE_ICON_PATHS, RESOURCE_META } from '../../shared/constants';
+import { ResourceType } from '../../shared/types';
+
+export interface ResourceIconProps {
+  resource: ResourceType;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
+  className?: string;
+}
+
+const SIZE_CLASSES: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', string> = {
+  xs: 'w-4 h-4 text-xs',
+  sm: 'w-5 h-5 text-sm',
+  md: 'w-7 h-7 text-base',
+  lg: 'w-9 h-9 text-xl',
+  xl: 'w-12 h-12 text-2xl',
+};
+
+/**
+ * Renderiza el logotipo/icono oficial de un recurso desde `/assets/icons/`.
+ * Soporta tamaños predefinidos ('xs'..'xl') o tamaño numérico en píxeles.
+ */
+export const ResourceIcon: React.FC<ResourceIconProps> = ({
+  resource,
+  size = 'md',
+  className = '',
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const meta = RESOURCE_META[resource];
+  const src = RESOURCE_ICON_PATHS[resource] || meta.iconPath;
+
+  const isNumericSize = typeof size === 'number';
+  const sizeClass = isNumericSize ? '' : SIZE_CLASSES[size];
+  const inlineStyle: React.CSSProperties | undefined = isNumericSize
+    ? { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.72)}px` }
+    : undefined;
+
+  if (imgError) {
+    return (
+      <span
+        style={inlineStyle}
+        className={`inline-flex items-center justify-center rounded-full shrink-0 select-none ${sizeClass} ${className}`}
+        title={meta.name}
+      >
+        {meta.emoji}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={meta.name}
+      title={meta.name}
+      style={inlineStyle}
+      onError={() => setImgError(true)}
+      className={`inline-block object-contain shrink-0 select-none drop-shadow ${sizeClass} ${className}`}
+      draggable={false}
+    />
+  );
+};
