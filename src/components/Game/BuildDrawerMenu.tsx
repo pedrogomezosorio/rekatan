@@ -162,7 +162,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
 
             {restrictionReason && (
               <div className="px-3 py-2 rounded-xl bg-red-950/75 border border-red-500/40 text-[11px] font-semibold text-red-200">
-                ⚠️ {restrictionReason}
+                {restrictionReason}
               </div>
             )}
 

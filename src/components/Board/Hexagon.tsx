@@ -53,6 +53,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
 
     return (
       <g
+        id={`board-hex-${hex.id}`}
         transform={`translate(${hex.center.x}, ${hex.center.y})`}
         onClick={() => onSelect(hex)}
         className={isInteractive ? 'cursor-pointer group' : undefined}
@@ -68,28 +69,15 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
           />
         )}
 
-        {/* 2. CLASSIC CATAN SANDSTONE / CARDBOARD OUTER RIM */}
+        {/* 2. CLASSIC CATAN CARDBOARD BASE RIM */}
         <polygon
           points={outerPoints}
           fill={isSea ? 'url(#sea-depth-grad)' : '#dac6a0'}
-          stroke={
-            isProducing
-              ? '#fbbf24'
-              : isSwapSelected
-              ? '#38bdf8'
-              : isRedConflict
-              ? '#ef4444'
-              : isSea
-              ? 'rgba(56, 189, 248, 0.16)'
-              : '#5c3a18'
-          }
-          strokeWidth={isProducing || isSwapSelected ? 4.5 : isSea ? 1 : 2.2}
-          filter={isProducing && !lowEndPcMode ? 'url(#producing-glow)' : undefined}
         />
 
-        {/* 3. HIGH-RES PAINTED CATAN TERRAIN ILLUSTRATION (CLIPPED TO INNER HEXAGON) */}
+        {/* 3. HIGH-RES AUTHENTIC ORIGINAL CATAN TERRAIN ILLUSTRATION */}
         {!isSea ? (
-          <g clipPath="url(#hex-inner-surface-clip)">
+          <g clipPath="url(#hex-outer-surface-clip)">
             {/* Solid Fallback Base */}
             <rect
               x={-hexSize}
@@ -98,16 +86,16 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               height={hexSize * 2}
               fill={TERRAIN_META[hex.terrain].fill}
             />
-            {/* High-Resolution Painted Terrain Image (/assets/terrains/*.jpg) */}
+            {/* High-Resolution Original Terrain Tile from Board Game */}
             <image
               href={TILE_TEXTURE_PATHS[hex.terrain]}
-              x={-hexSize * 0.92}
-              y={-hexSize * 0.92}
-              width={hexSize * 1.84}
-              height={hexSize * 1.84}
-              preserveAspectRatio="xMidYMid slice"
+              x={-hexSize * 0.866025}
+              y={-hexSize}
+              width={hexSize * 1.73205}
+              height={hexSize * 2}
+              preserveAspectRatio="none"
             />
-            {/* Subtle Inner Edge Shading for Die-Cut Depth */}
+            {/* Subtle Inner Edge Shading for Tabletop Cardboard Depth */}
             <rect
               x={-hexSize}
               y={-hexSize}
@@ -136,6 +124,25 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
             />
           </g>
         )}
+
+        {/* 4. CRISP OUTER STROKE & GLOW HIGHLIGHT OVERLAY */}
+        <polygon
+          points={outerPoints}
+          fill="none"
+          stroke={
+            isProducing
+              ? '#fbbf24'
+              : isSwapSelected
+              ? '#38bdf8'
+              : isRedConflict
+              ? '#ef4444'
+              : isSea
+              ? 'rgba(56, 189, 248, 0.16)'
+              : '#5c3a18'
+          }
+          strokeWidth={isProducing || isSwapSelected ? 4.5 : isSea ? 1 : 2.2}
+          filter={isProducing && !lowEndPcMode ? 'url(#producing-glow)' : undefined}
+        />
 
         {/* Inner Bevel Rim Line between Cardboard Border and Illustration */}
         {!isSea && (

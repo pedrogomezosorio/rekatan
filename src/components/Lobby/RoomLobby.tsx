@@ -23,9 +23,11 @@ import {
   PLAYER_COLORS,
   RESOURCE_META,
   TERRAIN_META,
+  TILE_TEXTURE_PATHS,
 } from '../../shared/constants';
 import { BoardMode, BotDifficulty, ExpansionModule, PortType, TerrainType } from '../../shared/types';
 import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
+import { ResourceIcon } from '../UI/ResourceIcon';
 
 export const RoomLobby: React.FC = () => {
   const { gameState, playerId, dispatchAction, leaveRoomClient, lowEndPcMode, setLowEndPcMode } =
@@ -186,7 +188,8 @@ export const RoomLobby: React.FC = () => {
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-xs font-semibold transition cursor-pointer"
                     title="Rellenar todos los huecos vacíos con bots"
                   >
-                    <span>🤖 Rellenar Sala</span>
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>Rellenar Sala</span>
                   </button>
                 </div>
               )}
@@ -446,6 +449,21 @@ export const RoomLobby: React.FC = () => {
             {isHost && (
               <div className="pt-2 flex flex-col gap-2">
                 <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
+                  <span>Desierto en el Centro (q:0, r:0, s:0)</span>
+                  <input
+                    type="checkbox"
+                    checked={config.desertInCenter !== false}
+                    onChange={(e) =>
+                      dispatchAction({
+                        type: 'UPDATE_CONFIG',
+                        config: { desertInCenter: e.target.checked },
+                      })
+                    }
+                    className="accent-amber-500 w-4 h-4"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
                   <span>Restricción: No juntar 6 y 8 rojos al generar</span>
                   <input
                     type="checkbox"
@@ -467,6 +485,7 @@ export const RoomLobby: React.FC = () => {
                       dispatchAction({
                         type: 'GENERATE_BOARD',
                         preventAdjacentRedNumbers: config.preventAdjacentRedNumbers,
+                        desertInCenter: config.desertInCenter !== false,
                       })
                     }
                     className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
@@ -494,7 +513,7 @@ export const RoomLobby: React.FC = () => {
             )}
           </section>
 
-          {/* 4. 6 HOUSE RULES SECTION */}
+          {/* 4. HOUSE RULES SECTION */}
           <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
@@ -502,6 +521,51 @@ export const RoomLobby: React.FC = () => {
                 <span>Reglas Opcionales (House Rules)</span>
               </h3>
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            </div>
+
+            {/* Regla: Desierto en el Centro */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-200">
+                Desierto en el Centro
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { desertInCenter: true },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    config.desertInCenter !== false
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Activado (Por defecto)</div>
+                  <div className="text-[10px] opacity-80">Centro (0,0,0) fijo con el Ladrón</div>
+                </button>
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { desertInCenter: false },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    config.desertInCenter === false
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Posición Aleatoria</div>
+                  <div className="text-[10px] opacity-80">El Desierto se mezcla en el mapa</div>
+                </button>
+              </div>
             </div>
 
             {/* 1. Condición de Victoria */}
@@ -794,17 +858,18 @@ export const RoomLobby: React.FC = () => {
         <div className="lg:col-span-7 xl:col-span-8 relative flex flex-col h-full overflow-hidden">
           {isHost && editorTool.active && (
             <div className="bg-slate-900/95 border-b border-sky-500/30 p-3 flex flex-wrap items-center gap-3 z-20 shadow-xl">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-sky-400">
-                🛠️ Editor de Tablero:
+              <span className="text-xs font-extrabold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Editor de Tablero:</span>
               </span>
 
               <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
                 {(
                   [
-                    { id: 'SWAP', label: '🔄 Intercambiar 2 Hex' },
-                    { id: 'PAINT_TERRAIN', label: '🎨 Pintar Terreno' },
-                    { id: 'SET_NUMBER', label: '🔢 Asignar Número' },
-                    { id: 'SET_PORT', label: '⚓ Editar Puertos' },
+                    { id: 'SWAP', label: 'Intercambiar 2 Hex' },
+                    { id: 'PAINT_TERRAIN', label: 'Pintar Terreno' },
+                    { id: 'SET_NUMBER', label: 'Asignar Número' },
+                    { id: 'SET_PORT', label: 'Editar Puertos' },
                   ] as const
                 ).map((tab) => (
                   <button
@@ -832,13 +897,17 @@ export const RoomLobby: React.FC = () => {
                         onClick={() =>
                           setEditorTool((prev) => ({ ...prev, selectedTerrain: t }))
                         }
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 transition ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition ${
                           editorTool.selectedTerrain === t
                             ? 'bg-amber-500/25 border-amber-400 text-amber-200'
                             : 'bg-slate-950 border-slate-800 text-slate-300'
                         }`}
                       >
-                        <span>{TERRAIN_META[t].emoji}</span>
+                        <img
+                          src={TILE_TEXTURE_PATHS[t]}
+                          alt={TERRAIN_META[t].name}
+                          className="w-4 h-4 rounded-sm object-cover border border-white/25"
+                        />
                         <span>{TERRAIN_META[t].name.split(' ')[0]}</span>
                       </button>
                     )
@@ -891,13 +960,14 @@ export const RoomLobby: React.FC = () => {
                       onClick={() =>
                         setEditorTool((prev) => ({ ...prev, selectedPort: res }))
                       }
-                      className={`px-2 py-1 rounded-lg text-xs font-bold border ${
+                      className={`px-2 py-1 rounded-lg text-xs font-bold border inline-flex items-center gap-1.5 ${
                         editorTool.selectedPort === res
                           ? 'bg-amber-500/25 border-amber-400 text-amber-200'
                           : 'bg-slate-950 border-slate-800 text-slate-300'
                       }`}
                     >
-                      {RESOURCE_META[res].emoji} 2:1
+                      <span>{RESOURCE_META[res].emoji}</span>
+                      <span>2:1</span>
                     </button>
                   ))}
                   <button
@@ -911,7 +981,7 @@ export const RoomLobby: React.FC = () => {
                         : 'bg-slate-950 border-slate-800 text-slate-400'
                     }`}
                   >
-                    ❌ Quitar Puerto
+                    Quitar Puerto
                   </button>
                 </div>
               )}

@@ -1,4 +1,5 @@
 import {
+  DevCardType,
   ExpansionModule,
   GameConfig,
   PlayerColor,
@@ -8,16 +9,42 @@ import {
 } from './types';
 
 /**
+ * Rutas de cartas de desarrollo originales extraídas del juego físico.
+ */
+export const DEV_CARD_IMAGE_PATHS: Record<DevCardType, string> = {
+  KNIGHT: '/assets/devcards/knight.png',
+  VICTORY_POINT: '/assets/devcards/victory_point.png',
+  ROAD_BUILDING: '/assets/devcards/road_building.png',
+  YEAR_OF_PLENTY: '/assets/devcards/year_of_plenty.png',
+  MONOPOLY: '/assets/devcards/monopoly.png',
+};
+
+export const DEV_CARD_VP_TITLE_IMAGES: Record<string, string> = {
+  Ayuntamiento: '/assets/devcards/vp_town_hall.png',
+  Biblioteca: '/assets/devcards/vp_library.png',
+  Mercado: '/assets/devcards/vp_market.png',
+  'Universidad de Catan': '/assets/devcards/vp_university.png',
+  'Gran Catedral': '/assets/devcards/vp_church.png',
+};
+
+export function getDevCardImagePath(type: DevCardType, title?: string): string {
+  if (type === 'VICTORY_POINT' && title && DEV_CARD_VP_TITLE_IMAGES[title]) {
+    return DEV_CARD_VP_TITLE_IMAGES[title];
+  }
+  return DEV_CARD_IMAGE_PATHS[type];
+}
+
+/**
  * Rutas de texturas de alta resolución (.jpg / .webp / .png) para cada tipo de terreno.
  */
 export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
-  WOOD: '/assets/terrains/forest.jpg?v=2',
-  BRICK: '/assets/terrains/hills.jpg?v=2',
-  SHEEP: '/assets/terrains/pasture.jpg?v=2',
-  WHEAT: '/assets/terrains/fields.jpg?v=2',
-  ORE: '/assets/terrains/mountains.jpg?v=2',
-  DESERT: '/assets/terrains/desert.jpg?v=2',
-  SEA: '/assets/terrains/ocean.jpg?v=2',
+  WOOD: '/assets/terrains/forest.png?v=3',
+  BRICK: '/assets/terrains/hills.png?v=3',
+  SHEEP: '/assets/terrains/pasture.png?v=3',
+  WHEAT: '/assets/terrains/fields.png?v=3',
+  ORE: '/assets/terrains/mountains.png?v=3',
+  DESERT: '/assets/terrains/desert.png?v=3',
+  SEA: '/assets/terrains/ocean.jpg?v=3',
 };
 
 /**
@@ -57,7 +84,7 @@ export const EXPANSION_CATALOG: Array<{
     title: 'Juego Base (Colonos de Catan)',
     subtitle: 'Comercio, construcción, Gran Ruta y Gran Ejército.',
     badge: 'Núcleo Oficial',
-    icon: '🏝️',
+    icon: 'BASE',
     lockedBase: true,
   },
   {
@@ -65,21 +92,21 @@ export const EXPANSION_CATALOG: Array<{
     title: 'Navegantes de Catan',
     subtitle: 'Rutas marítimas con Barcos, Archipiélagos, El Pirata y Ríos de Oro.',
     badge: 'Expansión Marítima',
-    icon: '⛵',
+    icon: 'MAR',
   },
   {
     id: 'CITIES_AND_KNIGHTS',
     title: 'Ciudades y Caballeros',
     subtitle: 'Mercancías (Papel, Moneda, Tela), Metrópolis, Caballeros en tablero e Invasión.',
     badge: 'Expansión Táctica',
-    icon: '🏰',
+    icon: 'CYC',
   },
   {
     id: 'BARBARIANS',
     title: 'Mercaderes y Bárbaros',
     subtitle: 'Incursiones bárbaras, Pescadores de Catan, Ríos, Caravanas y Eventos.',
     badge: 'Módulos y Escenarios',
-    icon: '⚔️',
+    icon: 'MYB',
   },
 ];
 
@@ -109,7 +136,7 @@ export const RESOURCE_META: Record<
     accentHex: '#22c55e',
     badgeBg: 'bg-emerald-900/80 border-emerald-500/50',
     badgeText: 'text-emerald-200',
-    emoji: '🌲',
+    emoji: '🪵',
     iconPath: '/assets/icons/wood.svg',
   },
   BRICK: {
@@ -243,7 +270,20 @@ export const PLAYER_COLORS: Record<
   },
 };
 
-export const AVATAR_LIST = ['👑', '⚔️', '🛡️', '⛵', '🏰', '🐉', '🦊', '🦁', '🧙‍♂️', '🧭'];
+export const AVATAR_LIST = [
+  '👑',
+  '⚔️',
+  '🦁',
+  '🐺',
+  '🦅',
+  '⚓',
+  '🌲',
+  '🌾',
+  '🛡️',
+  '⚡',
+  '🔥',
+  '🧙',
+];
 
 export const BUILDING_COSTS: Record<
   'ROAD' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD',
@@ -271,6 +311,7 @@ export const PROBABILITY_PIPS: Record<number, number> = {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   boardMode: 'STANDARD_3_4',
   preventAdjacentRedNumbers: true,
+  desertInCenter: true,
   minSettlementDistance: 2,
   allowInstantDevCards: false,
   turnActionRestriction: 'LEVEL_1_FREE',

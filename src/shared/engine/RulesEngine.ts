@@ -31,6 +31,7 @@ import {
   buildTopologyFromHexes,
   computeDockCenter,
   DEFAULT_HEX_SIZE,
+  enforceDesertInCenterRule,
   generateBoard,
 } from './HexGrid';
 import { updateLongestRoadAward } from './LongestRoad';
@@ -87,13 +88,18 @@ export function createInitialGameState(
   hostPlayer: { id: string; name: string; color: PlayerColor; avatar: string }
 ): GameState {
   const config: GameConfig = { ...DEFAULT_GAME_CONFIG };
-  const board = generateBoard(config.boardMode, config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE);
+  const board = generateBoard(
+    config.boardMode,
+    config.preventAdjacentRedNumbers,
+    DEFAULT_HEX_SIZE,
+    config.desertInCenter
+  );
 
   const host: PlayerState = {
     id: hostPlayer.id,
     name: hostPlayer.name || 'Anfitrión',
     color: hostPlayer.color || 'RED',
-    avatar: hostPlayer.avatar || '👑',
+    avatar: hostPlayer.avatar || 'I',
     isHost: true,
     isBot: false,
     connected: true,
@@ -133,6 +139,8 @@ export function createInitialGameState(
       hasSpentOrBuiltThisTurn: false,
       freeRoadsRemaining: 0,
       turnDeadlineMs: null,
+      botStatusMessage: null,
+      botProposedTradeThisTurn: false,
     },
     bank: { WOOD: 19, BRICK: 19, SHEEP: 19, WHEAT: 19, ORE: 19 },
     devDeck: createDevDeck(false),
@@ -233,7 +241,7 @@ export function recalculateVictoryPoints(state: GameState): void {
       state.turn.turnDeadlineMs = null;
       addLog(
         state,
-        `🏆 ¡${activePlayer.name} ha alcanzado ${activePlayer.totalVictoryPoints} Puntos de Victoria y gana la partida!`,
+        `¡${activePlayer.name} ha alcanzado ${activePlayer.totalVictoryPoints} Puntos de Victoria y gana la partida!`,
         'AWARD',
         activePlayer.id
       );
@@ -260,7 +268,7 @@ export function updateLargestArmyAward(state: GameState): void {
       if (winner) {
         addLog(
           state,
-          `⚔️ ${winner.name} obtiene el Gran Ejército de Caballería (${winner.knightsPlayed} caballeros, +2 PV).`,
+          `${winner.name} obtiene el Gran Ejército de Caballería (${winner.knightsPlayed} caballeros, +2 PV).`,
           'AWARD',
           winner.id
         );
@@ -410,7 +418,8 @@ export function canSpendOrBuildThisTurn(
 export function canBuildSettlement(
   state: GameState,
   playerId: string,
-  vertexId: string
+  vertexId: string,
+  ignoreResources: boolean = false
 ): { allowed: boolean; reason?: string } {
   if (state.turn.activePlayerId !== playerId) {
     return { allowed: false, reason: 'No es tu turno.' };
@@ -434,7 +443,7 @@ export function canBuildSettlement(
     return { allowed: false, reason: 'Intersección inválida u ocupada.' };
   }
 
-  if (isMain) {
+  if (isMain && !ignoreResources) {
     const check = canSpendOrBuildThisTurn(state, playerId, true);
     if (!check.allowed) return check;
     if (!hasResources(player.resources, BUILDING_COSTS.SETTLEMENT)) {
@@ -502,6 +511,23 @@ export function getValidSettlementVertices(
   const validIds: string[] = [];
   for (const v of Object.values(state.board.vertices)) {
     if (canBuildSettlement(state, playerId, v.id).allowed) {
+      validIds.push(v.id);
+    }
+  }
+  return validIds;
+}
+
+/**
+ * Returns all potential vertex IDs connected to playerId's road network that satisfy
+ * the distance rule, regardless of whether the player currently holds the resources.
+ */
+export function getPotentialSettlementVertices(
+  state: GameState,
+  playerId: string
+): string[] {
+  const validIds: string[] = [];
+  for (const v of Object.values(state.board.vertices)) {
+    if (canBuildSettlement(state, playerId, v.id, true).allowed) {
       validIds.push(v.id);
     }
   }
@@ -671,6 +697,8 @@ function advanceToNextTurn(state: GameState): void {
   state.turn.hasTradedThisTurn = false;
   state.turn.hasSpentOrBuiltThisTurn = false;
   state.turn.freeRoadsRemaining = 0;
+  state.turn.botStatusMessage = null;
+  state.turn.botProposedTradeThisTurn = false;
   state.phase = 'WAITING_FOR_DICE';
   refreshTurnDeadline(state);
 
@@ -700,7 +728,7 @@ export function applyGameAction(
   ) {
     return {
       state: prevState,
-      error: '⏸️ El juego está pausado por el anfitrión. Espera a que se reanude.',
+      error: 'El juego está pausado por el anfitrión. Espera a que se reanude.',
     };
   }
 
@@ -717,6 +745,7 @@ export function applyGameAction(
 
       const prevBoardMode = state.config.boardMode;
       const prevPreventRed = state.config.preventAdjacentRedNumbers;
+      const prevDesertInCenter = state.config.desertInCenter;
 
       state.config = {
         ...state.config,
@@ -746,27 +775,39 @@ export function applyGameAction(
         state.config.maxPlayers = Math.max(4, state.players.length);
       }
 
-      // If boardMode changed (and not switching to CUSTOM which edits current board), regenerate board
-      if (
-        action.config.boardMode &&
-        action.config.boardMode !== prevBoardMode &&
-        action.config.boardMode !== 'CUSTOM'
-      ) {
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE
-        );
-      } else if (
+      // If boardMode, preventAdjacentRedNumbers, or desertInCenter changed, update or regenerate board
+      const desertChanged =
+        action.config.desertInCenter !== undefined &&
+        action.config.desertInCenter !== prevDesertInCenter;
+      const redRuleChanged =
         action.config.preventAdjacentRedNumbers !== undefined &&
-        action.config.preventAdjacentRedNumbers !== prevPreventRed &&
-        state.config.boardMode !== 'CUSTOM'
-      ) {
+        action.config.preventAdjacentRedNumbers !== prevPreventRed;
+      const modeChanged =
+        action.config.boardMode !== undefined &&
+        action.config.boardMode !== prevBoardMode;
+
+      if (modeChanged && action.config.boardMode !== 'CUSTOM') {
         state.board = generateBoard(
           state.config.boardMode,
           state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE
+          DEFAULT_HEX_SIZE,
+          state.config.desertInCenter
         );
+      } else if (redRuleChanged) {
+        if (state.config.boardMode === 'CUSTOM') {
+          state.config.boardMode = state.players.length > 4 ? 'EXPANSION_5_6' : 'STANDARD_3_4';
+        }
+        state.board = generateBoard(
+          state.config.boardMode,
+          state.config.preventAdjacentRedNumbers,
+          DEFAULT_HEX_SIZE,
+          state.config.desertInCenter
+        );
+      }
+
+      // Reorganize existing board in-place whenever desertInCenter is clicked/configured
+      if (action.config.desertInCenter !== undefined) {
+        state.board = enforceDesertInCenterRule(state.board, action.config.desertInCenter);
       }
 
       addLog(state, `${actor.name} actualizó la configuración de la sala.`, 'SYSTEM', actor.id);
@@ -785,10 +826,16 @@ export function applyGameAction(
           : state.config.boardMode;
       const preventRed =
         action.preventAdjacentRedNumbers ?? state.config.preventAdjacentRedNumbers;
+      const desertCenter =
+        action.desertInCenter ?? state.config.desertInCenter;
 
-      state.board = generateBoard(modeToGenerate, preventRed, DEFAULT_HEX_SIZE);
+      state.board = generateBoard(modeToGenerate, preventRed, DEFAULT_HEX_SIZE, desertCenter);
+      state.board = enforceDesertInCenterRule(state.board, desertCenter);
       if (action.mode) {
         state.config.boardMode = action.mode;
+      }
+      if (action.desertInCenter !== undefined) {
+        state.config.desertInCenter = action.desertInCenter;
       }
       addLog(state, `${actor.name} generó un nuevo mapa aleatorio.`, 'SYSTEM', actor.id);
       return { state };
@@ -919,7 +966,7 @@ export function applyGameAction(
       const usedColors = new Set(state.players.map((p) => p.color));
       const availableColor =
         (Object.keys(PLAYER_COLORS) as PlayerColor[]).find((c) => !usedColors.has(c)) || 'BLUE';
-      const botNames = ['Lord Catan (IA)', 'Lady Mercader (IA)', 'Barón del Trigo (IA)', 'Capitán Puerto (IA)', 'Duquesa Roca (IA)'];
+      const botNames = ['Bot Carlos', 'Bot Elena', 'Bot Marco', 'Bot Sofía', 'Bot Diego'];
       const botIdx = state.players.filter((p) => p.isBot).length;
       const botDifficulty = action.difficulty || state.config.defaultBotDifficulty || 'MEDIUM';
 
@@ -947,7 +994,7 @@ export function applyGameAction(
       };
 
       state.players.push(bot);
-      addLog(state, `🤖 Se añadió a ${bot.name} (${botDifficulty}) a la sala.`, 'SYSTEM', actor.id);
+      addLog(state, `Se añadió a ${bot.name} (${botDifficulty}) a la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
 
@@ -961,7 +1008,7 @@ export function applyGameAction(
         return { state: prevState, error: 'La sala ya tiene el número necesario de jugadores.' };
       }
       const botDifficulty = action.difficulty || state.config.defaultBotDifficulty || 'MEDIUM';
-      const botNames = ['Lord Catan (IA)', 'Lady Mercader (IA)', 'Barón del Trigo (IA)', 'Capitán Puerto (IA)', 'Duquesa Roca (IA)'];
+      const botNames = ['Bot Carlos', 'Bot Elena', 'Bot Marco', 'Bot Sofía', 'Bot Diego'];
 
       for (let i = 0; i < needed; i++) {
         const usedColors = new Set(state.players.map((p) => p.color));
@@ -993,7 +1040,7 @@ export function applyGameAction(
         };
         state.players.push(bot);
       }
-      addLog(state, `🤖 Se rellenó la sala con ${needed} Bot(s) (${botDifficulty}).`, 'SYSTEM', actor.id);
+      addLog(state, `Se rellenó la sala con ${needed} Bot(s) (${botDifficulty}).`, 'SYSTEM', actor.id);
       return { state };
     }
 
@@ -1004,7 +1051,7 @@ export function applyGameAction(
       const bot = state.players.find((p) => p.id === action.targetPlayerId && p.isBot);
       if (bot) {
         bot.botDifficulty = action.difficulty;
-        addLog(state, `⚙️ Dificultad de ${bot.name} ajustada a: ${action.difficulty}.`, 'SYSTEM', actor.id);
+        addLog(state, `Dificultad de ${bot.name} ajustada a: ${action.difficulty}.`, 'SYSTEM', actor.id);
       }
       return { state };
     }
@@ -1019,7 +1066,7 @@ export function applyGameAction(
           p.botDifficulty = action.difficulty;
         }
       }
-      addLog(state, `⚙️ Dificultad global de bots establecida a: ${action.difficulty}.`, 'SYSTEM', actor.id);
+      addLog(state, `Dificultad global de bots establecida a: ${action.difficulty}.`, 'SYSTEM', actor.id);
       return { state };
     }
 
@@ -1051,6 +1098,11 @@ export function applyGameAction(
         ? { WOOD: 24, BRICK: 24, SHEEP: 24, WHEAT: 24, ORE: 24 }
         : { WOOD: 19, BRICK: 19, SHEEP: 19, WHEAT: 19, ORE: 19 };
 
+      // Strictly ensure Desert in center and initial Robber placement if desertInCenter option is active
+      if (state.config.desertInCenter !== false) {
+        state.board = enforceDesertInCenterRule(state.board, true);
+      }
+
       const playerIds = state.players.map((p) => p.id);
       const snakeOrder = [...playerIds, ...[...playerIds].reverse()];
 
@@ -1070,13 +1122,15 @@ export function applyGameAction(
         hasSpentOrBuiltThisTurn: false,
         freeRoadsRemaining: 0,
         turnDeadlineMs: null,
+        botStatusMessage: null,
+        botProposedTradeThisTurn: false,
       };
       state.phase = 'ORDER_ROLL';
       refreshTurnDeadline(state);
 
       addLog(
         state,
-        `🎲 ¡Fase de Orden de Turno! Lanzad los dados de iniciativa o elegid el orden de salida.`,
+        `Fase de Orden de Turno: lanzad los dados de iniciativa o elegid el orden de salida.`,
         'SYSTEM'
       );
       return { state };
@@ -1113,7 +1167,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🎲 Iniciativa: ${actor.name} sacó ${d1 + d2} (${d1} + ${d2}).`,
+        `Iniciativa: ${actor.name} obtuvo ${d1 + d2} (${d1} + ${d2}).`,
         'DICE',
         actor.id
       );
@@ -1155,7 +1209,7 @@ export function applyGameAction(
       sortPlayersByOrderRolls(state);
       addLog(
         state,
-        `🎲 Sorteo de orden completado: ${state.players.map((p, i) => `${i + 1}º ${p.name}`).join(', ')}.`,
+        `Sorteo de orden completado: ${state.players.map((p, i) => `${i + 1}º ${p.name}`).join(', ')}.`,
         'DICE',
         actor.id
       );
@@ -1199,7 +1253,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🏁 Orden confirmado (${state.players.map((p, i) => `${i + 1}º ${p.name}`).join(' → ')}). ¡Comienza la Colocación Inicial (Snake Draft) con ${state.players[0].name}!`,
+        `Orden confirmado (${state.players.map((p, i) => `${i + 1}º ${p.name}`).join(' → ')}). Comienza la Colocación Inicial con ${state.players[0].name}.`,
         'SYSTEM'
       );
       return { state };
@@ -1222,10 +1276,19 @@ export function applyGameAction(
       if (state.phase === 'SETUP_SETTLEMENT_1') {
         state.turn.lastPlacedSetupSettlementId = vertex.id;
         state.phase = 'SETUP_ROAD_1';
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'SETTLEMENT',
+            vertexId: vertex.id,
+            playerId: actor.id,
+          },
+        };
         refreshTurnDeadline(state);
         addLog(
           state,
-          `🏠 ${actor.name} colocó su primer poblado inicial. Ahora debe colocar su carretera adyacente.`,
+          `${actor.name} colocó su primer poblado inicial. Ahora debe colocar su carretera adyacente.`,
           'BUILD',
           actor.id
         );
@@ -1249,7 +1312,7 @@ export function applyGameAction(
             const res = hex.terrain as ResourceType;
             state.bank[res] -= 1;
             actor.resources[res] += 1;
-            gainedNames.push(`${RESOURCE_META[res].emoji} ${RESOURCE_META[res].name}`);
+            gainedNames.push(RESOURCE_META[res].name);
             flights.push({
               id: `FLIGHT_SETUP_${hId}_${actor.id}`,
               hexId: hId,
@@ -1260,16 +1323,22 @@ export function applyGameAction(
           }
         }
 
+        // During initial placement, hexagons must NOT glow or illuminate (producingHexIds: [])
         state.lastEvent = {
           nonce: nextNonce,
           type: 'RESOURCES_PRODUCED',
-          producingHexIds: flights.map((f) => f.hexId),
+          producingHexIds: [],
           flights,
+          builtItem: {
+            type: 'SETTLEMENT',
+            vertexId: vertex.id,
+            playerId: actor.id,
+          },
         };
 
         addLog(
           state,
-          `🏠 ${actor.name} colocó su segundo poblado y recibió recursos iniciales: ${
+          `${actor.name} colocó su segundo poblado y recibió recursos iniciales: ${
             gainedNames.length > 0 ? gainedNames.join(', ') : 'ninguno'
           }.`,
           'BUILD',
@@ -1279,8 +1348,16 @@ export function applyGameAction(
         deductResources(actor.resources, state.bank, BUILDING_COSTS.SETTLEMENT);
         state.turn.infrastructureBuiltThisTurn += 1;
         state.turn.hasSpentOrBuiltThisTurn = true;
-        state.lastEvent = { nonce: nextNonce, type: 'BUILDING_PLACED' };
-        addLog(state, `🏠 ${actor.name} construyó un nuevo Poblado.`, 'BUILD', actor.id);
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'SETTLEMENT',
+            vertexId: vertex.id,
+            playerId: actor.id,
+          },
+        };
+        addLog(state, `${actor.name} construyó un nuevo Poblado.`, 'BUILD', actor.id);
       }
 
       // Placing a settlement can break an opponent's Longest Road!
@@ -1315,7 +1392,7 @@ export function applyGameAction(
         if (holder) {
           addLog(
             state,
-            `🛣️ ¡${holder.name} obtiene la Gran Ruta Comercial (${holder.longestRoadLength} carreteras, +2 PV)!`,
+            `${holder.name} obtiene la Gran Ruta Comercial (${holder.longestRoadLength} carreteras, +2 PV).`,
             'AWARD',
             holder.id
           );
@@ -1325,6 +1402,15 @@ export function applyGameAction(
       if (state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2') {
         state.turn.lastPlacedSetupSettlementId = null;
         state.turn.setupStepIndex += 1;
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'ROAD',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
         const totalSetupSteps = state.turn.setupOrder.length;
         const playerCount = state.players.length;
 
@@ -1340,7 +1426,7 @@ export function applyGameAction(
           const nextPlayer = state.players.find((p) => p.id === nextPlayerId);
           addLog(
             state,
-            `🛣️ ${actor.name} colocó su carretera inicial. Turno de colocación para ${nextPlayer?.name}.`,
+            `${actor.name} colocó su carretera inicial. Turno de colocación para ${nextPlayer?.name}.`,
             'BUILD',
             actor.id
           );
@@ -1352,21 +1438,32 @@ export function applyGameAction(
           state.turn.diceRoll = null;
           state.turn.hasRolledDice = false;
           state.turn.tradesAndBurnsThisTurn = 0;
+          state.turn.botStatusMessage = null;
+          state.turn.botProposedTradeThisTurn = false;
           state.phase = 'WAITING_FOR_DICE';
           refreshTurnDeadline(state);
 
           addLog(
             state,
-            `🎉 Fase inicial completada. ¡Comienza el Turno #1 de ${firstPlayer.name}! Lanza los dados obligatoriamente.`,
+            `Fase inicial completada. Comienza el Turno #1 de ${firstPlayer.name}. Debe lanzar los dados.`,
             'SYSTEM',
             firstPlayer.id
           );
         }
       } else if (state.phase === 'ROAD_BUILDING_DEV') {
         state.turn.freeRoadsRemaining -= 1;
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'ROAD',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
         addLog(
           state,
-          `🛣️ ${actor.name} colocó una carretera gratis (Construcción de Carreteras).`,
+          `${actor.name} colocó una carretera gratis (Construcción de Carreteras).`,
           'BUILD',
           actor.id
         );
@@ -1379,8 +1476,16 @@ export function applyGameAction(
         deductResources(actor.resources, state.bank, BUILDING_COSTS.ROAD);
         state.turn.infrastructureBuiltThisTurn += 1;
         state.turn.hasSpentOrBuiltThisTurn = true;
-        state.lastEvent = { nonce: nextNonce, type: 'BUILDING_PLACED' };
-        addLog(state, `🛣️ ${actor.name} construyó una Carretera.`, 'BUILD', actor.id);
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'ROAD',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
+        addLog(state, `${actor.name} construyó una Carretera.`, 'BUILD', actor.id);
       }
 
       recalculateVictoryPoints(state);
@@ -1401,9 +1506,17 @@ export function applyGameAction(
       deductResources(actor.resources, state.bank, BUILDING_COSTS.CITY);
       state.turn.infrastructureBuiltThisTurn += 1;
       state.turn.hasSpentOrBuiltThisTurn = true;
-      state.lastEvent = { nonce: nextNonce, type: 'BUILDING_PLACED' };
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'BUILDING_PLACED',
+        builtItem: {
+          type: 'CITY',
+          vertexId: vertex.id,
+          playerId: actor.id,
+        },
+      };
 
-      addLog(state, `🏰 ${actor.name} mejoró un Poblado a Ciudad (+2 PV).`, 'BUILD', actor.id);
+      addLog(state, `${actor.name} mejoró un Poblado a Ciudad (+2 PV).`, 'BUILD', actor.id);
       recalculateVictoryPoints(state);
       return { state };
     }
@@ -1423,7 +1536,7 @@ export function applyGameAction(
       if (sum === 7) {
         addLog(
           state,
-          `🎲 ${actor.name} sacó un 7 (${d1} + ${d2}). ¡Se activa el Ladrón!`,
+          `${actor.name} obtuvo un 7 (${d1} + ${d2}). Se activa el Ladrón.`,
           'ROBBER',
           actor.id
         );
@@ -1462,7 +1575,7 @@ export function applyGameAction(
             });
             addLog(
               state,
-              `⚡ Descarte aleatorio automático: ${p.name} perdió ${toDiscard} cartas por tener ${total} en mano.`,
+              `Descarte aleatorio automático: ${p.name} perdió ${toDiscard} cartas por tener ${total} en mano.`,
               'ROBBER',
               p.id
             );
@@ -1495,7 +1608,7 @@ export function applyGameAction(
               });
               addLog(
                 state,
-                `🤖 ${p.name} descartó ${toDiscard} cartas.`,
+                `${p.name} descartó ${toDiscard} cartas.`,
                 'ROBBER',
                 p.id
               );
@@ -1544,7 +1657,7 @@ export function applyGameAction(
                   amount: actualAmount,
                 });
                 const list = summaryPerPlayer.get(owner.name) || [];
-                list.push(`+${actualAmount} ${RESOURCE_META[res].emoji}`);
+                list.push(`+${actualAmount} ${RESOURCE_META[res].name}`);
                 summaryPerPlayer.set(owner.name, list);
               }
             }
@@ -1552,12 +1665,12 @@ export function applyGameAction(
         }
 
         const prodDetails = Array.from(summaryPerPlayer.entries())
-          .map(([name, items]) => `${name} (${items.join(' ')})`)
+          .map(([name, items]) => `${name} (${items.join(', ')})`)
           .join(', ');
 
         addLog(
           state,
-          `🎲 ${actor.name} sacó ${sum} (${d1} + ${d2}). ${
+          `${actor.name} obtuvo ${sum} (${d1} + ${d2}). ${
             prodDetails ? `Producción: ${prodDetails}.` : 'Ningún terreno produjo recursos.'
           }`,
           'DICE',
@@ -1609,7 +1722,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🗑️ ${actor.name} descartó ${totalSelected} cartas.`,
+        `${actor.name} descartó ${totalSelected} cartas.`,
         'ROBBER',
         actor.id
       );
@@ -1635,11 +1748,10 @@ export function applyGameAction(
       }
       const targetHex = state.board.hexes[action.hexId];
       if (!targetHex || targetHex.terrain === 'SEA') {
-        return { state: prevState, error: 'El Ladrón solo puede moverse a un terreno terrestre.' };
+        return { state: prevState, error: 'El Ladrón solo puede colocarse en un terreno terrestre.' };
       }
-      if (action.hexId === state.board.robberHexId) {
-        return { state: prevState, error: 'Debes mover el Ladrón a un hexágono distinto al actual.' };
-      }
+
+      const keptSameHex = action.hexId === state.board.robberHexId;
 
       for (const h of Object.values(state.board.hexes)) {
         h.hasRobber = false;
@@ -1667,6 +1779,10 @@ export function applyGameAction(
 
       const robberAffectedPlayerIds = Array.from(affectedPlayersSet);
       const candidates = Array.from(candidateSet);
+      const hexLabel =
+        targetHex.terrain === 'DESERT'
+          ? 'el Desierto'
+          : `${RESOURCE_META[targetHex.terrain as ResourceType].terrainName} (${targetHex.numberToken})`;
 
       if (candidates.length === 0) {
         state.robberStealCandidates = [];
@@ -1680,11 +1796,7 @@ export function applyGameAction(
         };
         addLog(
           state,
-          `🦹 ${actor.name} movió el Ladrón a ${
-            targetHex.terrain === 'DESERT'
-              ? 'el Desierto'
-              : `${RESOURCE_META[targetHex.terrain as ResourceType].terrainName} (${targetHex.numberToken})`
-          } (sin víctimas con cartas para robar).`,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Ladrón en' : 'movió el Ladrón a'} ${hexLabel} (sin víctimas con cartas para robar).`,
           'ROBBER',
           actor.id
         );
@@ -1714,7 +1826,7 @@ export function applyGameAction(
         };
         addLog(
           state,
-          `🦹 ${actor.name} movió el Ladrón y robó 1 carta aleatoria a ${victim.name}.`,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Ladrón en' : 'movió el Ladrón a'} ${hexLabel} y robó 1 carta aleatoria a ${victim.name}.`,
           'ROBBER',
           actor.id
         );
@@ -1732,7 +1844,7 @@ export function applyGameAction(
         };
         addLog(
           state,
-          `🦹 ${actor.name} movió el Ladrón. Debe elegir a qué jugador adyacente robarle 1 carta.`,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Ladrón en' : 'movió el Ladrón a'} ${hexLabel}. Debe elegir a qué jugador adyacente robarle 1 carta.`,
           'ROBBER',
           actor.id
         );
@@ -1773,7 +1885,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🦹 ${actor.name} robó 1 carta de recurso a ${victim.name}.`,
+        `${actor.name} robó 1 carta de recurso a ${victim.name}.`,
         'ROBBER',
         actor.id
       );
@@ -1793,11 +1905,16 @@ export function applyGameAction(
       actor.devCards.push(card);
 
       state.turn.hasSpentOrBuiltThisTurn = true;
-      state.lastEvent = { nonce: nextNonce, type: 'DEV_CARD_BOUGHT' };
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'DEV_CARD_BOUGHT',
+        buyerPlayerId: actor.id,
+        buyerPlayerName: actor.name,
+      };
 
       addLog(
         state,
-        `🃏 ${actor.name} compró una Carta de Desarrollo.`,
+        `${actor.name} compró una Carta de Desarrollo.`,
         'DEV',
         actor.id
       );
@@ -1845,13 +1962,20 @@ export function applyGameAction(
 
       card.played = true;
       state.turn.devCardPlayedThisTurn = true;
-      state.lastEvent = { nonce: nextNonce, type: 'DEV_CARD_PLAYED' };
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'DEV_CARD_PLAYED',
+        devCardType: card.type,
+        devCardPlayerId: actor.id,
+        devCardPlayerName: actor.name,
+        devCardTitle: card.title,
+      };
 
       if (card.type === 'KNIGHT') {
         actor.knightsPlayed += 1;
         addLog(
           state,
-          `⚔️ ${actor.name} jugó un Caballero (Total: ${actor.knightsPlayed}). ¡Debe mover el Ladrón!`,
+          `${actor.name} jugó un Caballero (Total: ${actor.knightsPlayed}). Debe mover o mantener el Ladrón.`,
           'DEV',
           actor.id
         );
@@ -1875,7 +1999,7 @@ export function applyGameAction(
           state.phase = 'ROAD_BUILDING_DEV';
           addLog(
             state,
-            `🛣️ ${actor.name} jugó Construcción de Carreteras: puede colocar hasta 2 carreteras gratis.`,
+            `${actor.name} jugó Construcción de Carreteras: puede colocar hasta 2 carreteras gratis.`,
             'DEV',
             actor.id
           );
@@ -1883,7 +2007,7 @@ export function applyGameAction(
           state.turn.freeRoadsRemaining = 0;
           addLog(
             state,
-            `🛣️ ${actor.name} jugó Construcción de Carreteras, pero no tiene espacios o piezas disponibles.`,
+            `${actor.name} jugó Construcción de Carreteras, pero no tiene espacios o piezas disponibles.`,
             'DEV',
             actor.id
           );
@@ -1909,7 +2033,7 @@ export function applyGameAction(
 
         addLog(
           state,
-          `✨ ${actor.name} jugó Año de la Abundancia y tomó ${RESOURCE_META[r1].emoji} ${RESOURCE_META[r1].name} y ${RESOURCE_META[r2].emoji} ${RESOURCE_META[r2].name} de la banca.`,
+          `${actor.name} jugó Año de la Abundancia y tomó ${RESOURCE_META[r1].name} y ${RESOURCE_META[r2].name} de la banca.`,
           'DEV',
           actor.id
         );
@@ -1932,7 +2056,7 @@ export function applyGameAction(
         }
         addLog(
           state,
-          `👑 ¡${actor.name} jugó Monopolio de ${RESOURCE_META[targetRes].emoji} ${RESOURCE_META[targetRes].name} y confiscó ${totalClaimed} cartas en total!`,
+          `${actor.name} jugó Monopolio de ${RESOURCE_META[targetRes].name} y confiscó ${totalClaimed} cartas en total.`,
           'DEV',
           actor.id
         );
@@ -1978,7 +2102,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🔥 ${actor.name} quemó cartas en la Banca/Puerto (${ratio}:1): entregó ${giveAmount} ${RESOURCE_META[giveResource].emoji} por ${receiveAmount} ${RESOURCE_META[receiveResource].emoji}.`,
+        `${actor.name} comerció con la Banca/Puerto (${ratio}:1): entregó ${giveAmount} de ${RESOURCE_META[giveResource].name} por ${receiveAmount} de ${RESOURCE_META[receiveResource].name}.`,
         'TRADE',
         actor.id
       );
@@ -2051,7 +2175,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🤝 ${actor.name} propuso una ${isCounterOffer ? 'contraoferta' : 'oferta comercial'}.`,
+        `${actor.name} propuso una ${isCounterOffer ? 'contraoferta' : 'oferta comercial'}.`,
         'TRADE',
         actor.id
       );
@@ -2131,7 +2255,7 @@ export function applyGameAction(
         target.status = 'DISCONNECTED_WAITING';
         addLog(
           state,
-          `⏸️ Partida en pausa esperando la reconexión de ${target.name}.`,
+          `Partida en pausa esperando la reconexión de ${target.name}.`,
           'SYSTEM'
         );
       } else if (action.resolution === 'FREEZE_SKIP') {
@@ -2153,7 +2277,7 @@ export function applyGameAction(
         }
         addLog(
           state,
-          `❄️ Los turnos de ${target.name} han sido congelados para que la partida continúe.`,
+          `Los turnos de ${target.name} han sido congelados para que la partida continúe.`,
           'SYSTEM'
         );
       } else if (action.resolution === 'CONVERT_TO_BOT') {
@@ -2166,7 +2290,7 @@ export function applyGameAction(
         }
         addLog(
           state,
-          `🤖 ${target.name} ahora es controlado por la IA hasta que se reconecte.`,
+          `${target.name} ahora es controlado por la IA hasta que se reconecte.`,
           'SYSTEM'
         );
       }
@@ -2180,7 +2304,7 @@ export function applyGameAction(
         state.turn.phaseBeforePause = undefined;
         state.turn.pausedForPlayerId = null;
         refreshTurnDeadline(state);
-        addLog(state, `▶️ La partida se ha reanudado.`, 'SYSTEM');
+        addLog(state, `La partida se ha reanudado.`, 'SYSTEM');
       }
       return { state };
     }
@@ -2200,7 +2324,7 @@ export function applyGameAction(
           : null;
         state.turn.pausedRemainingTimerMs = remainingMs;
         state.turn.turnDeadlineMs = null;
-        addLog(state, `⏸️ El anfitrión (${actor.name}) ha pausado la partida.`, 'SYSTEM', actor.id);
+        addLog(state, `El anfitrión (${actor.name}) ha pausado la partida.`, 'SYSTEM', actor.id);
       } else {
         state.turn.isPausedByHost = false;
         if (state.turn.pausedRemainingTimerMs) {
@@ -2209,7 +2333,7 @@ export function applyGameAction(
           refreshTurnDeadline(state);
         }
         state.turn.pausedRemainingTimerMs = null;
-        addLog(state, `▶️ El anfitrión (${actor.name}) ha reanudado la partida.`, 'SYSTEM', actor.id);
+        addLog(state, `El anfitrión (${actor.name}) ha reanudado la partida.`, 'SYSTEM', actor.id);
       }
       return { state };
     }
@@ -2243,7 +2367,7 @@ export function applyGameAction(
 
       addLog(
         state,
-        `🚪 ${actor.name} abandonó la partida. Sus turnos se omitirán automáticamente.`,
+        `${actor.name} abandonó la partida. Sus turnos se omitirán automáticamente.`,
         'SYSTEM',
         actor.id
       );
@@ -2296,7 +2420,7 @@ function executeTradeBetweenPlayers(
 
   addLog(
     state,
-    `🤝 ¡Comercio completado entre ${proposer.name} y ${partner.name}!`,
+    `Comercio completado entre ${proposer.name} y ${partner.name}.`,
     'TRADE',
     proposer.id
   );
@@ -2426,7 +2550,7 @@ export function autoResolveCurrentTurn(state: GameState): GameState {
         p.mustDiscardCount = 0;
         addLog(
           state,
-          `⏱️ Tiempo agotado: se descartaron automáticamente las cartas pendientes de ${p.name}.`,
+          `Tiempo agotado: se descartaron automáticamente las cartas pendientes de ${p.name}.`,
           'ROBBER',
           p.id
         );
@@ -2437,7 +2561,7 @@ export function autoResolveCurrentTurn(state: GameState): GameState {
 
   if (state.phase === 'ROBBER_MOVE') {
     const candidateHexes = Object.values(state.board.hexes).filter(
-      (h) => h.terrain !== 'SEA' && h.id !== state.board.robberHexId
+      (h) => h.terrain !== 'SEA'
     );
     if (candidateHexes.length > 0) {
       const chosenHex = candidateHexes[Math.floor(Math.random() * candidateHexes.length)];

@@ -39,10 +39,10 @@ export const ResourceIcon: React.FC<ResourceIconProps> = ({
     return (
       <span
         style={inlineStyle}
-        className={`inline-flex items-center justify-center rounded-full shrink-0 select-none ${sizeClass} ${className}`}
+        className={`inline-flex items-center justify-center rounded-full shrink-0 select-none font-black text-[9px] tracking-tighter bg-stone-900/90 text-amber-200 border border-amber-500/40 ${sizeClass} ${className}`}
         title={meta.name}
       >
-        {meta.emoji}
+        {meta.shortName.slice(0, 3).toUpperCase()}
       </span>
     );
   }

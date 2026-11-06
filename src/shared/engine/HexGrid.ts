@@ -402,12 +402,13 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Generates a complete Catan BoardState for the given mode and red-number rule.
+ * Generates a complete Catan BoardState for the given mode, red-number rule, and center-desert option.
  */
 export function generateBoard(
   mode: BoardMode = 'STANDARD_3_4',
   preventAdjacentRedNumbers: boolean = true,
-  hexSize: number = DEFAULT_HEX_SIZE
+  hexSize: number = DEFAULT_HEX_SIZE,
+  desertInCenter: boolean = true
 ): BoardState {
   const landCoords = getLandCoordsForMode(mode);
   const seaCoords = getSurroundingSeaCoords(landCoords);
@@ -430,11 +431,13 @@ export function generateBoard(
     portPool = [...STANDARD_PORTS_9];
   }
 
-  const shuffledTerrains = shuffle(terrainPool);
+  const centerCoordId = '0,0,0';
+  const hasCenterCoord = landCoords.some((c) => coordToId(c.q, c.r, c.s) === centerCoordId);
+
   let hexes: Record<string, Hex> = {};
   let robberHexId = '';
 
-  // Try assigning numbers up to 250 times if preventAdjacentRedNumbers is enabled
+  // Try assigning terrains & numbers up to 250 times if preventAdjacentRedNumbers is enabled
   let attempts = 0;
   const maxAttempts = preventAdjacentRedNumbers ? 250 : 1;
 
@@ -442,15 +445,48 @@ export function generateBoard(
     attempts++;
     hexes = {};
     robberHexId = '';
+
+    const remainingTerrainPool = [...terrainPool];
+    if (desertInCenter && hasCenterCoord) {
+      const desertIdx = remainingTerrainPool.indexOf('DESERT');
+      if (desertIdx !== -1) {
+        remainingTerrainPool.splice(desertIdx, 1);
+      }
+    }
+
+    const shuffledTerrains = shuffle(remainingTerrainPool);
+
+    // If random desert mode is selected, ensure the desert does not accidentally land in the center
+    // so the visual change from "Desierto en el Centro" is immediately distinct and noticeable!
+    if (!desertInCenter && hasCenterCoord) {
+      const centerIndexInCoords = landCoords.findIndex((c) => coordToId(c.q, c.r, c.s) === centerCoordId);
+      if (centerIndexInCoords !== -1 && shuffledTerrains[centerIndexInCoords] === 'DESERT') {
+        const nonDesertIdx = shuffledTerrains.findIndex((t, idx) => idx !== centerIndexInCoords && t !== 'DESERT');
+        if (nonDesertIdx !== -1) {
+          [shuffledTerrains[centerIndexInCoords], shuffledTerrains[nonDesertIdx]] = [
+            shuffledTerrains[nonDesertIdx],
+            shuffledTerrains[centerIndexInCoords],
+          ];
+        }
+      }
+    }
+
     const shuffledNumbers = shuffle(numberPool);
     let numIdx = 0;
+    let terrainIdx = 0;
 
-    landCoords.forEach((coord, i) => {
+    landCoords.forEach((coord) => {
       const id = coordToId(coord.q, coord.r, coord.s);
-      const terrain = shuffledTerrains[i] || 'DESERT';
+      const isForcedCenterDesert = desertInCenter && hasCenterCoord && id === centerCoordId;
+      const terrain: TerrainType = isForcedCenterDesert
+        ? 'DESERT'
+        : (shuffledTerrains[terrainIdx++] || 'DESERT');
       const isDesert = terrain === 'DESERT';
       const numberToken = isDesert ? null : (shuffledNumbers[numIdx++] ?? 5);
-      const hasRobber = isDesert && !robberHexId;
+      const hasRobber =
+        desertInCenter && hasCenterCoord
+          ? id === centerCoordId
+          : isDesert && !robberHexId;
       if (hasRobber) {
         robberHexId = id;
       }
@@ -556,4 +592,91 @@ export function generateBoard(
     robberHexId,
   };
 }
+
+/**
+ * Reorganizes the board in-place so that the desert-in-center rule is fulfilled immediately:
+ * - If desertInCenter is true, swaps the existing desert into (0,0,0) and places the Robber at (0,0,0).
+ * - If desertInCenter is false, and (0,0,0) is desert, swaps it with a non-center land hex so the center produces resources.
+ */
+export function enforceDesertInCenterRule(board: BoardState, desertInCenter: boolean): BoardState {
+  const centerHex = board.hexes['0,0,0'];
+  if (!centerHex || centerHex.terrain === 'SEA') return board;
+
+  const newHexes: Record<string, Hex> = { ...board.hexes };
+
+  if (desertInCenter) {
+    if (centerHex.terrain !== 'DESERT') {
+      const currentDesertHex = Object.values(newHexes).find(
+        (h) => h.id !== '0,0,0' && h.terrain === 'DESERT'
+      );
+      if (currentDesertHex) {
+        const oldCenterTerrain = centerHex.terrain;
+        const oldCenterToken = centerHex.numberToken;
+
+        newHexes['0,0,0'] = {
+          ...centerHex,
+          terrain: 'DESERT',
+          numberToken: null,
+          hasRobber: true,
+        };
+        newHexes[currentDesertHex.id] = {
+          ...currentDesertHex,
+          terrain: oldCenterTerrain,
+          numberToken: oldCenterToken,
+          hasRobber: false,
+        };
+      } else {
+        newHexes['0,0,0'] = {
+          ...centerHex,
+          terrain: 'DESERT',
+          numberToken: null,
+          hasRobber: true,
+        };
+      }
+    }
+    board.robberHexId = '0,0,0';
+    for (const [id, h] of Object.entries(newHexes)) {
+      if (id !== '0,0,0' && h.hasRobber) {
+        newHexes[id] = { ...h, hasRobber: false };
+      } else if (id === '0,0,0' && !h.hasRobber) {
+        newHexes[id] = { ...h, hasRobber: true };
+      }
+    }
+  } else {
+    if (centerHex.terrain === 'DESERT') {
+      const candidateHex = Object.values(newHexes).find(
+        (h) => h.id !== '0,0,0' && h.terrain !== 'SEA' && h.terrain !== 'DESERT'
+      );
+      if (candidateHex) {
+        const candidateTerrain = candidateHex.terrain;
+        const candidateToken = candidateHex.numberToken;
+
+        newHexes['0,0,0'] = {
+          ...centerHex,
+          terrain: candidateTerrain,
+          numberToken: candidateToken,
+          hasRobber: false,
+        };
+        newHexes[candidateHex.id] = {
+          ...candidateHex,
+          terrain: 'DESERT',
+          numberToken: null,
+          hasRobber: true,
+        };
+        board.robberHexId = candidateHex.id;
+        for (const [id, h] of Object.entries(newHexes)) {
+          if (id !== candidateHex.id && h.hasRobber) {
+            newHexes[id] = { ...h, hasRobber: false };
+          } else if (id === candidateHex.id && !h.hasRobber) {
+            newHexes[id] = { ...h, hasRobber: true };
+          }
+        }
+      }
+    }
+  }
+
+  board.hexes = newHexes;
+  return { ...board };
+}
+
 

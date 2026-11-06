@@ -53,7 +53,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved) return saved;
     // In standalone electron with embedded dist server, port is random, default to host port 3000
     if (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') {
-      return 'http://localhost:3000';
+      return 'https://rekatan.onrender.com';
     }
     return window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
   });

@@ -10,6 +10,7 @@ import {
   ResourceType,
   TerrainType,
   Vertex,
+  GameState,
 } from '../../shared/types';
 import {
   PLAYER_COLORS,
@@ -46,6 +47,7 @@ export interface HexBoardSVGProps {
   onCustomSetNumber?: (hexId: string, num: number | null) => void;
   onCustomSetPort?: (edgeId: string, port: PortType | null) => void;
   lowEndPcMode?: boolean;
+  lastEvent?: GameState['lastEvent'];
 }
 
 export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
@@ -65,6 +67,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   onCustomSetNumber,
   onCustomSetPort,
   lowEndPcMode = false,
+  lastEvent,
 }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [showCoords, setShowCoords] = useState<boolean>(false);
@@ -111,6 +114,24 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const didMoveRef = useRef<boolean>(false);
 
   const prevRobberHexRef = useRef<string>(board.robberHexId);
+
+  // Discreet Highlight for recently built items (Roads, Settlements, Cities)
+  const [highlightedBuiltItem, setHighlightedBuiltItem] = useState<{
+    type: 'ROAD' | 'SETTLEMENT' | 'CITY';
+    vertexId?: string;
+    edgeId?: string;
+    playerId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (lastEvent?.builtItem) {
+      setHighlightedBuiltItem(lastEvent.builtItem);
+      const timer = setTimeout(() => {
+        setHighlightedBuiltItem(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [lastEvent?.nonce, lastEvent?.builtItem]);
 
   // Trigger screen shake & impact shockwave whenever the Robber moves
   useEffect(() => {
@@ -344,7 +365,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       return;
     }
 
-    if (isMovingRobber && hex.id !== board.robberHexId) {
+    if (isMovingRobber) {
       onHexClick?.(hex.id);
     }
   };
@@ -499,7 +520,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {hexList.map((hex) => {
             const isSea = hex.terrain === 'SEA';
             const isProducing = producingSet.has(hex.id);
-            const isRobberTarget = isMovingRobber && !isSea && hex.id !== board.robberHexId;
+            const isRobberTarget = isMovingRobber && !isSea;
             const isSwapSelected = swapSourceHexId === hex.id;
             const isRedConflict = redConflictHexIds.has(hex.id);
             const isInteractive = Boolean(
@@ -604,9 +625,27 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     stroke={resMeta ? resMeta.color : '#d4af37'}
                     strokeWidth={3}
                   />
-                  <text x={0} y={-2} textAnchor="middle" fontSize="11.5">
-                    {isGeneric ? '⚓' : resMeta?.emoji}
-                  </text>
+                  {isGeneric ? (
+                    <text
+                      x={0}
+                      y={-1}
+                      textAnchor="middle"
+                      fontSize="11"
+                    >
+                      ⚓
+                    </text>
+                  ) : (
+                    resMeta && (
+                      <text
+                        x={0}
+                        y={-1}
+                        textAnchor="middle"
+                        fontSize="11"
+                      >
+                        {resMeta.emoji}
+                      </text>
+                    )
+                  )}
                   <text
                     x={0}
                     y={11}
@@ -647,6 +686,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const owner = edge.playerId ? playerMap.get(edge.playerId) : null;
             const colorCfg = owner ? PLAYER_COLORS[owner.color] : null;
             const isLongest = longestRoadEdgesSet.has(edge.id);
+            const isJustBuiltRoad = highlightedBuiltItem?.edgeId === edge.id;
 
             return (
               <g
@@ -727,6 +767,33 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
+                {/* Discreet Glow Pulse for newly built road */}
+                {isJustBuiltRoad && (
+                  <g className="pointer-events-none">
+                    <line
+                      x1={-halfLen - 3}
+                      y1={0}
+                      x2={halfLen + 3}
+                      y2={0}
+                      stroke="#fbbf24"
+                      strokeWidth={14}
+                      strokeLinecap="round"
+                      opacity={0.8}
+                      className="animate-pulse"
+                    />
+                    <line
+                      x1={-halfLen}
+                      y1={0}
+                      x2={halfLen}
+                      y2={0}
+                      stroke="#ffffff"
+                      strokeWidth={4.5}
+                      strokeLinecap="round"
+                      opacity={0.9}
+                    />
+                  </g>
+                )}
+
                 {/* Pulsing Highlight for Valid Road Placement */}
                 {isValidRoad && (
                   <g>
@@ -774,6 +841,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const isValidCity = validCitySet.has(vertex.id);
             const owner = vertex.playerId ? playerMap.get(vertex.playerId) : null;
             const colorCfg = owner ? PLAYER_COLORS[owner.color] : null;
+            const isJustBuiltVertex = highlightedBuiltItem?.vertexId === vertex.id;
 
             return (
               <g
@@ -887,6 +955,34 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                       stroke="#fde047"
                       strokeWidth={2.5}
                       strokeDasharray="4 2"
+                    />
+                  </g>
+                )}
+
+                {/* Discreet Glow Pulse for newly built settlement or city */}
+                {isJustBuiltVertex && (
+                  <g className="pointer-events-none">
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={24}
+                      fill="none"
+                      stroke="#fbbf24"
+                      strokeWidth={2.8}
+                      strokeDasharray="4 4"
+                      opacity={0.9}
+                      className="animate-spin"
+                      style={{ animationDuration: '6s' }}
+                    />
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={28}
+                      fill="rgba(251, 191, 36, 0.2)"
+                      stroke="#ffffff"
+                      strokeWidth={1.5}
+                      className="animate-ping"
+                      style={{ animationDuration: '2s' }}
                     />
                   </g>
                 )}

@@ -31,7 +31,9 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const rooms = new Map<string, GameState>();
 const socketToSession = new Map<string, { roomCode: string; playerId: string }>();
-const botLastStepTime = new Map<string, number>();
+const runningBotRooms = new Set<string>();
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -90,7 +92,7 @@ async function startServer() {
           id: playerId,
           name: (payload.playerName || 'Anfitrión').trim().slice(0, 20),
           color: payload.color || 'RED',
-          avatar: payload.avatar || '👑',
+          avatar: payload.avatar || 'I',
         });
 
         rooms.set(roomCode, gameState);
@@ -143,7 +145,7 @@ async function startServer() {
             refreshTurnDeadline(room);
           }
 
-          addLog(room, `🔌 ${existingPlayer.name} se ha reconectado a la partida.`, 'SYSTEM', existingPlayer.id);
+          addLog(room, `${existingPlayer.name} se ha reconectado a la partida.`, 'SYSTEM', existingPlayer.id);
           socketToSession.set(socket.id, { roomCode, playerId });
           socket.join(roomCode);
 
@@ -167,7 +169,7 @@ async function startServer() {
             socket.join(roomCode);
             addLog(
               room,
-              `🔌 ${disconnectedMatch.name} recuperó su asiento en la partida.`,
+              `${disconnectedMatch.name} recuperó su asiento en la partida.`,
               'SYSTEM',
               disconnectedMatch.id
             );
@@ -222,7 +224,7 @@ async function startServer() {
         };
 
         room.players.push(newPlayer);
-        addLog(room, `👋 ${newPlayer.name} se unió a la sala.`, 'SYSTEM', newPlayer.id);
+        addLog(room, `${newPlayer.name} se unió a la sala.`, 'SYSTEM', newPlayer.id);
 
         socketToSession.set(socket.id, { roomCode, playerId });
         socket.join(roomCode);
@@ -314,7 +316,7 @@ async function startServer() {
         }
         addLog(
           room,
-          `⚠️ ${player.name} se ha desconectado. Puedes pausar la partida esperándolo o congelar/IA sus turnos.`,
+          `${player.name} se ha desconectado. Puedes pausar la partida esperándolo o congelar/IA sus turnos.`,
           'SYSTEM',
           player.id
         );
@@ -323,14 +325,15 @@ async function startServer() {
     });
   });
 
-  // Periodic loop for Turn Timer (House Rule 6) & AI Bot execution
+  // Periodic loop for Turn Timer (House Rule 6) & Paced AI Bot execution
   setInterval(() => {
     const now = Date.now();
     for (const [roomCode, room] of rooms.entries()) {
       if (
         room.phase === 'LOBBY' ||
         room.phase === 'GAME_OVER' ||
-        room.phase === 'PAUSED_DISCONNECT'
+        room.phase === 'PAUSED_DISCONNECT' ||
+        room.turn.isPausedByHost
       ) {
         continue;
       }
@@ -339,7 +342,7 @@ async function startServer() {
       if (room.turn.turnDeadlineMs && now >= room.turn.turnDeadlineMs) {
         addLog(
           room,
-          `⏱️ ¡Se agotó el tiempo del turno! El servidor resolvió automáticamente las acciones pendientes.`,
+          `Se agotó el tiempo del turno. El servidor resolvió automáticamente las acciones pendientes.`,
           'SYSTEM',
           room.turn.activePlayerId
         );
@@ -350,27 +353,142 @@ async function startServer() {
       }
 
       // 2. Check if in ORDER_ROLL with unrolled bots, or if active player is an AI Bot or FROZEN_SKIP
-      const hasUnrolledBotInOrderPhase =
-        room.phase === 'ORDER_ROLL' &&
-        room.players.some((p) => p.isBot && !room.turn.orderRolls?.[p.id]);
+      const unrolledBotInOrderPhase =
+        room.phase === 'ORDER_ROLL'
+          ? room.players.find((p) => p.isBot && !room.turn.orderRolls?.[p.id])
+          : undefined;
       const activePlayer = room.players.find((p) => p.id === room.turn.activePlayerId);
-      if (
-        hasUnrolledBotInOrderPhase ||
-        (activePlayer && (activePlayer.isBot || activePlayer.status === 'FROZEN_SKIP'))
-      ) {
-        const lastStep = botLastStepTime.get(roomCode) || 0;
-        if (now - lastStep >= 950) {
-          botLastStepTime.set(roomCode, now);
-          const updated =
-            !hasUnrolledBotInOrderPhase && activePlayer?.status === 'FROZEN_SKIP'
-              ? autoResolveCurrentTurn(room)
-              : executeBotStepIfNeeded(room);
-          rooms.set(roomCode, updated);
-          io.to(roomCode).emit('ROOM_STATE', updated);
-        }
+      const shouldRunBotStep =
+        Boolean(unrolledBotInOrderPhase) ||
+        Boolean(activePlayer && (activePlayer.isBot || activePlayer.status === 'FROZEN_SKIP'));
+
+      if (shouldRunBotStep && !runningBotRooms.has(roomCode)) {
+        runningBotRooms.add(roomCode);
+
+        void (async () => {
+          try {
+            const currentRoom = rooms.get(roomCode);
+            if (
+              !currentRoom ||
+              currentRoom.phase === 'LOBBY' ||
+              currentRoom.phase === 'GAME_OVER' ||
+              currentRoom.phase === 'PAUSED_DISCONNECT' ||
+              currentRoom.turn.isPausedByHost
+            ) {
+              return;
+            }
+
+            const actingBot =
+              currentRoom.phase === 'ORDER_ROLL'
+                ? currentRoom.players.find(
+                    (p) => p.isBot && !currentRoom.turn.orderRolls?.[p.id]
+                  )
+                : currentRoom.players.find((p) => p.id === currentRoom.turn.activePlayerId);
+
+            if (!actingBot) return;
+
+            // 1. Initial pacing delay before deciding: let all human players see the bot prepare its move
+            if (actingBot.isBot && !currentRoom.turn.botStatusMessage) {
+              const actionHint =
+                currentRoom.phase === 'ORDER_ROLL'
+                  ? `${actingBot.name} se prepara para tirar dados de iniciativa...`
+                  : currentRoom.phase === 'SETUP_SETTLEMENT_1' || currentRoom.phase === 'SETUP_SETTLEMENT_2'
+                  ? `${actingBot.name} busca la mejor intersección para su poblado...`
+                  : currentRoom.phase === 'SETUP_ROAD_1' || currentRoom.phase === 'SETUP_ROAD_2'
+                  ? `${actingBot.name} decide hacia dónde expandir su carretera...`
+                  : currentRoom.phase === 'WAITING_FOR_DICE'
+                  ? `${actingBot.name} agita el cubilete para lanzar los dados...`
+                  : currentRoom.phase === 'ROBBER_MOVE'
+                  ? `${actingBot.name} planea dónde colocar al Ladrón...`
+                  : currentRoom.phase === 'ROBBER_STEAL'
+                  ? `${actingBot.name} elige a quién robar...`
+                  : `${actingBot.name} evalúa sus opciones de juego...`;
+
+              currentRoom.turn.botStatusMessage = actionHint;
+              io.to(roomCode).emit('ROOM_STATE', currentRoom);
+              await delay(1600);
+            }
+
+            const latestRoom = rooms.get(roomCode);
+            if (
+              !latestRoom ||
+              latestRoom.phase === 'LOBBY' ||
+              latestRoom.phase === 'GAME_OVER' ||
+              latestRoom.phase === 'PAUSED_DISCONNECT' ||
+              latestRoom.turn.isPausedByHost
+            ) {
+              return;
+            }
+
+            const prevPhase = latestRoom.phase;
+            const prevNonce = latestRoom.lastEvent?.nonce;
+            const currentActive = latestRoom.players.find(
+              (p) => p.id === latestRoom.turn.activePlayerId
+            );
+            const updated =
+              latestRoom.phase !== 'ORDER_ROLL' && currentActive?.status === 'FROZEN_SKIP'
+                ? autoResolveCurrentTurn(latestRoom)
+                : executeBotStepIfNeeded(latestRoom);
+
+            rooms.set(roomCode, updated);
+            io.to(roomCode).emit('ROOM_STATE', updated);
+
+            // 2. Mandatory Humanized Pacing Delays (Reduces bot execution speed to 1/5th):
+            // Gives players ample time to see the dice, follow resource flights, read bot choices, and inspect the board.
+            const ev =
+              updated.lastEvent && updated.lastEvent.nonce !== prevNonce
+                ? updated.lastEvent
+                : null;
+
+            if (ev?.type === 'RESOURCES_PRODUCED') {
+              // Dice roll display: 1.0s spin + 2.5s landed display = ~3.6s
+              const diceWaitMs = ev.dice ? 3900 : 0;
+              // Each resource flight takes 4.05s sequentially
+              const flightCount = ev.flights?.length || 0;
+              const flightsWaitMs = Math.min(flightCount, 8) * 4050;
+              await delay(Math.max(3800, diceWaitMs + flightsWaitMs));
+            } else if (ev?.type === 'DICE_ROLLED' || ev?.type === 'ROBBER_DISCARDED') {
+              // Dice landed without production (e.g. 7 rolled or discards)
+              await delay(4000);
+            } else if (
+              prevPhase === 'SETUP_SETTLEMENT_1' ||
+              prevPhase === 'SETUP_SETTLEMENT_2'
+            ) {
+              // Placed initial settlement: wait so everyone sees the settlement before the road
+              await delay(3200);
+            } else if (
+              prevPhase === 'SETUP_ROAD_1' ||
+              prevPhase === 'SETUP_ROAD_2'
+            ) {
+              // Placed initial road: wait so everyone sees the road before next player's turn
+              await delay(3200);
+            } else if (prevPhase === 'ORDER_ROLL') {
+              // Rolled for order
+              await delay(2800);
+            } else if (
+              ev?.type === 'ROBBER_MOVED' ||
+              ev?.type === 'CARD_STOLEN' ||
+              ev?.type === 'DEV_CARD_PLAYED'
+            ) {
+              await delay(3200);
+            } else if (ev?.type === 'DEV_CARD_BOUGHT') {
+              // Dev card bought: wait for slide-spinning flight across screen into player casillero (~3.2s)
+              await delay(3200);
+            } else if (ev?.builtItem) {
+              // Built road, settlement, or city: pause so players see the highlight on the board
+              await delay(3000);
+            } else {
+              // Main phase actions (trade, or end turn)
+              // Ensure a generous pause between consecutive actions so nothing feels instant!
+              await delay(2600);
+            }
+          } finally {
+            runningBotRooms.delete(roomCode);
+          }
+        })();
       }
     }
-  }, 450);
+  }, 400);
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -388,7 +506,7 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, () => {
-    console.log(`🚀 Servidor Catan Online (WebSockets + Vite) activo en http://localhost:${PORT}`);
+    console.log(`Servidor Catan Online (WebSockets + Vite) activo en http://localhost:${PORT}`);
   });
 }
 

@@ -97,6 +97,7 @@ export type BotDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export interface GameConfig {
   boardMode: BoardMode;
   preventAdjacentRedNumbers: boolean;
+  desertInCenter: boolean;
   // 1. Distancia mínima entre casas
   minSettlementDistance: 1 | 2;
   // 2. Uso Inmediato de Cartas de Desarrollo (true = jugables en el mismo turno de compra)
@@ -199,6 +200,8 @@ export interface TurnState {
   pausedForPlayerId?: string | null;
   isPausedByHost?: boolean;
   pausedRemainingTimerMs?: number | null;
+  botStatusMessage?: string | null;
+  botProposedTradeThisTurn?: boolean;
 }
 
 export interface TradeOffer {
@@ -284,12 +287,25 @@ export interface GameState {
     robberTargetHexId?: string;
     robberAffectedPlayerIds?: string[];
     robberMovedByPlayerId?: string;
+    devCardType?: DevCardType;
+    devCardPlayerId?: string;
+    devCardPlayerName?: string;
+    devCardTitle?: string;
+    buyerPlayerId?: string;
+    buyerPlayerName?: string;
+    builtItem?: {
+      type: 'SETTLEMENT' | 'CITY' | 'ROAD';
+      vertexId?: string;
+      edgeId?: string;
+      playerId: string;
+    };
+    botActionNotice?: string;
   };
 }
 
 export type GameAction =
   | { type: 'UPDATE_CONFIG'; config: Partial<GameConfig> }
-  | { type: 'GENERATE_BOARD'; mode?: BoardMode; preventAdjacentRedNumbers?: boolean }
+  | { type: 'GENERATE_BOARD'; mode?: BoardMode; preventAdjacentRedNumbers?: boolean; desertInCenter?: boolean }
   | { type: 'CUSTOM_SET_HEX_TERRAIN'; hexId: string; terrain: TerrainType }
   | { type: 'CUSTOM_SET_HEX_NUMBER'; hexId: string; numberToken: number | null }
   | { type: 'CUSTOM_SWAP_HEXES'; hexIdA: string; hexIdB: string }

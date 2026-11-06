@@ -2,7 +2,7 @@ import {
   ALL_RESOURCES,
   BUILDING_COSTS,
   countTotalResources,
-  RESOURCE_META,
+  createEmptyResources,
 } from '../constants';
 import {
   BotDifficulty,
@@ -17,6 +17,7 @@ import {
   canSpendOrBuildThisTurn,
   canTradeThisTurn,
   getPlayerBankTradeRatios,
+  getPotentialSettlementVertices,
   getValidCityVertices,
   getValidRoadEdges,
   getValidSettlementVertices,
@@ -36,10 +37,18 @@ export const PIP_WEIGHTS: Record<number, number> = {
   12: 1,
 };
 
+function withBotNotice(state: GameState, notice: string | null): GameState {
+  state.turn.botStatusMessage = notice;
+  if (state.lastEvent && notice) {
+    state.lastEvent.botActionNotice = notice;
+  }
+  return state;
+}
+
 /**
  * Executes a full or partial turn step for an AI bot depending on its difficulty setting:
- * - EASY: Almost random decisions, no port prioritization, basic trades.
- * - MEDIUM: Heuristic evaluation, prioritizes high-probability numbers (6, 8, 5, 9), standard robber.
+ * - EASY: Basic decisions, builds roads/settlements/cities, trades with bank and players.
+ * - MEDIUM: Heuristic evaluation, prioritizes high-probability numbers (6, 8, 5, 9), active trading & building.
  * - HARD: Strategic leader targeting, longest road pursuit, 2:1 port monopolies, tight trade evaluation.
  */
 export function executeBotStep(state: GameState, botPlayerId: string): GameState {
@@ -51,7 +60,8 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
   // 1. ORDER ROLL PHASE
   if (state.phase === 'ORDER_ROLL') {
     if (!state.turn.orderRolls?.[bot.id]) {
-      return applyGameAction(state, bot.id, { type: 'ROLL_FOR_ORDER' }).state;
+      const next = applyGameAction(state, bot.id, { type: 'ROLL_FOR_ORDER' }).state;
+      return withBotNotice(next, `${bot.name} lanza los dados de iniciativa`);
     }
     return state;
   }
@@ -61,43 +71,52 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
     const validVertices = getValidSettlementVertices(state, bot.id);
     if (validVertices.length === 0) return state;
     const chosenVertex = pickBestSettlementVertex(state, validVertices, difficulty, bot.id);
-    return applyGameAction(state, bot.id, {
+    const next = applyGameAction(state, bot.id, {
       type: 'PLACE_SETTLEMENT',
       vertexId: chosenVertex,
     }).state;
+    return withBotNotice(next, `${bot.name} coloca un Poblado inicial`);
   }
 
   if (state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2') {
     const validRoads = getValidRoadEdges(state, bot.id);
     if (validRoads.length === 0) return state;
     const chosenRoad = pickBestRoadEdge(state, validRoads, difficulty, bot.id);
-    return applyGameAction(state, bot.id, {
+    const next = applyGameAction(state, bot.id, {
       type: 'PLACE_ROAD',
       edgeId: chosenRoad,
     }).state;
+    return withBotNotice(next, `${bot.name} coloca una Carretera inicial`);
   }
 
   // 3. MANDATORY DICE ROLL PHASE
   if (state.phase === 'WAITING_FOR_DICE') {
-    return applyGameAction(state, bot.id, { type: 'ROLL_DICE' }).state;
+    const next = applyGameAction(state, bot.id, { type: 'ROLL_DICE' }).state;
+    return withBotNotice(next, `${bot.name} ha lanzado los dados`);
   }
 
   // 4. ROBBER PHASES
   if (state.phase === 'ROBBER_MOVE') {
     const targetHexId = pickRobberTargetHex(state, bot.id, difficulty);
-    return applyGameAction(state, bot.id, {
+    const next = applyGameAction(state, bot.id, {
       type: 'MOVE_ROBBER',
       hexId: targetHexId,
     }).state;
+    return withBotNotice(next, `${bot.name} desplaza al Ladrón`);
   }
 
   if (state.phase === 'ROBBER_STEAL') {
     if (state.robberStealCandidates.length > 0) {
       const victimId = pickRobberStealVictim(state, state.robberStealCandidates, difficulty);
-      return applyGameAction(state, bot.id, {
+      const victim = state.players.find((p) => p.id === victimId);
+      const next = applyGameAction(state, bot.id, {
         type: 'STEAL_RESOURCE',
         victimPlayerId: victimId,
       }).state;
+      return withBotNotice(
+        next,
+        `${bot.name} roba un recurso${victim ? ` a ${victim.name}` : ''}`
+      );
     }
     return state;
   }
@@ -107,10 +126,11 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
     const validRoads = getValidRoadEdges(state, bot.id);
     if (validRoads.length > 0) {
       const chosenRoad = pickBestRoadEdge(state, validRoads, difficulty, bot.id);
-      return applyGameAction(state, bot.id, {
+      const next = applyGameAction(state, bot.id, {
         type: 'PLACE_ROAD',
         edgeId: chosenRoad,
       }).state;
+      return withBotNotice(next, `${bot.name} construye una Carretera gratuita`);
     } else {
       state.turn.freeRoadsRemaining = 0;
       state.phase = 'MAIN_PHASE';
@@ -120,26 +140,66 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
 
   // 6. MAIN PHASE
   if (state.phase === 'MAIN_PHASE') {
-    let currentState = state;
+    const currentState = state;
     const activeBot = currentState.players.find((p) => p.id === bot.id)!;
 
-    // A. Play Dev Card if useful (Knight, Year of Plenty, Monopoly)
+    // A0. Manage any active trade offer created by this bot
+    const existingBotOffer = currentState.activeTradeOffers.find(
+      (o) => o.fromPlayerId === activeBot.id
+    );
+    if (existingBotOffer) {
+      const acceptedEntry = Object.entries(existingBotOffer.responses).find(
+        ([, status]) => status === 'ACCEPTED'
+      );
+      if (acceptedEntry) {
+        const [partnerId] = acceptedEntry;
+        const partner = currentState.players.find((p) => p.id === partnerId);
+        const execRes = applyGameAction(currentState, activeBot.id, {
+          type: 'EXECUTE_TRADE_OFFER',
+          offerId: existingBotOffer.id,
+          partnerPlayerId: partnerId,
+        });
+        if (!execRes.error) {
+          return withBotNotice(
+            execRes.state,
+            `${activeBot.name} cierra un trato con ${partner?.name || 'un jugador'}`
+          );
+        }
+      }
+
+      const hasPendingHuman = currentState.players.some(
+        (p) =>
+          p.id !== activeBot.id &&
+          !p.isBot &&
+          p.connected &&
+          existingBotOffer.responses[p.id] === 'PENDING'
+      );
+      const offerAgeMs = Date.now() - existingBotOffer.createdAt;
+      if (hasPendingHuman && offerAgeMs < 4200) {
+        const waitingState = structuredClone(currentState);
+        return withBotNotice(
+          waitingState,
+          `${activeBot.name} propone un trato y espera respuesta...`
+        );
+      }
+
+      // Cancel expired or fully rejected offer so the bot can continue its turn
+      const cancelled = applyGameAction(currentState, activeBot.id, {
+        type: 'CANCEL_TRADE_OFFER',
+        offerId: existingBotOffer.id,
+      }).state;
+      return withBotNotice(cancelled, `${activeBot.name} retira su oferta comercial`);
+    }
+
+    // A. Play Dev Card if useful (Knight, Year of Plenty, Monopoly, Road Building)
     if (!currentState.turn.devCardPlayedThisTurn && activeBot.devCards.some((c) => !c.played)) {
       const devState = tryPlayBotDevCard(currentState, activeBot, difficulty);
       if (devState !== currentState) {
-        return devState;
+        return withBotNotice(devState, `${activeBot.name} usa una Carta de Desarrollo`);
       }
     }
 
-    // B. Check if Bank Trade can enable a major build (City or Settlement)
-    if (difficulty !== 'EASY' && canTradeThisTurn(currentState, activeBot.id).allowed) {
-      const tradedState = trySmartBankTrade(currentState, activeBot, difficulty);
-      if (tradedState !== currentState) {
-        return tradedState;
-      }
-    }
-
-    // C. 1st Build Priority: Upgrade Settlement to City (costs 2 WHEAT, 3 ORE)
+    // B. 1st Build Priority: Upgrade Settlement to City (costs 2 WHEAT, 3 ORE)
     const validCities = getValidCityVertices(currentState, activeBot.id);
     if (
       validCities.length > 0 &&
@@ -151,13 +211,14 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
         difficulty === 'EASY'
           ? validCities[0]
           : pickBestCityUpgradeVertex(currentState, validCities, difficulty);
-      return applyGameAction(currentState, activeBot.id, {
+      const next = applyGameAction(currentState, activeBot.id, {
         type: 'UPGRADE_CITY',
         vertexId: chosenCityVertex,
       }).state;
+      return withBotNotice(next, `${activeBot.name} construye una Ciudad`);
     }
 
-    // D. 2nd Build Priority: Build Settlement (costs 1 WOOD, 1 BRICK, 1 SHEEP, 1 WHEAT)
+    // C. 2nd Build Priority: Build Settlement (costs 1 WOOD, 1 BRICK, 1 SHEEP, 1 WHEAT)
     const validSettlements = getValidSettlementVertices(currentState, activeBot.id);
     if (
       validSettlements.length > 0 &&
@@ -165,49 +226,79 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
       hasResources(activeBot.resources, BUILDING_COSTS.SETTLEMENT) &&
       canSpendOrBuildThisTurn(currentState, activeBot.id, true).allowed
     ) {
-      const chosenVertex = pickBestSettlementVertex(currentState, validSettlements, difficulty, activeBot.id);
-      return applyGameAction(currentState, activeBot.id, {
+      const chosenVertex = pickBestSettlementVertex(
+        currentState,
+        validSettlements,
+        difficulty,
+        activeBot.id
+      );
+      const next = applyGameAction(currentState, activeBot.id, {
         type: 'PLACE_SETTLEMENT',
         vertexId: chosenVertex,
       }).state;
+      return withBotNotice(next, `${activeBot.name} construye un Poblado`);
     }
 
-    // E. 3rd Build Priority: Buy Development Card (costs 1 SHEEP, 1 WHEAT, 1 ORE)
-    if (canBuyDevCard(currentState, activeBot.id).allowed) {
-      const shouldBuy =
-        difficulty === 'EASY'
-          ? Math.random() < 0.45
-          : difficulty === 'MEDIUM'
-          ? Math.random() < 0.7
-          : true; // Hard bots value dev cards highly for Knights/VP
-      if (shouldBuy) {
-        return applyGameAction(currentState, activeBot.id, { type: 'BUY_DEV_CARD' }).state;
+    // D. If no potential settlement spot is currently reachable, build a Road to expand!
+    const potentialSettlements = getPotentialSettlementVertices(currentState, activeBot.id);
+    const validRoads = getValidRoadEdges(currentState, activeBot.id);
+    if (
+      potentialSettlements.length === 0 &&
+      validRoads.length > 0 &&
+      activeBot.roadsLeft > 0 &&
+      hasResources(activeBot.resources, BUILDING_COSTS.ROAD) &&
+      canSpendOrBuildThisTurn(currentState, activeBot.id, true).allowed
+    ) {
+      const chosenRoad = pickBestRoadEdge(currentState, validRoads, difficulty, activeBot.id);
+      const next = applyGameAction(currentState, activeBot.id, {
+        type: 'PLACE_ROAD',
+        edgeId: chosenRoad,
+      }).state;
+      return withBotNotice(next, `${activeBot.name} construye una Carretera para expandirse`);
+    }
+
+    // E. Trading Phase: Propose trade to players OR trade with Bank/Ports if missing resources
+    if (canTradeThisTurn(currentState, activeBot.id).allowed) {
+      // E1. Propose a player-to-player trade once per turn when missing 1 resource for a build
+      if (!currentState.turn.botProposedTradeThisTurn) {
+        const proposedState = tryProposeBotPlayerTrade(currentState, activeBot);
+        if (proposedState !== currentState) {
+          proposedState.turn.botProposedTradeThisTurn = true;
+          return withBotNotice(proposedState, `${activeBot.name} propone un trato comercial`);
+        }
+      }
+
+      // E2. Bank / Port Trade to unlock City, Settlement, Road, or Dev Card
+      const tradedState = trySmartBankTrade(currentState, activeBot);
+      if (tradedState !== currentState) {
+        return withBotNotice(tradedState, `${activeBot.name} comercia con la Banca`);
       }
     }
 
-    // F. 4th Build Priority: Build Road (costs 1 WOOD, 1 BRICK)
-    const validRoads = getValidRoadEdges(currentState, activeBot.id);
+    // F. Build Road if bot has resources for Road (costs 1 WOOD, 1 BRICK)
     if (
       validRoads.length > 0 &&
       activeBot.roadsLeft > 0 &&
       hasResources(activeBot.resources, BUILDING_COSTS.ROAD) &&
       canSpendOrBuildThisTurn(currentState, activeBot.id, true).allowed
     ) {
-      const shouldBuildRoad =
-        difficulty === 'EASY'
-          ? Math.random() < 0.6
-          : difficulty === 'HARD' || activeBot.roadsLeft > 4;
-      if (shouldBuildRoad) {
-        const chosenRoad = pickBestRoadEdge(currentState, validRoads, difficulty, activeBot.id);
-        return applyGameAction(currentState, activeBot.id, {
-          type: 'PLACE_ROAD',
-          edgeId: chosenRoad,
-        }).state;
-      }
+      const chosenRoad = pickBestRoadEdge(currentState, validRoads, difficulty, activeBot.id);
+      const next = applyGameAction(currentState, activeBot.id, {
+        type: 'PLACE_ROAD',
+        edgeId: chosenRoad,
+      }).state;
+      return withBotNotice(next, `${activeBot.name} construye una Carretera`);
     }
 
-    // G. Nothing more to do -> End Turn
-    return applyGameAction(currentState, activeBot.id, { type: 'END_TURN' }).state;
+    // G. Buy Development Card (costs 1 SHEEP, 1 WHEAT, 1 ORE)
+    if (canBuyDevCard(currentState, activeBot.id).allowed) {
+      const next = applyGameAction(currentState, activeBot.id, { type: 'BUY_DEV_CARD' }).state;
+      return withBotNotice(next, `${activeBot.name} compra una Carta de Desarrollo`);
+    }
+
+    // H. Nothing more to do -> End Turn
+    const ended = applyGameAction(currentState, activeBot.id, { type: 'END_TURN' }).state;
+    return withBotNotice(ended, `${activeBot.name} finaliza su turno`);
   }
 
   return state;
@@ -371,7 +462,7 @@ export function pickRobberTargetHex(
   difficulty: BotDifficulty
 ): string {
   const candidateHexes = Object.values(state.board.hexes).filter(
-    (h) => h.terrain !== 'SEA' && h.id !== state.board.robberHexId
+    (h) => h.terrain !== 'SEA'
   );
   if (candidateHexes.length === 0) return state.board.robberHexId;
 
@@ -526,21 +617,99 @@ function tryPlayBotDevCard(
 }
 
 /**
- * Attempts a bank trade (4:1, 3:1, or 2:1 port) if it directly unlocks a city or settlement.
+ * Proposes a 1:1 trade offer to other players when the bot is missing 1 resource
+ * for a Settlement, City, or Road and holds a spare resource to offer.
+ */
+function tryProposeBotPlayerTrade(
+  state: GameState,
+  bot: PlayerState
+): GameState {
+  const otherPlayersHaveCards = state.players.some(
+    (p) => p.id !== bot.id && p.status === 'ACTIVE' && countTotalResources(p.resources) > 0
+  );
+  if (!otherPlayersHaveCards) return state;
+
+  const hasValidSettlementSpot = getPotentialSettlementVertices(state, bot.id).length > 0;
+  const hasOwnSettlement = Object.values(state.board.vertices).some(
+    (v) => v.playerId === bot.id && v.building === 'SETTLEMENT'
+  );
+
+  const prioritizedTargets: Array<Record<ResourceType, number>> = [];
+  if (hasValidSettlementSpot && bot.settlementsLeft > 0) {
+    prioritizedTargets.push(BUILDING_COSTS.SETTLEMENT);
+  }
+  if (hasOwnSettlement && bot.citiesLeft > 0) {
+    prioritizedTargets.push(BUILDING_COSTS.CITY);
+  }
+  if (bot.roadsLeft > 0) {
+    prioritizedTargets.push(BUILDING_COSTS.ROAD);
+  }
+
+  for (const targetCost of prioritizedTargets) {
+    const missing = getMissingResourcesForTarget(bot.resources, targetCost);
+    if (missing.length === 1) {
+      const neededRes = missing[0];
+      // Find a resource the bot has in excess over targetCost
+      const spareRes = ALL_RESOURCES.find((r) => {
+        if (r === neededRes) return false;
+        const required = targetCost[r] || 0;
+        return (bot.resources[r] || 0) > required;
+      });
+
+      if (spareRes) {
+        const offer = createEmptyResources();
+        const request = createEmptyResources();
+        offer[spareRes] = 1;
+        request[neededRes] = 1;
+
+        const res = applyGameAction(state, bot.id, {
+          type: 'CREATE_TRADE_OFFER',
+          targetPlayerId: null,
+          offer,
+          request,
+        });
+        if (!res.error) {
+          return res.state;
+        }
+      }
+    }
+  }
+
+  return state;
+}
+
+/**
+ * Attempts a bank trade (4:1, 3:1, or 2:1 port) if it directly unlocks a city, settlement, road, or dev card,
+ * or reduces excess hand size when holding >= 8 cards.
  */
 function trySmartBankTrade(
   state: GameState,
-  bot: PlayerState,
-  difficulty: BotDifficulty
+  bot: PlayerState
 ): GameState {
   const ratios = getPlayerBankTradeRatios(state, bot.id);
-  const targets = [BUILDING_COSTS.CITY, BUILDING_COSTS.SETTLEMENT];
+  const hasValidSettlementSpot = getPotentialSettlementVertices(state, bot.id).length > 0;
+  const hasOwnSettlement = Object.values(state.board.vertices).some(
+    (v) => v.playerId === bot.id && v.building === 'SETTLEMENT'
+  );
+
+  const targets: Array<Record<ResourceType, number>> = [];
+  if (hasOwnSettlement && bot.citiesLeft > 0) {
+    targets.push(BUILDING_COSTS.CITY);
+  }
+  if (hasValidSettlementSpot && bot.settlementsLeft > 0) {
+    targets.push(BUILDING_COSTS.SETTLEMENT);
+  }
+  if (bot.roadsLeft > 0) {
+    targets.push(BUILDING_COSTS.ROAD);
+  }
+  if (state.devDeck.length > 0) {
+    targets.push(BUILDING_COSTS.DEV_CARD);
+  }
 
   for (const targetCost of targets) {
     const missing = getMissingResourcesForTarget(bot.resources, targetCost);
     if (missing.length === 1) {
       const neededRes = missing[0];
-      // Find a resource that the bot has in excess
       for (const giveRes of ALL_RESOURCES) {
         if (giveRes === neededRes) continue;
         const ratio = ratios[giveRes];
@@ -554,6 +723,25 @@ function trySmartBankTrade(
             receiveAmount: 1,
           }).state;
         }
+      }
+    }
+  }
+
+  // Also trade if bot has a large stockpile of a single resource and 0 of another
+  for (const giveRes of ALL_RESOURCES) {
+    const ratio = ratios[giveRes];
+    if (bot.resources[giveRes] >= ratio + 1) {
+      const scarceRes = ALL_RESOURCES.find(
+        (r) => r !== giveRes && bot.resources[r] === 0 && state.bank[r] >= 1
+      );
+      if (scarceRes) {
+        return applyGameAction(state, bot.id, {
+          type: 'BANK_TRADE',
+          giveResource: giveRes,
+          giveAmount: ratio,
+          receiveResource: scarceRes,
+          receiveAmount: 1,
+        }).state;
       }
     }
   }

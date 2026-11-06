@@ -168,7 +168,7 @@ export const MainMenu: React.FC = () => {
                 title="Configurar dirección del host"
               >
                 {connected ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                <span>{connected ? '🟢 Conectado' : '⚠️ Sin Conexión • Ajustar'}</span>
+                <span>{connected ? 'Conectado' : 'Sin Conexión • Ajustar'}</span>
               </button>
             </div>
 
@@ -360,7 +360,7 @@ export const MainMenu: React.FC = () => {
             <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-bold text-amber-200">
-                  ⚙️ Modo de Animaciones Simplificadas (Bajo Consumo)
+                  Modo de Animaciones Simplificadas (Bajo Consumo)
                 </div>
                 <div className="text-[11px] text-slate-400">
                   Desactiva efectos pesados de Framer Motion y bloquea el arrastre (Pan) del mapa en (0, 0).

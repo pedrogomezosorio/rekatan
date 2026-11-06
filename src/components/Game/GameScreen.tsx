@@ -3,14 +3,19 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Anchor,
   Award,
+  Bot,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Cpu,
   Dices,
   Flame,
+  Layers,
   Lock,
   LogOut,
   Pause,
   Play,
+  Route,
   ScrollText,
   Settings,
   Sparkles,
@@ -95,6 +100,18 @@ export const GameScreen: React.FC = () => {
   const { phase, config, turn, board } = gameState;
   const isPausedByHost = Boolean(turn.isPausedByHost);
 
+  // Disable hex glow during all initial placement & order phases
+  const isInitialPlacementPhase =
+    phase === 'ORDER_ROLL' ||
+    phase === 'SETUP_SETTLEMENT_1' ||
+    phase === 'SETUP_ROAD_1' ||
+    phase === 'SETUP_SETTLEMENT_2' ||
+    phase === 'SETUP_ROAD_2';
+
+  const boardProducingHexIds = isInitialPlacementPhase
+    ? []
+    : gameState.lastEvent?.producingHexIds || [];
+
   const validSettlementIds = useMemo(() => {
     if (!isMyTurn || isPausedByHost) return [];
     if (phase === 'SETUP_SETTLEMENT_1' || phase === 'SETUP_SETTLEMENT_2') {
@@ -145,7 +162,11 @@ export const GameScreen: React.FC = () => {
   // Turn timer progress (freezes cleanly when paused by host)
   const remainingSec = useMemo(() => {
     if (!config.turnTimerSeconds) return null;
-    if (isPausedByHost && turn.pausedRemainingTimerMs !== null && turn.pausedRemainingTimerMs !== undefined) {
+    if (
+      isPausedByHost &&
+      turn.pausedRemainingTimerMs !== null &&
+      turn.pausedRemainingTimerMs !== undefined
+    ) {
       return Math.max(0, Math.ceil(turn.pausedRemainingTimerMs / 1000));
     }
     if (turn.turnDeadlineMs) {
@@ -194,49 +215,58 @@ export const GameScreen: React.FC = () => {
   const unplayedDevCount = me.devCards.filter((c) => !c.played).length;
   const isWaitingForMandatoryDice = phase === 'WAITING_FOR_DICE';
 
+  const botLiveNotice =
+    turn.botStatusMessage ||
+    (activePlayer?.isBot
+      ? `${activePlayer.name} está pensando...`
+      : null);
+
   const getPhaseInstruction = (): string => {
     if (isPausedByHost) {
-      return '⏸️ Juego Pausado por el Host. El temporizador y todas las acciones están congelados.';
+      return 'Juego Pausado por el Anfitrión. El temporizador y todas las acciones están congelados.';
     }
     if (phase === 'PAUSED_DISCONNECT') {
-      return '⏸️ Partida en pausa esperando reconexión de un jugador.';
+      return 'Partida en pausa esperando la reconexión de un jugador.';
     }
     if (phase === 'ORDER_ROLL') {
-      return '🎲 Fase de Orden de Turno: Lanzad los dados de iniciativa o confirmad el orden de salida.';
+      return 'Fase de Orden de Turno: Lanzad los dados de iniciativa o confirmad el orden de salida.';
     }
     if (!isMyTurn) {
-      if (phase === 'WAITING_FOR_DICE') {
-        return `🎲 Esperando a que ${activePlayer?.name || 'el jugador activo'} tire los dados...`;
+      if (botLiveNotice) {
+        return botLiveNotice;
       }
-      return `Turno de ${activePlayer?.name || 'otro jugador'}...`;
+      if (phase === 'WAITING_FOR_DICE') {
+        return `Esperando a que ${activePlayer?.name || 'el jugador activo'} lance los dados...`;
+      }
+      return `Turno en curso de ${activePlayer?.name || 'otro jugador'}...`;
     }
     switch (phase) {
       case 'SETUP_SETTLEMENT_1':
-        return '🏠 Fase Inicial (Ronda 1): Haz clic en un vértice iluminado para colocar tu 1º Poblado gratis.';
+        return 'Colocación Inicial (Ronda 1): Selecciona un vértice disponible para colocar tu 1.º Poblado gratis.';
       case 'SETUP_ROAD_1':
-        return '🛣️ Fase Inicial (Ronda 1): Haz clic en una arista iluminada para colocar tu 1ª Carretera gratis.';
+        return 'Colocación Inicial (Ronda 1): Selecciona una arista contigua para colocar tu 1.ª Carretera gratis.';
       case 'SETUP_SETTLEMENT_2':
-        return '🏠 Fase Inicial (Ronda 2 - Inversa): Coloca tu 2º Poblado (recibirás los recursos adyacentes).';
+        return 'Colocación Inicial (Ronda 2): Coloca tu 2.º Poblado (recibirás los recursos de los terrenos adyacentes).';
       case 'SETUP_ROAD_2':
-        return '🛣️ Fase Inicial (Ronda 2 - Inversa): Coloca tu 2ª Carretera adyacente.';
+        return 'Colocación Inicial (Ronda 2): Coloca tu 2.ª Carretera adyacente.';
       case 'WAITING_FOR_DICE':
-        return '🎲 ¡Fase Obligatoria de Dados! Debes tirar los dados en el centro de la pantalla antes de realizar cualquier acción.';
+        return 'Fase Obligatoria de Dados: Lanza los dados en el centro de la pantalla antes de realizar cualquier acción.';
       case 'ROBBER_DISCARD':
-        return '🗑️ Esperando a que los jugadores con >7 cartas descarten la mitad de su mano...';
+        return 'Esperando a que los jugadores con más de 7 cartas descarten la mitad de su mano...';
       case 'ROBBER_MOVE':
-        return '🦹 ¡Haz clic en cualquier hexágono terrestre para mover el Ladrón y bloquear su producción!';
+        return 'Selecciona cualquier hexágono terrestre (incluso el actual) para posicionar al Ladrón y robar 1 recurso.';
       case 'ROBBER_STEAL':
-        return '🦹 Elige a cuál de los jugadores adyacentes deseas robarle 1 carta al azar.';
+        return 'Elige a cuál de los jugadores adyacentes al hexágono deseas robarle 1 carta al azar.';
       case 'ROAD_BUILDING_DEV':
-        return `🛣️ Carta Construcción de Carreteras activa: Coloca ${turn.freeRoadsRemaining} carretera(s) gratis.`;
+        return `Construcción de Carreteras activa: Coloca ${turn.freeRoadsRemaining} carretera(s) sin coste.`;
       case 'MAIN_PHASE':
         if (buildMode === 'ROAD')
-          return '🛣️ Selecciona una arista iluminada en el mapa para colocar tu Carretera (o pulsa Cancelar Construcción).';
+          return 'Selecciona una arista iluminada en el mapa para construir tu Carretera.';
         if (buildMode === 'SETTLEMENT')
-          return '🏠 Selecciona un vértice iluminado conectado a tu carretera para colocar tu Poblado.';
+          return 'Selecciona un vértice iluminado conectado a tu carretera para construir tu Poblado.';
         if (buildMode === 'CITY')
-          return '🏰 Selecciona uno de tus Poblados iluminados para mejorarlo a Ciudad.';
-        return '⚡ Fase Principal: Abre Construir, Quema cartas en Banca/Puertos (4:1, 3:1, 2:1), usa Cartas de Desarrollo o pasa el turno.';
+          return 'Selecciona uno de tus Poblados iluminados para mejorarlo a Ciudad.';
+        return 'Fase Principal: Construye, comercia con la Banca/Puertos o con otros colonos, juega Desarrollo o pasa el turno.';
       default:
         return '';
     }
@@ -244,7 +274,7 @@ export const GameScreen: React.FC = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden">
-      {/* Overlay Animations for Giant Dice, Slow Resource Flights, Robber Victim Alert, Discards & Steals */}
+      {/* Overlay Animations for Slow Center Dice, Sequential Resource Flights, Critical Alerts, Discards & Steals */}
       <OverlayAnimations
         gameState={gameState}
         currentPlayerId={playerId}
@@ -254,7 +284,7 @@ export const GameScreen: React.FC = () => {
       {/* Disconnect Resolution Banner */}
       <DisconnectResolutionBanner gameState={gameState} dispatchAction={dispatchAction} />
 
-      {/* Top Header Bar (Dark Walnut & Brushed Gold Tabletop Header) */}
+      {/* Top Header Bar */}
       <header className="h-14 px-4 bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-b border-[#d4af37]/35 flex items-center justify-between gap-3 shrink-0 z-30 shadow-xl">
         <div className="flex items-center gap-3">
           <span className="font-display text-lg font-extrabold text-amber-400 tracking-wider drop-shadow">
@@ -269,9 +299,14 @@ export const GameScreen: React.FC = () => {
 
           {/* Active Custom House Rules Badges */}
           <div className="hidden 2xl:flex items-center gap-1.5">
+            {config.desertInCenter && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-[#d4af37]/40 text-amber-200 font-semibold">
+                Desierto Central
+              </span>
+            )}
             {config.minSettlementDistance === 1 && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-[#d4af37]/40 text-amber-200 font-semibold">
-                Casas: 1 arista
+                Distancia: 1 arista
               </span>
             )}
             {config.allowInstantDevCards && (
@@ -281,12 +316,12 @@ export const GameScreen: React.FC = () => {
             )}
             {config.turnActionRestriction === 'LEVEL_2_LIMITED' && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-[#d4af37]/40 text-amber-200 font-semibold">
-                Nivel 2: 1 Infra + 1 Quema/Comercio
+                Nivel 2: 1 Infra + 1 Comercio
               </span>
             )}
             {config.turnActionRestriction === 'LEVEL_3_STRICT' && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/50 text-red-200 font-semibold">
-                Nivel 3: Construir O Quemar/Comerciar
+                Nivel 3: Construir O Comerciar
               </span>
             )}
           </div>
@@ -305,7 +340,7 @@ export const GameScreen: React.FC = () => {
           {getPhaseInstruction()}
         </div>
 
-        {/* Right: Turn Timer, Host-Only Pause Button, Settings Button & Permanent Abandon Button */}
+        {/* Right: Turn Timer, Host-Only Pause Button, Settings Button & Abandon Button */}
         <div className="flex items-center gap-2">
           {remainingSec !== null && (
             <div className="flex items-center gap-2 bg-[#0d0906] px-3 py-1 rounded-xl border border-[#d4af37]/30">
@@ -343,7 +378,6 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* HOST-EXCLUSIVE PAUSE / RESUME BUTTON */}
           {me.isHost && (
             <button
               type="button"
@@ -369,7 +403,6 @@ export const GameScreen: React.FC = () => {
             </button>
           )}
 
-          {/* SETTINGS BUTTON (Low-End PC Mode Toggle) */}
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
@@ -384,6 +417,12 @@ export const GameScreen: React.FC = () => {
             <span className="hidden lg:inline">Ajustes</span>
           </button>
 
+          {isPausedByHost && (
+            <span className="text-white text-xs font-semibold tracking-wider px-2.5 py-1 rounded-xl bg-stone-900/90 border border-stone-600/70 shadow-sm animate-pulse">
+              JUEGO PAUSADO
+            </span>
+          )}
+
           <button
             type="button"
             onClick={() => setShowAbandonModal(true)}
@@ -395,13 +434,13 @@ export const GameScreen: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Middle Area: Left Player Boxes + Central Board + Compact Right Sidebar */}
+      {/* Main Middle Area: Left Player Boxes Dock + Central Board + Optimized Right Sidebar */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* NEW LEFT PANEL: Player Boxes Dock (Fuerte color de facción, avatar, nombre, estado) */}
+        {/* RESTORED LEFT PANEL: Player Boxes Dock */}
         <aside className="w-48 xl:w-56 bg-gradient-to-b from-[#19120c]/98 to-[#0d0906]/98 backdrop-blur-xl border-r-2 border-[#d4af37]/35 flex flex-col shrink-0 z-20 overflow-y-auto p-2.5 space-y-2.5 shadow-[10px_0_25px_rgba(0,0,0,0.65)] select-none">
           <div className="flex items-center justify-between px-1 text-[11px] font-black uppercase tracking-wider text-amber-300">
             <span>Jugadores ({gameState.players.length})</span>
-            <span className="text-[10px] text-amber-400/80 font-mono">{config.victoryPointsTarget} PV</span>
+            <span className="text-[10px] text-amber-400/80 font-mono">Meta {config.victoryPointsTarget} PV</span>
           </div>
 
           <div className="space-y-2">
@@ -434,7 +473,7 @@ export const GameScreen: React.FC = () => {
                   {/* Top: Avatar, Name & Turn Badge */}
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border-2 shrink-0 shadow-md relative"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border-2 shrink-0 shadow-md relative text-stone-950"
                       style={{
                         backgroundColor: colorCfg.primary,
                         borderColor: colorCfg.stroke,
@@ -458,15 +497,15 @@ export const GameScreen: React.FC = () => {
                       </div>
                       <div className="text-[10px] text-stone-400 flex items-center gap-1 mt-0.5">
                         {p.isBot ? (
-                          <span className="text-indigo-300 font-semibold text-[9px]">
-                            🤖 {p.botDifficulty === 'EASY' ? 'Fácil' : p.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'}
+                          <span className="text-indigo-300 font-semibold text-[9px] inline-flex items-center gap-0.5">
+                            <Bot className="w-2.5 h-2.5" /> IA ({p.botDifficulty === 'EASY' ? 'Fácil' : p.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})
                           </span>
                         ) : isTurn ? (
                           <span className="text-emerald-300 font-extrabold text-[9px] animate-pulse">
                             ● En Turno
                           </span>
                         ) : (
-                          <span className="text-[9px]">🟢 En línea</span>
+                          <span className="text-[9px] text-emerald-400">● En línea</span>
                         )}
                       </div>
                     </div>
@@ -474,17 +513,35 @@ export const GameScreen: React.FC = () => {
 
                   {/* Minimalist Stats Counters */}
                   <div className="mt-2 pt-1.5 border-t border-stone-800/80 grid grid-cols-3 gap-1 text-center">
-                    <div className="bg-[#090604] py-1 px-0.5 rounded-lg border border-stone-800" title="Puntos de Victoria">
+                    <div
+                      className="bg-[#090604] py-1 px-0.5 rounded-lg border border-stone-800"
+                      title={
+                        p.id === playerId
+                          ? `Tus Puntos de Victoria Totales: ${p.totalVictoryPoints} (${p.publicVictoryPoints} públicos${
+                              p.totalVictoryPoints > p.publicVictoryPoints
+                                ? ` + ${p.totalVictoryPoints - p.publicVictoryPoints} de Cartas de Desarrollo`
+                                : ''
+                            })`
+                          : `Puntos de Victoria Públicos: ${p.publicVictoryPoints}`
+                      }
+                    >
                       <div className="text-[9px] text-amber-400 font-bold">PV</div>
-                      <div className="text-xs font-black text-amber-200">{p.publicVictoryPoints}</div>
+                      <div className="text-xs font-black text-amber-200">
+                        {p.id === playerId ? p.totalVictoryPoints : p.publicVictoryPoints}
+                        {p.id === playerId && p.totalVictoryPoints > p.publicVictoryPoints && (
+                          <span className="text-[8px] text-emerald-300 ml-0.5" title="Incluye Cartas de Desarrollo">
+                            ★
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="bg-[#090604] py-1 px-0.5 rounded-lg border border-stone-800" title="Cartas de Recurso en Mano">
                       <div className="text-[9px] text-stone-400">Mano</div>
-                      <div className="text-xs font-black text-white">🎴{totalRes}</div>
+                      <div className="text-xs font-black text-white">{totalRes}</div>
                     </div>
                     <div className="bg-[#090604] py-1 px-0.5 rounded-lg border border-stone-800" title="Cartas de Desarrollo">
                       <div className="text-[9px] text-purple-300">Des.</div>
-                      <div className="text-xs font-black text-purple-200">🃏{unplayedDevs}</div>
+                      <div className="text-xs font-black text-purple-200">{unplayedDevs}</div>
                     </div>
                   </div>
                 </div>
@@ -502,8 +559,9 @@ export const GameScreen: React.FC = () => {
             validCityIds={validCityIds}
             validRoadIds={validRoadIds}
             isMovingRobber={isMovingRobber}
-            producingHexIds={gameState.lastEvent?.producingHexIds || []}
+            producingHexIds={boardProducingHexIds}
             lowEndPcMode={lowEndPcMode}
+            lastEvent={gameState.lastEvent}
             onVertexClick={(vertexId) => {
               if (isPausedByHost) return;
               if (validCityIds.includes(vertexId)) {
@@ -529,6 +587,22 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
+          {/* Bot Activity / Thinking Status Floating Pill */}
+          <AnimatePresence>
+            {botLiveNotice && !isPausedByHost && (
+              <motion.div
+                key={botLiveNotice}
+                initial={{ opacity: 0, y: -14, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#19120c]/95 border border-amber-400/50 text-amber-100 text-xs font-extrabold shadow-[0_12px_30px_rgba(0,0,0,0.85)]"
+              >
+                <Bot className="w-4 h-4 text-amber-400 animate-pulse shrink-0" />
+                <span>{botLiveNotice}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* CENTRAL MANDATORY DICE ROLL PROMPT (WAITING_FOR_DICE) */}
           <AnimatePresence>
             {phase === 'WAITING_FOR_DICE' && isMyTurn && !isPausedByHost && (
@@ -547,11 +621,11 @@ export const GameScreen: React.FC = () => {
                   className="max-w-md w-full rounded-3xl bg-gradient-to-b from-[#261b12]/95 via-[#18100a]/95 to-[#0f0a06]/98 border-2 border-[#d4af37] p-7 text-center shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5"
                 >
                   <div className="flex items-center justify-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-50 via-amber-100 to-amber-300 border-2 border-amber-500 shadow-[0_10px_25px_rgba(0,0,0,0.8)] flex items-center justify-center text-stone-950 font-black text-3xl">
-                      🎲
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-50 via-amber-100 to-amber-300 border-2 border-amber-500 shadow-[0_10px_25px_rgba(0,0,0,0.8)] flex items-center justify-center text-stone-950">
+                      <Dices className="w-9 h-9 stroke-[2.2]" />
                     </div>
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-50 via-amber-100 to-amber-300 border-2 border-amber-500 shadow-[0_10px_25px_rgba(0,0,0,0.8)] flex items-center justify-center text-stone-950 font-black text-3xl">
-                      🎲
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-50 via-amber-100 to-amber-300 border-2 border-amber-500 shadow-[0_10px_25px_rgba(0,0,0,0.8)] flex items-center justify-center text-stone-950">
+                      <Dices className="w-9 h-9 stroke-[2.2]" />
                     </div>
                   </div>
 
@@ -560,23 +634,23 @@ export const GameScreen: React.FC = () => {
                       Turno #{turn.turnNumber} • Fase Obligatoria
                     </span>
                     <h2 className="font-display text-2xl font-black text-amber-100">
-                      ¡Es tu Turno, {me.name}!
+                      Es tu Turno, {me.name}
                     </h2>
                     <p className="text-xs text-stone-300 leading-relaxed">
-                      Debes lanzar los dados primero para producir recursos en la isla antes de
-                      construir, quemar cartas o comerciar.
+                      Lanza los dados primero para producir recursos en la isla antes de
+                      construir, comerciar o jugar cartas de desarrollo.
                     </p>
                   </div>
 
                   <motion.button
                     type="button"
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => dispatchAction({ type: 'ROLL_DICE' })}
                     className="w-full py-4 px-6 rounded-2xl bg-gradient-to-b from-amber-400 via-amber-500 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 border-2 border-amber-200 text-stone-950 font-display font-black text-lg tracking-wider uppercase flex items-center justify-center gap-3 shadow-[0_10px_35px_rgba(245,158,11,0.55)] cursor-pointer"
                   >
                     <Dices className="w-6 h-6 stroke-[2.5]" />
-                    <span>¡TIRAR DADOS!</span>
+                    <span>Lanzar Dados</span>
                   </motion.button>
                 </motion.div>
               </motion.div>
@@ -594,26 +668,70 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
-          {/* Floating Dice Roll Result Badge on Top-Right of Board */}
-          {turn.diceRoll && (
-            <div className="absolute top-3 right-3 z-20 flex items-center gap-2 bg-[#16110d]/95 backdrop-blur-xl border border-[#d4af37]/45 px-3.5 py-2 rounded-2xl shadow-2xl">
-              <Dices className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-stone-300">Dados:</span>
-              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-black text-sm">
-                {turn.diceRoll[0]} + {turn.diceRoll[1]} = {turn.diceRoll[0] + turn.diceRoll[1]}
-              </span>
+          {/* Top-Right Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck */}
+          <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none">
+            {turn.diceRoll && (
+              <div className="flex items-center gap-2 bg-[#16110d]/95 backdrop-blur-xl border border-[#d4af37]/45 px-3.5 py-2 rounded-2xl shadow-2xl pointer-events-auto">
+                <Dices className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-stone-300">Dados:</span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-black text-sm">
+                  {turn.diceRoll[0]} + {turn.diceRoll[1]} = {turn.diceRoll[0] + turn.diceRoll[1]}
+                </span>
+              </div>
+            )}
+
+            {/* Physical Development Card Deck on the Tabletop */}
+            <div
+              id="tabletop-devcard-deck"
+              className="pointer-events-auto relative group flex flex-col items-center select-none cursor-pointer"
+              title={`Mazo de Desarrollo: ${gameState.devDeck?.length ?? 0} cartas restantes`}
+              onClick={() => {
+                if (devBuyPermission.allowed && !isPausedByHost) {
+                  dispatchAction({ type: 'BUY_DEV_CARD' });
+                }
+              }}
+            >
+              {/* Stack depth illusion layers */}
+              {(gameState.devDeck?.length ?? 0) > 2 && (
+                <div className="absolute top-1.5 -left-1.5 w-16 h-24 rounded-xl bg-amber-950/70 border border-amber-600/30 -rotate-3 -z-10 shadow-md" />
+              )}
+              {(gameState.devDeck?.length ?? 0) > 1 && (
+                <div className="absolute top-0.5 -left-0.5 w-16 h-24 rounded-xl bg-amber-900/80 border border-amber-600/40 -rotate-1 -z-10 shadow-md" />
+              )}
+
+              {/* Top card of the deck with original reverse illustration */}
+              <div className="relative w-16 h-24 rounded-xl overflow-hidden border-2 border-[#d4af37]/75 bg-[#16110d] shadow-[0_8px_25px_rgba(0,0,0,0.85)] group-hover:border-amber-300 group-hover:scale-105 transition-all">
+                <img
+                  src="/assets/cards/devcard_back.png"
+                  alt="Mazo de Desarrollo"
+                  className="w-full h-full object-cover select-none"
+                  draggable={false}
+                />
+                {/* Subtle sheen highlight */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-amber-200/20 pointer-events-none" />
+
+                {/* Count badge */}
+                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/85 backdrop-blur-md border border-[#d4af37]/60 text-[10px] font-black text-amber-300 tracking-tighter">
+                  {gameState.devDeck?.length ?? 0}
+                </div>
+              </div>
+
+              <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/75 border border-amber-500/30 text-[9px] font-bold text-amber-200/90 shadow-sm">
+                <span>Mazo</span>
+                <span className="text-amber-400">({gameState.devDeck?.length ?? 0})</span>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Right Sidebar: Compact Player Summary Cards + Bank + Collapsible Chronicle */}
-        <aside className="w-[280px] xl:w-[325px] bg-gradient-to-b from-[#19120c]/98 to-[#0d0906]/98 backdrop-blur-xl border-l-2 border-[#d4af37]/35 flex flex-col shrink-0 z-20 overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.8)]">
-          {/* 1. Compact Player Summary Cards */}
-          <div className="p-2.5 space-y-2 border-b-2 border-[#d4af37]/30 overflow-y-auto max-h-[58%]">
-            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-300 px-0.5">
-              <span>Detalles Colonos</span>
-              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 text-[10px]">
-                {config.victoryPointsTarget} PV
+        {/* Right Sidebar: Compact Player Casilleros + Coupled (Bank Resources + Island Chronicles) */}
+        <aside className="w-[276px] xl:w-[312px] bg-gradient-to-b from-[#19120c]/98 to-[#0d0906]/98 backdrop-blur-xl border-l-2 border-[#d4af37]/35 flex flex-col shrink-0 z-20 overflow-hidden shadow-[-10px_0_30px_rgba(0,0,0,0.8)]">
+          {/* 1. Compact Player & Opponent List (fits 4-6 players comfortably) */}
+          <div className="flex-1 min-h-0 p-2 space-y-1.5 overflow-y-auto">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-300 px-1 pb-0.5">
+              <span>Colonos ({gameState.players.length})</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 text-[9px]">
+                Meta {config.victoryPointsTarget} PV
               </span>
             </div>
 
@@ -629,75 +747,87 @@ export const GameScreen: React.FC = () => {
             ))}
           </div>
 
-          {/* 2. Bank Reserves & Dev Deck */}
-          <div className="p-2.5 border-b-2 border-[#d4af37]/30 bg-[#140e09]/95">
-            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-200 mb-1.5 px-0.5">
-              <span>Banca</span>
-              <span className="px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-200 text-[10px]">
-                Dev: {gameState.devDeck.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-5 gap-1">
-              {ALL_RESOURCES.map((r) => (
-                <div
-                  key={r}
-                  className="flex flex-col items-center justify-center py-1 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
-                  title={`Banca - ${RESOURCE_META[r].name}: ${gameState.bank[r]}`}
-                >
-                  <div className="flex items-center gap-0.5">
-                    <ResourceIcon resource={r} size={15} />
-                    <span className="font-mono text-xs font-black text-amber-100">
-                      {gameState.bank[r]}
+          {/* 2 & 3. Coupled Bottom Stack: Bank Resources IMMEDIATELY above Island Chronicles */}
+          <motion.div
+            layout
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+            className="mt-auto shrink-0 flex flex-col bg-[#140e09]/98 border-t-2 border-[#d4af37]/35 shadow-[0_-10px_25px_rgba(0,0,0,0.75)]"
+          >
+            {/* Recursos de la Banca (Immediately above Crónicas de la Isla) */}
+            <motion.div layout="position" className="p-2 border-b border-[#d4af37]/25">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-200 mb-1.5 px-0.5">
+                <span>Recursos de la Banca</span>
+                <span className="px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-500/30 text-purple-200 text-[9px]">
+                  Desarrollo: {gameState.devDeck.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1">
+                {ALL_RESOURCES.map((r) => (
+                  <div
+                    key={r}
+                    className="flex flex-col items-center justify-center py-1 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
+                    title={`Banca - ${RESOURCE_META[r].name}: ${gameState.bank[r]}`}
+                  >
+                    <div className="flex items-center gap-0.5">
+                      <ResourceIcon resource={r} size={14} />
+                      <span className="font-mono text-[11px] font-black text-amber-100">
+                        {gameState.bank[r]}
+                      </span>
+                    </div>
+                    <span className="text-[8px] font-semibold text-stone-400 mt-0.5 truncate max-w-full">
+                      {RESOURCE_META[r].name}
                     </span>
                   </div>
-                  <span className="text-[9px] font-semibold text-stone-400 mt-0.5 truncate max-w-full">
-                    {RESOURCE_META[r].name.slice(0, 4)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </motion.div>
 
-          {/* 3. Collapsible Chronicle Popover / Accordion Button */}
-          <div className="p-2 border-t border-[#d4af37]/25 bg-[#120d09] mt-auto">
-            <button
-              type="button"
-              onClick={() => setShowChronicle((prev) => !prev)}
-              className="w-full py-2 px-3 rounded-xl bg-[#1d140e] hover:bg-[#281c13] border border-[#d4af37]/40 text-amber-200 text-xs font-black flex items-center justify-between transition cursor-pointer shadow"
-            >
-              <span className="flex items-center gap-1.5">
-                <ScrollText className="w-3.5 h-3.5 text-amber-400" />
-                <span>Crónicas de la Isla</span>
-              </span>
-              <span className="text-[11px] font-mono text-amber-400">
-                {showChronicle ? '▲ Cerrar' : `▼ Ver (${gameState.logs.length})`}
-              </span>
-            </button>
-          </div>
-
-          {/* Collapsible Chronicle Drawer */}
-          <AnimatePresence>
-            {showChronicle && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 210, opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden bg-[#0c0806] border-t border-[#d4af37]/30 flex flex-col p-2.5"
+            {/* Menú de las Crónicas de la Isla */}
+            <motion.div layout="position" className="p-2 bg-[#120d09]">
+              <button
+                type="button"
+                onClick={() => setShowChronicle((prev) => !prev)}
+                className="w-full py-2 px-3 rounded-xl bg-[#1d140e] hover:bg-[#281c13] border border-[#d4af37]/40 text-amber-200 text-xs font-black flex items-center justify-between transition cursor-pointer shadow"
               >
-                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs">
-                  {gameState.logs.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="text-[11px] px-2.5 py-1.5 rounded-lg bg-[#140e0a] border border-stone-800 text-stone-300 leading-snug"
-                    >
-                      {entry.message}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <span className="flex items-center gap-1.5">
+                  <ScrollText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Crónicas de la Isla</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-400">
+                  <span>{showChronicle ? 'Cerrar' : `Ver (${gameState.logs.length})`}</span>
+                  {showChronicle ? (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  )}
+                </span>
+              </button>
+            </motion.div>
+
+            {/* Desplegable de Crónicas (empuja suavemente ambos bloques hacia arriba al abrirse) */}
+            <AnimatePresence initial={false}>
+              {showChronicle && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 190, opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden bg-[#0c0806] border-t border-[#d4af37]/30 flex flex-col px-2.5 py-2"
+                >
+                  <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs">
+                    {gameState.logs.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-[#140e0a] border border-stone-800 text-stone-300 leading-snug"
+                      >
+                        {entry.message}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </aside>
       </div>
 
@@ -738,7 +868,7 @@ export const GameScreen: React.FC = () => {
           />
         </div>
 
-        {/* RIGHT: Quemar Cartas (Banca/Puertos) & Comerciar, Cartas de Desarrollo, Pasar Turno */}
+        {/* RIGHT: Comerciar, Cartas de Desarrollo, Pasar Turno */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
@@ -755,14 +885,14 @@ export const GameScreen: React.FC = () => {
             title={
               !tradePermission.allowed
                 ? tradePermission.reason
-                : 'Quemar cartas con la Banca (4:1 o Puertos 3:1 / 2:1) o comerciar con jugadores'
+                : 'Comerciar con la Banca (4:1 o Puertos 3:1 / 2:1) o con otros jugadores'
             }
           >
             {isMyTurn && !tradePermission.allowed && !isWaitingForMandatoryDice && (
               <Lock className="w-3.5 h-3.5 text-red-950" />
             )}
             {hasAnyPort ? <Anchor className="w-4 h-4" /> : <Flame className="w-4 h-4" />}
-            <span>Quemar Cartas / Comerciar</span>
+            <span>Banca y Comercio</span>
             {gameState.activeTradeOffers.length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[10px] font-black animate-bounce">
                 {gameState.activeTradeOffers.length}
@@ -797,62 +927,6 @@ export const GameScreen: React.FC = () => {
         </div>
       </footer>
 
-      {/* GLOBAL HOST PAUSE MODAL ("Juego Pausado por el Host") */}
-      <AnimatePresence>
-        {isPausedByHost && (
-          <motion.div
-            key="modal-host-pause"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 15 }}
-              className="max-w-md w-full rounded-3xl bg-gradient-to-b from-[#241911] via-[#160f0a] to-[#0c0805] border-2 border-[#d4af37] p-8 text-center shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5"
-            >
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/20 border-2 border-[#d4af37] flex items-center justify-center text-amber-300 shadow-lg">
-                <Pause className="w-8 h-8" />
-              </div>
-
-              <div className="space-y-2">
-                <h2 className="font-display text-2xl sm:text-3xl font-black text-amber-100">
-                  Juego Pausado por el Host
-                </h2>
-                <p className="text-sm text-stone-300 leading-relaxed">
-                  El anfitrión ha pausado temporalmente la partida. El temporizador del turno está
-                  congelado y ninguna acción puede ejecutarse hasta que se reanude.
-                </p>
-              </div>
-
-              {remainingSec !== null && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0d0906] border border-[#d4af37]/40 text-xs font-bold text-amber-200">
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  <span>Tiempo restante congelado: {remainingSec}s</span>
-                </div>
-              )}
-
-              {me.isHost ? (
-                <button
-                  type="button"
-                  onClick={() => dispatchAction({ type: 'TOGGLE_HOST_PAUSE' })}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Reanudar Partida</span>
-                </button>
-              ) : (
-                <div className="text-xs font-semibold text-amber-300/80 italic">
-                  Esperando a que el anfitrión reanude la sesión...
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* SETTINGS MODAL (Low-End PC Mode Toggle) */}
       <AnimatePresence>
         {showSettingsModal && (
@@ -881,11 +955,10 @@ export const GameScreen: React.FC = () => {
                   onClick={() => setShowSettingsModal(false)}
                   className="text-xs font-bold text-stone-400 hover:text-amber-200 px-2 py-1 rounded-lg bg-stone-900"
                 >
-                  Cerrar ✕
+                  Cerrar
                 </button>
               </div>
 
-              {/* Low-End PC Mode Switch */}
               <div className="p-4 rounded-2xl bg-[#0d0906] border border-[#d4af37]/35 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
@@ -919,7 +992,7 @@ export const GameScreen: React.FC = () => {
 
                 <ul className="text-xs text-stone-300 space-y-1.5 pl-4 list-disc border-t border-stone-800 pt-2.5">
                   <li>
-                    Desactiva partículas, filtros pesados y efectos de iluminación complejos de Framer Motion.
+                    Desactiva filtros pesados y efectos de iluminación complejos.
                   </li>
                   <li>
                     <strong>Bloqueo del Pan (Arrastre del Mapa):</strong> El tablero permanece fijo y centrado en <code>(0, 0)</code>; solo podrás acercar o alejar la vista mediante los botones de <em>Zoom In</em> y <em>Zoom Out</em>.
@@ -1023,9 +1096,8 @@ interface PlayerSummaryCardProps {
 }
 
 /**
- * High-contrast, compact Player Summary Card (`PlayerCard` / `OpponentSummary`)
- * for the Right Sidebar. Displays Victory Points, Hand Cards, Development Cards,
- * Longest Road, Largest Army, and official Resource Icons (Madera, Arcilla, Oveja, Trigo, Piedra).
+ * Compact, high-density Player Casillero (`#player-casillero-${player.id}`) for the Right Sidebar.
+ * Optimized to fit up to 6 players comfortably while serving as the exact target for sequential resource flights.
  */
 const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   player,
@@ -1043,17 +1115,18 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
 
   return (
     <div
-      className={`p-2.5 rounded-xl border-2 transition ${
+      id={`player-casillero-${player.id}`}
+      className={`p-2 rounded-xl border transition-all duration-200 ${
         isActiveTurn
-          ? 'bg-gradient-to-b from-[#2a1c11] to-[#18100a] border-[#fbbf24] shadow-[0_6px_20px_rgba(251,191,36,0.2)]'
-          : 'bg-[#120d09] border-stone-800'
+          ? 'bg-gradient-to-b from-[#2a1c11] to-[#18100a] border-[#fbbf24] shadow-[0_4px_14px_rgba(251,191,36,0.22)]'
+          : 'bg-[#120d09] border-stone-800/90'
       }`}
     >
-      {/* Top Row: Player Avatar, Name, Status & High-Contrast Victory Points Badge */}
+      {/* Top Row: Player Emblem, Name, Status & Victory Points Badge */}
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-base border-2 shrink-0 shadow-sm"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-display font-black border shrink-0 shadow-sm text-stone-950"
             style={{
               backgroundColor: colorCfg.primary,
               borderColor: colorCfg.stroke,
@@ -1062,132 +1135,122 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
             {player.avatar}
           </span>
           <div className="min-w-0">
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs sm:text-sm font-black text-white truncate max-w-[110px]">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-black text-white truncate max-w-[115px]">
                 {player.name}
               </span>
               {isLocalPlayer && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
+                <span className="text-[8px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
                   Tú
                 </span>
               )}
+              {isActiveTurn && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              )}
             </div>
-            <div className="text-[10px] font-semibold text-stone-400 mt-0.5 truncate">
+            <div className="text-[9px] font-semibold text-stone-400 truncate">
               {player.isBot
-                ? `🤖 ${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'}`
+                ? `IA (${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})`
                 : player.status === 'FROZEN_SKIP'
-                ? '❄️ Omitido'
+                ? 'Turno omitido'
                 : !player.connected
-                ? '⚠️ Desconectado'
-                : '🟢 En línea'}
+                ? 'Desconectado'
+                : isActiveTurn
+                ? 'En turno'
+                : 'En línea'}
             </div>
           </div>
         </div>
 
         {/* High-Contrast Victory Points Pill */}
-        <div className="flex flex-col items-end shrink-0 bg-[#090604] px-2 py-1 rounded-lg border border-[#d4af37]/50 shadow-inner">
-          <div className="font-display text-xs sm:text-sm font-black text-amber-300 leading-none">
+        <div className="flex items-center gap-1 shrink-0 bg-[#090604] px-2 py-0.5 rounded-lg border border-[#d4af37]/50 shadow-inner">
+          <span className="font-display text-xs font-black text-amber-300 leading-none">
             {player.publicVictoryPoints} PV
-          </div>
+          </span>
           {isLocalPlayer && player.totalVictoryPoints > player.publicVictoryPoints && (
-            <div className="text-[9px] font-extrabold text-emerald-300 mt-0.5">
+            <span className="text-[9px] font-extrabold text-emerald-300">
               ({player.totalVictoryPoints})
-            </div>
+            </span>
           )}
         </div>
       </div>
 
-      {/* Middle Row: 4 High-Contrast Stat Tiles (Cartas en Mano, Desarrollo, Carretera, Ejército) */}
-      <div className="mt-2 pt-1.5 border-t border-stone-800 grid grid-cols-4 gap-1 text-center">
+      {/* Compact Stat Strip (Mano, Desarrollo, Ruta, Ejército) */}
+      <div className="mt-1.5 pt-1 border-t border-stone-800/80 grid grid-cols-4 gap-1 text-center">
         <div
-          className="bg-[#090604] border border-stone-800/80 rounded-lg py-1 px-0.5"
+          className="bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
           title="Cartas de Recurso en Mano"
         >
-          <div className="text-[9px] font-bold uppercase text-stone-400">Mano</div>
-          <div className="text-xs sm:text-sm font-black text-white mt-0.5">
-            🎴{totalRes}
-          </div>
+          <span className="text-[8px] font-bold uppercase text-stone-400">Mano</span>
+          <span className="text-[11px] font-black text-white">{totalRes}</span>
         </div>
 
         <div
-          className="bg-[#090604] border border-stone-800/80 rounded-lg py-1 px-0.5"
+          className="bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
           title="Cartas de Desarrollo sin jugar"
         >
-          <div className="text-[9px] font-bold uppercase text-stone-400">Des.</div>
-          <div className="text-xs sm:text-sm font-black text-purple-300 mt-0.5">
-            🃏{unplayedDevs}
-          </div>
+          <Layers className="w-2.5 h-2.5 text-purple-300 shrink-0" />
+          <span className="text-[11px] font-black text-purple-300">{unplayedDevs}</span>
         </div>
 
         <div
-          className={`rounded-lg py-1 px-0.5 border ${
+          className={`rounded-md py-0.5 px-1 border flex items-center justify-between ${
             hasLongestRoad
               ? 'bg-amber-950/60 border-amber-400'
               : 'bg-[#090604] border-stone-800/80'
           }`}
-          title="Carretera más larga"
+          title="Longitud de Carretera"
         >
-          <div className="text-[9px] font-bold uppercase text-stone-400">Ruta</div>
-          <div className="text-xs sm:text-sm font-black text-amber-300 mt-0.5">
-            🛣️{player.longestRoadLength}
-          </div>
+          <Route className="w-2.5 h-2.5 text-amber-300 shrink-0" />
+          <span className="text-[11px] font-black text-amber-300">
+            {player.longestRoadLength}
+          </span>
         </div>
 
         <div
-          className={`rounded-lg py-1 px-0.5 border ${
+          className={`rounded-md py-0.5 px-1 border flex items-center justify-between ${
             hasLargestArmy
               ? 'bg-red-950/60 border-red-400'
               : 'bg-[#090604] border-stone-800/80'
           }`}
-          title="Ejército (Caballeros jugados)"
+          title="Caballeros jugados"
         >
-          <div className="text-[9px] font-bold uppercase text-stone-400">Ejér.</div>
-          <div className="text-xs sm:text-sm font-black text-red-300 mt-0.5">
-            ⚔️{player.knightsPlayed}
-          </div>
+          <Swords className="w-2.5 h-2.5 text-red-300 shrink-0" />
+          <span className="text-[11px] font-black text-red-300">
+            {player.knightsPlayed}
+          </span>
         </div>
       </div>
 
-      {/* Resource Breakdown with Official Resource Icons (Madera, Arcilla, Oveja, Trigo, Piedra) */}
-      <div className="mt-1.5 pt-1 border-t border-stone-800/70">
-        {isLocalPlayer ? (
-          <div className="grid grid-cols-5 gap-1">
-            {ALL_RESOURCES.map((res) => (
-              <div
-                key={res}
-                className="flex items-center justify-center gap-1 py-0.5 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
-                title={`${RESOURCE_META[res].name}: ${player.resources[res]}`}
-              >
-                <ResourceIcon resource={res} size={13} />
-                <span className="font-mono text-xs font-black text-white">
-                  {player.resources[res]}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-[#090604] border border-stone-800 text-[11px]">
-            <span className="font-bold text-stone-400">Mano:</span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-xs font-black text-amber-300">
-                {totalRes} {totalRes === 1 ? 'carta' : 'cartas'}
+      {/* Resource Breakdown for Local Player */}
+      {isLocalPlayer && (
+        <div className="mt-1 pt-1 border-t border-stone-800/70 grid grid-cols-5 gap-1">
+          {ALL_RESOURCES.map((res) => (
+            <div
+              key={res}
+              className="flex items-center justify-center gap-0.5 py-0.5 px-0.5 rounded bg-[#090604] border border-stone-800"
+              title={`${RESOURCE_META[res].name}: ${player.resources[res]}`}
+            >
+              <ResourceIcon resource={res} size={11} />
+              <span className="font-mono text-[10px] font-black text-white">
+                {player.resources[res]}
               </span>
             </div>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Special Achievement Badges (Gran Ruta Comercial & Gran Ejército) */}
+      {/* Special Achievement Badges */}
       {(hasLongestRoad || hasLargestArmy) && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1 flex flex-wrap gap-1">
           {hasLongestRoad && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 text-[9px] font-black">
-              <Award className="w-3 h-3 text-amber-300" /> Gran Ruta (+2 PV)
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 text-[8px] font-black">
+              <Award className="w-2.5 h-2.5 text-amber-300" /> Gran Ruta (+2 PV)
             </span>
           )}
           {hasLargestArmy && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/20 border border-red-400/60 text-red-200 text-[9px] font-black">
-              <Swords className="w-3 h-3 text-red-300" /> Gran Ejército (+2 PV)
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-500/20 border border-red-400/60 text-red-200 text-[8px] font-black">
+              <Swords className="w-2.5 h-2.5 text-red-300" /> Gran Ejército (+2 PV)
             </span>
           )}
         </div>

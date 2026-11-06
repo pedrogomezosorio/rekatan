@@ -178,7 +178,7 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   <div className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 py-0.5 px-1 rounded bg-stone-950/90 border border-amber-400/60 text-[9px] font-black text-amber-200 shadow-lg">
                     <span className="truncate">{meta.name}</span>
                     {portRatio < 4 && (
-                      <span className="text-emerald-300 shrink-0">⚓{portRatio}:1</span>
+                      <span className="text-emerald-300 shrink-0">Puerto {portRatio}:1</span>
                     )}
                   </div>
                 )}
