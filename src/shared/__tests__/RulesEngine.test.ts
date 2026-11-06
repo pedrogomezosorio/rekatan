@@ -503,5 +503,67 @@ describe('Official Rules & House Rules Engine', () => {
     expect(botStep1).not.toBeNull();
     expect(botStep1.activeTradeOffers.length).toBeGreaterThan(0);
     expect(botStep1.turn.botStatusMessage).toContain('propone un trato comercial');
+
+    const offerId = botStep1.activeTradeOffers[0].id;
+
+    // Test rejection by all potential trading partners automatically cancels the offer!
+    const rejectRes = applyGameAction(botStep1, 'P1', {
+      type: 'RESPOND_TRADE_OFFER',
+      offerId,
+      response: 'REJECT',
+    });
+    expect(rejectRes.error).toBeUndefined();
+    // Since P1 was the only other player, all players rejected -> offer should be automatically deleted!
+    expect(rejectRes.state.activeTradeOffers.length).toBe(0);
+  });
+
+  it('manages disconnected player pause and automatic recovery without stuck notifications', () => {
+    const state = createInitialGameState('RECON', {
+      id: 'P1',
+      name: 'Player 1',
+      color: 'RED',
+      avatar: 'I',
+    });
+    state.players.push({
+      id: 'P2',
+      name: 'Player 2',
+      color: 'BLUE',
+      avatar: 'II',
+      isHost: false,
+      isBot: false,
+      connected: true,
+      resources: { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 0 },
+      devCards: [],
+      knightsPlayed: 0,
+      longestRoadLength: 0,
+      longestRoadEdgeIds: [],
+      settlementsLeft: 5,
+      citiesLeft: 4,
+      roadsLeft: 15,
+      publicVictoryPoints: 0,
+      totalVictoryPoints: 0,
+      status: 'ACTIVE',
+      mustDiscardCount: 0,
+    });
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.turnNumber = 3;
+    state.turn.activePlayerId = 'P2';
+
+    // Simulate P2 disconnecting and Host choosing WAIT_PAUSE
+    const pauseRes = applyGameAction(state, 'P1', {
+      type: 'HANDLE_DISCONNECTED_PLAYER',
+      targetPlayerId: 'P2',
+      resolution: 'WAIT_PAUSE',
+    });
+    expect(pauseRes.state.phase).toBe('PAUSED_DISCONNECT');
+    expect(pauseRes.state.turn.phaseBeforePause).toBe('MAIN_PHASE');
+
+    // Simulate resume
+    const resumeRes = applyGameAction(pauseRes.state, 'P1', {
+      type: 'RESUME_GAME',
+    });
+    expect(resumeRes.state.phase).toBe('MAIN_PHASE');
+    expect(resumeRes.state.turn.phaseBeforePause).toBeUndefined();
   });
 });

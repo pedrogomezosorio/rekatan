@@ -2193,6 +2193,28 @@ export function applyGameAction(
 
       if (action.response === 'REJECT') {
         offer.responses[playerId] = 'REJECTED';
+
+        // Check if all potential trading partners have rejected the offer
+        const targetIds = offer.targetPlayerId
+          ? [offer.targetPlayerId]
+          : state.players
+              .filter((p) => p.id !== offer.fromPlayerId && (p.connected || p.isBot))
+              .map((p) => p.id);
+
+        const allRejected =
+          targetIds.length > 0 &&
+          targetIds.every((id) => offer.responses[id] === 'REJECTED');
+
+        if (allRejected) {
+          // If everyone has rejected, automatically cancel the offer right at that moment!
+          state.activeTradeOffers = state.activeTradeOffers.filter((o) => o.id !== offer.id);
+          const creator = state.players.find((p) => p.id === offer.fromPlayerId);
+          addLog(
+            state,
+            `La oferta comercial de ${creator?.name || 'un jugador'} ha sido rechazada por todos los jugadores y se cancela automáticamente.`,
+            'SYSTEM'
+          );
+        }
         return { state };
       }
 
@@ -2260,8 +2282,8 @@ export function applyGameAction(
         );
       } else if (action.resolution === 'FREEZE_SKIP') {
         target.status = 'FROZEN_SKIP';
-        if (state.phase === 'PAUSED_DISCONNECT' && state.turn.phaseBeforePause) {
-          state.phase = state.turn.phaseBeforePause;
+        if (state.phase === 'PAUSED_DISCONNECT') {
+          state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
           state.turn.phaseBeforePause = undefined;
           state.turn.pausedForPlayerId = null;
         }
@@ -2283,8 +2305,8 @@ export function applyGameAction(
       } else if (action.resolution === 'CONVERT_TO_BOT') {
         target.isBot = true;
         target.status = 'ACTIVE';
-        if (state.phase === 'PAUSED_DISCONNECT' && state.turn.phaseBeforePause) {
-          state.phase = state.turn.phaseBeforePause;
+        if (state.phase === 'PAUSED_DISCONNECT') {
+          state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
           state.turn.phaseBeforePause = undefined;
           state.turn.pausedForPlayerId = null;
         }
@@ -2299,8 +2321,8 @@ export function applyGameAction(
     }
 
     case 'RESUME_GAME': {
-      if (state.phase === 'PAUSED_DISCONNECT' && state.turn.phaseBeforePause) {
-        state.phase = state.turn.phaseBeforePause;
+      if (state.phase === 'PAUSED_DISCONNECT') {
+        state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
         state.turn.phaseBeforePause = undefined;
         state.turn.pausedForPlayerId = null;
         refreshTurnDeadline(state);

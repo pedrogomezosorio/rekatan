@@ -14,8 +14,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 | :--- | :--- | :--- | :--- |
 | **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 1.0.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.1.0.0.exe) |
 | **Windows** | Ejecutable Portable | `Catan Tabletop 1.0.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.1.0.0.exe) |
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | `Catan Tabletop-1.0.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-1.0.0-arm64.dmg) |
-| **macOS** | Archivo comprimido `.app` | `Catan Tabletop-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-mac.zip) |
+| **macOS** | Apple Silicon (M1/M2/M3/M4) | `Catan Tabletop-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-mac.zip) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
 
 > **Nota para la instalación en Windows y macOS:**

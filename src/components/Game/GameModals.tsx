@@ -356,6 +356,11 @@ export const ActiveTradeFloatingBanner: React.FC<{
                   <span className="text-xs font-black text-amber-100">
                     {isMine ? 'Tu Oferta Activa en la Mesa' : `${sender?.name} propone un cambio:`}
                   </span>
+                  {sender?.isBot && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/25 border border-amber-400/50 text-[10px] font-black text-amber-300 animate-pulse">
+                      Oferta IA (7.5s)
+                    </span>
+                  )}
                 </div>
                 {isMine && (
                   <button
@@ -369,6 +374,18 @@ export const ActiveTradeFloatingBanner: React.FC<{
                   </button>
                 )}
               </div>
+
+              {/* Animated 7.5-second countdown progress bar for Bot Trade Offers */}
+              {sender?.isBot && (
+                <div className="w-full h-1.5 bg-black/60 rounded-full overflow-hidden border border-amber-500/20">
+                  <motion.div
+                    initial={{ width: '100%' }}
+                    animate={{ width: '0%' }}
+                    transition={{ duration: 7.5, ease: 'linear' }}
+                    className="h-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                  />
+                </div>
+              )}
 
               {/* Visual Cards Offered vs Requested */}
               <div className="flex items-center justify-between gap-2 bg-[#110c08] p-2.5 rounded-xl border border-[#d4af37]/30">
@@ -1763,35 +1780,75 @@ export const AbandonConfirmModal: React.FC<{
 // 6. DISCONNECTED PLAYER RESOLUTION BANNER
 export const DisconnectResolutionBanner: React.FC<{
   gameState: GameState;
+  currentPlayerId?: string;
   dispatchAction: (action: GameAction) => void;
-}> = ({ gameState, dispatchAction }) => {
-  const disconnectedPlayers = gameState.players.filter(
+}> = ({ gameState, currentPlayerId, dispatchAction }) => {
+  const [dismissedPlayerIds, setDismissedPlayerIds] = useState<string[]>([]);
+
+  // 1. Identify genuinely disconnected human players
+  const disconnectedHumans = gameState.players.filter(
     (p) => !p.connected && !p.isBot && p.status === 'DISCONNECTED_WAITING'
   );
 
-  if (disconnectedPlayers.length === 0 && gameState.phase !== 'PAUSED_DISCONNECT') {
+  // 2. If NO human players are disconnected:
+  if (disconnectedHumans.length === 0) {
+    // If the game is still paused in PAUSED_DISCONNECT, offer a simple unpause button
+    if (gameState.phase === 'PAUSED_DISCONNECT') {
+      return (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4 pointer-events-auto">
+          <div className="bg-[#1c140e]/95 border-2 border-emerald-500/80 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
+              <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>Todos los jugadores están conectados. La partida puede continuar.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
+              className="py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 text-xs font-black shrink-0 shadow cursor-pointer"
+            >
+              Reanudar Partida
+            </button>
+          </div>
+        </div>
+      );
+    }
+    // Fully connected and not paused: do not render anything!
     return null;
   }
 
-  const target =
-    disconnectedPlayers[0] ||
-    gameState.players.find((p) => p.id === gameState.turn.pausedForPlayerId);
+  // 3. Filter out targets dismissed by the user, and NEVER show options to the player about themselves!
+  const pendingTargets = disconnectedHumans.filter(
+    (p) => p.id !== currentPlayerId && !dismissedPlayerIds.includes(p.id)
+  );
 
-  if (!target) return null;
+  if (pendingTargets.length === 0) {
+    return null;
+  }
+
+  const target = pendingTargets[0];
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-4">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-4 pointer-events-auto">
       <div className="bg-[#1c140e]/95 border-2 border-[#d4af37] rounded-2xl p-4 shadow-2xl space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-amber-300 text-xs font-extrabold">
-            <PauseCircle className="w-4 h-4 shrink-0" />
+            <PauseCircle className="w-4 h-4 shrink-0 text-amber-400" />
             <span>
               {target.name} se ha desconectado. ¿Cómo deseas proceder con la partida?
             </span>
           </div>
+          {/* Top-Right Dismiss Button */}
+          <button
+            type="button"
+            onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
+            className="p-1 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-amber-200 transition cursor-pointer"
+            title="Borrar notificación"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() =>
@@ -1801,7 +1858,7 @@ export const DisconnectResolutionBanner: React.FC<{
                 resolution: 'WAIT_PAUSE',
               })
             }
-            className="py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-xs font-bold cursor-pointer"
+            className="py-2 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-xs font-bold cursor-pointer"
           >
             Pausar y Esperar
           </button>
@@ -1814,7 +1871,7 @@ export const DisconnectResolutionBanner: React.FC<{
                 resolution: 'FREEZE_SKIP',
               })
             }
-            className="py-2 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-200 text-xs font-bold cursor-pointer"
+            className="py-2 px-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-200 text-xs font-bold cursor-pointer"
           >
             Omitir sus Turnos
           </button>
@@ -1827,9 +1884,16 @@ export const DisconnectResolutionBanner: React.FC<{
                 resolution: 'CONVERT_TO_BOT',
               })
             }
-            className="py-2 px-3 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 text-xs font-bold cursor-pointer"
+            className="py-2 px-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 text-xs font-bold cursor-pointer"
           >
             Reemplazar con IA
+          </button>
+          <button
+            type="button"
+            onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
+            className="py-2 px-2.5 rounded-xl bg-stone-800/80 hover:bg-stone-700 border border-stone-600/50 text-stone-300 text-xs font-bold cursor-pointer"
+          >
+            Cerrar Aviso
           </button>
         </div>
       </div>

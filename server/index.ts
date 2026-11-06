@@ -134,18 +134,27 @@ async function startServer() {
             existingPlayer.name = payload.playerName.trim().slice(0, 20);
           }
 
-          if (
-            room.phase === 'PAUSED_DISCONNECT' &&
-            room.turn.pausedForPlayerId === existingPlayer.id &&
-            room.turn.phaseBeforePause
-          ) {
-            room.phase = room.turn.phaseBeforePause;
+          // If no other human players remain disconnected, automatically resume the game!
+          const anyStillDisconnected = room.players.some((p) => !p.connected && !p.isBot);
+          if (!anyStillDisconnected && room.phase === 'PAUSED_DISCONNECT') {
+            room.phase = room.turn.phaseBeforePause || 'MAIN_PHASE';
             room.turn.phaseBeforePause = undefined;
             room.turn.pausedForPlayerId = null;
             refreshTurnDeadline(room);
+            addLog(
+              room,
+              `Todos los jugadores están conectados. La partida se ha reanudado automáticamente.`,
+              'SYSTEM'
+            );
+          } else {
+            addLog(
+              room,
+              `${existingPlayer.name} se ha reconectado a la partida.`,
+              'SYSTEM',
+              existingPlayer.id
+            );
           }
 
-          addLog(room, `${existingPlayer.name} se ha reconectado a la partida.`, 'SYSTEM', existingPlayer.id);
           socketToSession.set(socket.id, { roomCode, playerId });
           socket.join(roomCode);
 
@@ -165,14 +174,30 @@ async function startServer() {
             disconnectedMatch.connected = true;
             disconnectedMatch.isBot = false;
             disconnectedMatch.status = 'ACTIVE';
+
+            // If no other human players remain disconnected, automatically resume the game!
+            const anyStillDisconnected = room.players.some((p) => !p.connected && !p.isBot);
+            if (!anyStillDisconnected && room.phase === 'PAUSED_DISCONNECT') {
+              room.phase = room.turn.phaseBeforePause || 'MAIN_PHASE';
+              room.turn.phaseBeforePause = undefined;
+              room.turn.pausedForPlayerId = null;
+              refreshTurnDeadline(room);
+              addLog(
+                room,
+                `Todos los jugadores están conectados. La partida se ha reanudado automáticamente.`,
+                'SYSTEM'
+              );
+            } else {
+              addLog(
+                room,
+                `${disconnectedMatch.name} recuperó su asiento en la partida.`,
+                'SYSTEM',
+                disconnectedMatch.id
+              );
+            }
+
             socketToSession.set(socket.id, { roomCode, playerId: disconnectedMatch.id });
             socket.join(roomCode);
-            addLog(
-              room,
-              `${disconnectedMatch.name} recuperó su asiento en la partida.`,
-              'SYSTEM',
-              disconnectedMatch.id
-            );
             socket.emit('ROOM_JOINED', {
               roomCode,
               playerId: disconnectedMatch.id,
@@ -440,7 +465,15 @@ async function startServer() {
                 ? updated.lastEvent
                 : null;
 
-            if (ev?.type === 'RESOURCES_PRODUCED') {
+            const hasActiveBotTrade = updated.activeTradeOffers.some(
+              (o) => o.fromPlayerId === currentActive?.id
+            );
+
+            if (hasActiveBotTrade) {
+              // Bot has an active trade offer open for other players: check in shorter intervals (700ms)
+              // so as soon as all players reject or someone accepts, it reacts immediately!
+              await delay(700);
+            } else if (ev?.type === 'RESOURCES_PRODUCED') {
               // Dice roll display: 1.0s spin + 2.5s landed display = ~3.6s
               const diceWaitMs = ev.dice ? 3900 : 0;
               // Each resource flight takes 4.05s sequentially

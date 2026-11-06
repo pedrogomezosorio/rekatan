@@ -282,7 +282,11 @@ export const GameScreen: React.FC = () => {
       />
 
       {/* Disconnect Resolution Banner */}
-      <DisconnectResolutionBanner gameState={gameState} dispatchAction={dispatchAction} />
+      <DisconnectResolutionBanner
+        gameState={gameState}
+        currentPlayerId={playerId}
+        dispatchAction={dispatchAction}
+      />
 
       {/* Top Header Bar */}
       <header className="h-14 px-4 bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-b border-[#d4af37]/35 flex items-center justify-between gap-3 shrink-0 z-30 shadow-xl">

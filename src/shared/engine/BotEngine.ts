@@ -167,23 +167,39 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
         }
       }
 
-      const hasPendingHuman = currentState.players.some(
-        (p) =>
-          p.id !== activeBot.id &&
-          !p.isBot &&
-          p.connected &&
-          existingBotOffer.responses[p.id] === 'PENDING'
-      );
-      const offerAgeMs = Date.now() - existingBotOffer.createdAt;
-      if (hasPendingHuman && offerAgeMs < 4200) {
-        const waitingState = structuredClone(currentState);
+      // Check if all other players have already rejected the offer
+      const targetPlayers = existingBotOffer.targetPlayerId
+        ? currentState.players.filter((p) => p.id === existingBotOffer.targetPlayerId)
+        : currentState.players.filter((p) => p.id !== activeBot.id && (p.connected || p.isBot));
+
+      const allRejected =
+        targetPlayers.length > 0 &&
+        targetPlayers.every((p) => existingBotOffer.responses[p.id] === 'REJECTED');
+
+      if (allRejected) {
+        // If rejected by all, cancel immediately at that exact moment
+        const cancelled = applyGameAction(currentState, activeBot.id, {
+          type: 'CANCEL_TRADE_OFFER',
+          offerId: existingBotOffer.id,
+        }).state;
         return withBotNotice(
-          waitingState,
-          `${activeBot.name} propone un trato y espera respuesta...`
+          cancelled,
+          `${activeBot.name} retira su oferta comercial (rechazada por todos)`
         );
       }
 
-      // Cancel expired or fully rejected offer so the bot can continue its turn
+      const offerAgeMs = Date.now() - existingBotOffer.createdAt;
+      // Bot offers stay active for 7.5 seconds (7500ms) unless rejected by all
+      if (offerAgeMs < 7500) {
+        const remainingSec = Math.max(1, Math.ceil((7500 - offerAgeMs) / 1000));
+        const waitingState = structuredClone(currentState);
+        return withBotNotice(
+          waitingState,
+          `${activeBot.name} propone un trato (${remainingSec}s restantes)...`
+        );
+      }
+
+      // Cancel expired offer after 7.5 seconds
       const cancelled = applyGameAction(currentState, activeBot.id, {
         type: 'CANCEL_TRADE_OFFER',
         offerId: existingBotOffer.id,
