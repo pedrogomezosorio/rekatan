@@ -637,4 +637,49 @@ describe('Official Rules & House Rules Engine', () => {
     });
     expect(play2.error).toBeUndefined();
   });
+
+  it('allows playing ROAD_BUILDING and finishing road building early with FINISH_ROAD_BUILDING', () => {
+    let state = createInitialGameState('ROOM_DEV_TEST', {
+      id: 'P1',
+      name: 'Host',
+      color: 'RED',
+      avatar: 'H',
+    });
+    state.config.turnTimerSeconds = null;
+    state.config.maxOneDevCardPerTurn = false;
+    state = applyGameAction(state, 'P1', { type: 'ADD_BOT', difficulty: 'MEDIUM' }).state;
+    state = applyGameAction(state, 'P1', { type: 'START_GAME' }).state;
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+    state.turn.turnNumber = 2;
+
+    const p1 = state.players[0];
+    p1.devCards = [
+      { id: 'RB1', type: 'ROAD_BUILDING', title: 'Construcción de Carreteras', boughtAtTurn: 1, played: false },
+    ];
+    // Give player a road and settlement so there is a valid road build spot
+    const edge0 = Object.values(state.board.edges).find((e) => e.isLand);
+    expect(edge0).toBeDefined();
+    edge0!.building = 'ROAD';
+    edge0!.playerId = 'P1';
+    p1.roadsLeft = 13;
+
+    // Play road building dev card
+    const res = applyGameAction(state, 'P1', {
+      type: 'PLAY_DEV_CARD',
+      cardId: 'RB1',
+    });
+    expect(res.error).toBeUndefined();
+    expect(res.state.phase).toBe('ROAD_BUILDING_DEV');
+    expect(res.state.turn.freeRoadsRemaining).toBe(2);
+
+    // Call FINISH_ROAD_BUILDING to return cleanly to MAIN_PHASE
+    const finishRes = applyGameAction(res.state, 'P1', {
+      type: 'FINISH_ROAD_BUILDING',
+    });
+    expect(finishRes.error).toBeUndefined();
+    expect(finishRes.state.phase).toBe('MAIN_PHASE');
+    expect(finishRes.state.turn.freeRoadsRemaining).toBe(0);
+  });
 });

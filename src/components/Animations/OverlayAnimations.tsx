@@ -552,12 +552,12 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
               }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.55 }}
-              className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px] cursor-pointer ${
+              className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px] cursor-pointer pointer-events-auto ${
                 isRed
                   ? 'bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)]'
                   : 'bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.42)_0%,rgba(12,28,48,0.84)_100%)]'
               }`}
-              onClick={() => setCentralAlertQueue([])}
+              onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
             >
               <motion.div
                 initial={{ scale: 0.72, y: 24 }}
@@ -565,20 +565,20 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                 exit={{ scale: 0.88, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`relative flex flex-col items-center text-center max-w-xl mx-4 px-10 py-8 rounded-3xl border-4 ${
+                className={`relative flex flex-col items-center text-center max-w-xl mx-4 px-8 sm:px-10 py-7 sm:py-8 rounded-3xl border-4 pointer-events-auto ${
                   isRed
                     ? 'bg-gradient-to-b from-[#330a0a]/98 via-[#1f0606]/98 to-[#0e0202]/98 border-red-500 shadow-[0_0_100px_rgba(220,38,38,0.9)]'
                     : 'bg-gradient-to-b from-[#163654]/98 via-[#0e243b]/98 to-[#071525]/98 border-sky-300 shadow-[0_0_95px_rgba(125,211,252,0.78)]'
                 }`}
               >
-                {/* Instant dismiss button */}
+                {/* Instant dismiss button with generous touch target */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setCentralAlertQueue([]);
+                    setCentralAlertQueue((prev) => prev.slice(1));
                   }}
-                  className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-black/60 hover:bg-black/90 text-stone-200 hover:text-white transition cursor-pointer border border-white/20 shadow-lg active:scale-95"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 p-2.5 sm:p-2 rounded-2xl bg-black/70 hover:bg-black/90 text-stone-200 hover:text-white transition cursor-pointer border border-white/20 shadow-xl active:scale-95 pointer-events-auto"
                   title="Cerrar aviso"
                   aria-label="Cerrar aviso"
                 >
@@ -655,6 +655,21 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                     ))}
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCentralAlertQueue((prev) => prev.slice(1));
+                  }}
+                  className={`mt-5 px-8 py-2.5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider transition cursor-pointer shadow-lg active:scale-95 pointer-events-auto ${
+                    isRed
+                      ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400/60 shadow-red-950/80'
+                      : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white border border-sky-300/60 shadow-sky-950/80'
+                  }`}
+                >
+                  Entendido
+                </button>
               </motion.div>
             </motion.div>
           );

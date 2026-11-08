@@ -10,8 +10,10 @@ import {
   ArrowUp,
   Check,
   Dices,
+  Eye,
   Flame,
   HandCoins,
+  Map,
   PauseCircle,
   RotateCcw,
   ShieldAlert,
@@ -1863,16 +1865,18 @@ export const AbandonConfirmModal: React.FC<{
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold cursor-pointer transition active:scale-95"
           >
-            Continuar Jugando
+            <span>Continuar Jugando</span>
+            <span className="ml-1.5 opacity-60 text-[10px] font-mono">(Esc)</span>
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold cursor-pointer"
+            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold cursor-pointer transition active:scale-95 shadow-lg shadow-red-900/50"
           >
-            Sí, Abandonar Partida
+            <span>Sí, Abandonar Partida</span>
+            <span className="ml-1.5 opacity-75 text-[10px] font-mono">(Enter)</span>
           </button>
         </div>
       </motion.div>
@@ -2076,10 +2080,54 @@ export const VictoryModal: React.FC<{
   gameState: GameState;
   onExitToMenu: () => void;
 }> = ({ gameState, onExitToMenu }) => {
+  const [isViewingMap, setIsViewingMap] = useState(false);
   const winner = gameState.players.find((p) => p.id === gameState.winnerId);
   const sortedPlayers = [...gameState.players].sort(
     (a, b) => b.totalVictoryPoints - a.totalVictoryPoints
   );
+
+  if (isViewingMap) {
+    return (
+      <div className="fixed top-4 inset-x-0 z-50 flex justify-center pointer-events-none px-4">
+        <motion.div
+          initial={{ y: -30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -30, opacity: 0 }}
+          className="pointer-events-auto flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-[#140e09]/95 backdrop-blur-xl border-2 border-[#d4af37] shadow-[0_15px_45px_rgba(0,0,0,0.92)] text-amber-100 max-w-2xl w-full"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Trophy className="w-6 h-6 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-400 truncate">
+                Inspeccionando Tablero Final
+              </div>
+              <div className="text-sm font-black truncate">
+                ¡Victoria de {winner?.name}! ({winner?.totalVictoryPoints} PV)
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsViewingMap(false)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-stone-950 font-extrabold text-xs shadow-md cursor-pointer flex items-center gap-1.5 active:scale-95 transition"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Ver Resumen</span>
+            </button>
+            <button
+              type="button"
+              onClick={onExitToMenu}
+              className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-white font-bold text-xs cursor-pointer active:scale-95 transition"
+            >
+              Salir al Menú
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -2148,13 +2196,23 @@ export const VictoryModal: React.FC<{
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={onExitToMenu}
-          className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-stone-950 font-extrabold text-sm shadow-xl cursor-pointer"
-        >
-          Volver al Menú Principal
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+          <button
+            type="button"
+            onClick={() => setIsViewingMap(true)}
+            className="flex-1 py-3 rounded-2xl bg-[#1e1610] hover:bg-[#2c2018] border border-[#d4af37]/60 text-amber-200 font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer transition active:scale-95"
+          >
+            <Map className="w-4 h-4 text-amber-400" />
+            <span>Ver Mapa Final</span>
+          </button>
+          <button
+            type="button"
+            onClick={onExitToMenu}
+            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-stone-950 font-black text-sm shadow-xl cursor-pointer transition active:scale-95"
+          >
+            Volver al Menú Principal
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

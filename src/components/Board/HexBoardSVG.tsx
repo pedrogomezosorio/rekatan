@@ -80,16 +80,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   useEffect(() => {
     lowEndRef.current = lowEndPcMode;
-    if (lowEndPcMode) {
-      // Lock Pan strictly centered at (0, 0) in lowEndPcMode
-      targetCamRef.current.x = 0;
-      targetCamRef.current.y = 0;
-      currentCamRef.current.x = 0;
-      currentCamRef.current.y = 0;
-      velocityRef.current = { vx: 0, vy: 0 };
-      isDraggingRef.current = false;
-      setIsDragging(false);
-    }
   }, [lowEndPcMode]);
 
   // Google-Maps-style Smooth Interpolated & Inertial Camera State
@@ -156,36 +146,26 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       const cur = currentCamRef.current;
       const vel = velocityRef.current;
 
-      // In lowEndPcMode, Pan is locked to (0, 0) and only Zoom In/Out via buttons is allowed
-      if (lowEndRef.current) {
-        target.x = 0;
-        target.y = 0;
-        cur.x = 0;
-        cur.y = 0;
+      // Apply momentum when not actively dragging
+      if (!isDraggingRef.current && (Math.abs(vel.vx) > 0.05 || Math.abs(vel.vy) > 0.05)) {
+        target.x += vel.vx;
+        target.y += vel.vy;
+        vel.vx *= 0.91; // Smooth exponential friction
+        vel.vy *= 0.91;
+      } else if (!isDraggingRef.current) {
         vel.vx = 0;
         vel.vy = 0;
-      } else {
-        // Apply momentum when not actively dragging
-        if (!isDraggingRef.current && (Math.abs(vel.vx) > 0.05 || Math.abs(vel.vy) > 0.05)) {
-          target.x += vel.vx;
-          target.y += vel.vy;
-          vel.vx *= 0.91; // Smooth exponential friction
-          vel.vy *= 0.91;
-        } else if (!isDraggingRef.current) {
-          vel.vx = 0;
-          vel.vy = 0;
-        }
-
-        // Clamp target pan bounds gently
-        target.x = Math.max(-680, Math.min(680, target.x));
-        target.y = Math.max(-560, Math.min(560, target.y));
-
-        // Smooth spring-like interpolation (Lerp)
-        const lerpFactor = isDraggingRef.current ? 0.38 : 0.18;
-        cur.x += (target.x - cur.x) * lerpFactor;
-        cur.y += (target.y - cur.y) * lerpFactor;
       }
-      cur.zoom += (target.zoom - cur.zoom) * (lowEndRef.current ? 0.45 : 0.2);
+
+      // Clamp target pan bounds gently
+      target.x = Math.max(-680, Math.min(680, target.x));
+      target.y = Math.max(-560, Math.min(560, target.y));
+
+      // Smooth spring-like interpolation (Lerp)
+      const lerpFactor = isDraggingRef.current ? 0.38 : (lowEndRef.current ? 0.32 : 0.18);
+      cur.x += (target.x - cur.x) * lerpFactor;
+      cur.y += (target.y - cur.y) * lerpFactor;
+      cur.zoom += (target.zoom - cur.zoom) * (lowEndRef.current ? 0.35 : 0.2);
 
       if (cameraGroupRef.current) {
         cameraGroupRef.current.setAttribute(
@@ -208,8 +188,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
     const onWheelNative = (e: WheelEvent) => {
       e.preventDefault();
-      // In lowEndPcMode, zooming is restricted to the Zoom In / Zoom Out buttons
-      if (lowEndRef.current) return;
       const rect = svgEl.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
@@ -276,7 +254,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   );
 
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button !== 0 || lowEndRef.current) return;
+    if (e.button !== 0) return;
     setIsDragging(true);
     isDraggingRef.current = true;
     didMoveRef.current = false;
@@ -287,14 +265,14 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (lowEndRef.current || !isDraggingRef.current || !svgRef.current) return;
+    if (!isDraggingRef.current || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const scaleX = 960 / rect.width;
     const scaleY = 840 / rect.height;
 
     const totalDx = e.clientX - dragStartClientRef.current.x;
     const totalDy = e.clientY - dragStartClientRef.current.y;
-    if (Math.hypot(totalDx, totalDy) > 4) {
+    if (Math.hypot(totalDx, totalDy) > 6) {
       didMoveRef.current = true;
     }
 
@@ -328,7 +306,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const lastTouchDistRef = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (lowEndRef.current) return;
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       setIsDragging(true);
@@ -351,7 +328,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (lowEndRef.current || !svgRef.current) return;
+    if (!svgRef.current) return;
 
     if (e.touches.length === 1 && isDraggingRef.current) {
       const touch = e.touches[0];
@@ -361,7 +338,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
       const totalDx = touch.clientX - dragStartClientRef.current.x;
       const totalDy = touch.clientY - dragStartClientRef.current.y;
-      if (Math.hypot(totalDx, totalDy) > 6) {
+      if (Math.hypot(totalDx, totalDy) > 8) {
         didMoveRef.current = true;
       }
 
@@ -413,12 +390,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     velocityRef.current = { vx: 0, vy: 0 };
     const oldZoom = targetCamRef.current.zoom;
     const newZoom = Math.min(2.6, Math.max(0.45, oldZoom * factor));
-    if (lowEndRef.current) {
-      targetCamRef.current.x = 0;
-      targetCamRef.current.y = 0;
-      targetCamRef.current.zoom = newZoom;
-      return;
-    }
     const ratio = newZoom / oldZoom;
     targetCamRef.current.x *= ratio;
     targetCamRef.current.y *= ratio;
@@ -777,6 +748,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 transform={`translate(${midX}, ${midY}) rotate(${angleDeg})`}
                 onClick={() => handleEdgeInteraction(edge)}
                 className={isValidRoad || isPortEditTarget ? 'cursor-pointer' : undefined}
+                pointerEvents={isValidRoad || isPortEditTarget ? 'all' : undefined}
               >
                 {/* Invisible Fat Hit Area for Easy Clicking / Touching on Tablet */}
                 {(isValidRoad || isPortEditTarget) && (
@@ -785,7 +757,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     y={-14}
                     width={len}
                     height={28}
-                    fill="transparent"
+                    fill="rgba(0,0,0,0.001)"
+                    pointerEvents="all"
                   />
                 )}
 
@@ -932,14 +905,16 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 transform={`translate(${vertex.x}, ${vertex.y})`}
                 onClick={() => handleVertexInteraction(vertex)}
                 className={isValidSettlement || isValidCity ? 'cursor-pointer' : undefined}
+                pointerEvents={isValidSettlement || isValidCity ? 'all' : undefined}
               >
-                {/* Invisible Touch / Click Hit Target for Vertices (50px diameter on tablet) */}
+                {/* Invisible Touch / Click Hit Target for Vertices (52px diameter on tablet) */}
                 {(isValidSettlement || isValidCity) && (
                   <circle
                     cx={0}
                     cy={0}
-                    r={25}
-                    fill="transparent"
+                    r={26}
+                    fill="rgba(0,0,0,0.001)"
+                    pointerEvents="all"
                   />
                 )}
 

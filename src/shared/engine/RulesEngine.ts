@@ -2421,6 +2421,24 @@ export function applyGameAction(
 
       return { state };
     }
+
+    case 'FINISH_ROAD_BUILDING': {
+      if (state.turn.activePlayerId !== playerId) {
+        return { state: prevState, error: 'No es tu turno.' };
+      }
+      if (state.phase !== 'ROAD_BUILDING_DEV') {
+        return { state: prevState, error: 'No estás en la fase de Construcción de Carreteras.' };
+      }
+      state.turn.freeRoadsRemaining = 0;
+      state.phase = 'MAIN_PHASE';
+      addLog(
+        state,
+        `${actor.name} finalizó la colocación gratuita de carreteras (Construcción de Carreteras).`,
+        'BUILD',
+        actor.id
+      );
+      return { state };
+    }
   }
 
   return { state };

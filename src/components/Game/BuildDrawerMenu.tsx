@@ -21,6 +21,8 @@ interface BuildDrawerMenuProps {
   restrictionReason?: string;
   devDeckRemaining: number;
   disabledBeforeDice: boolean;
+  isRoadBuildingDev?: boolean;
+  onFinishRoadBuilding?: () => void;
 }
 
 interface BuildOptionSpec {
@@ -48,6 +50,8 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   restrictionReason,
   devDeckRemaining,
   disabledBeforeDice,
+  isRoadBuildingDev,
+  onFinishRoadBuilding,
 }) => {
   const options: BuildOptionSpec[] = [
     {
@@ -106,6 +110,27 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
 
   const anyOptionAvailable =
     canBuildRoadNow || canBuildSettlementNow || canBuildCityNow || canBuyDevCardNow;
+
+  // When in Road Building Dev Card phase, display an active free road placement button
+  if (isRoadBuildingDev) {
+    return (
+      <div className="relative flex items-center w-full">
+        <motion.button
+          type="button"
+          initial={{ scale: 0.92, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          onClick={onFinishRoadBuilding}
+          className="w-full px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 border border-amber-200 text-stone-950 font-black text-[11px] flex items-center justify-between gap-2 shadow-[0_0_20px_rgba(245,158,11,0.6)] cursor-pointer animate-pulse"
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            <Route className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
+            <span className="truncate">Carreteras Gratis (Finalizar)</span>
+          </span>
+          <span className="px-1.5 py-0.5 rounded bg-black/20 font-mono text-[9px] text-stone-900 font-black">✓</span>
+        </motion.button>
+      </div>
+    );
+  }
 
   // When a placement mode is active on the board, transform the button into a red "Cancelar Construcción" button
   if (buildMode !== null) {

@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   Award,
   Bot,
+  Check,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -407,6 +408,29 @@ export const GameScreen: React.FC = () => {
       }
 
       const key = e.key.toLowerCase();
+
+      // Keyboard shortcuts for leaving/abandoning game: 'q' -> open modal, 'Enter' -> confirm, 'Escape' -> cancel
+      if (showAbandonModal) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          setShowAbandonModal(false);
+          leaveRoomClient();
+          return;
+        }
+        if (e.key === 'Escape' || key === 'q') {
+          e.preventDefault();
+          setShowAbandonModal(false);
+          return;
+        }
+        return;
+      }
+
+      if (key === 'q') {
+        e.preventDefault();
+        setShowAbandonModal(true);
+        return;
+      }
+
       const waitingDice = gameState.phase === 'WAITING_FOR_DICE' && isMyTurn;
       if (isPausedByHost || waitingDice || gameState.phase === 'GAME_OVER') return;
 
@@ -435,7 +459,7 @@ export const GameScreen: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isMyTurn, isPausedByHost, buildMode]);
+  }, [gameState, isMyTurn, isPausedByHost, buildMode, showAbandonModal]);
 
   const validSettlementIds = useMemo(() => {
     if (!gameState || !isMyTurn || isPausedByHost) return [];
@@ -949,10 +973,11 @@ export const GameScreen: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setNoticeQueue((prev) => prev.slice(1))}
-                    className="ml-1 p-1 rounded-lg hover:bg-white/10 text-stone-300 hover:text-white transition cursor-pointer shrink-0"
+                    className="ml-1 p-2 -mr-1.5 rounded-xl hover:bg-white/10 active:scale-90 text-stone-300 hover:text-white transition cursor-pointer shrink-0 pointer-events-auto"
                     title="Cerrar aviso"
+                    aria-label="Cerrar aviso"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </motion.div>
               )}
@@ -1138,7 +1163,7 @@ export const GameScreen: React.FC = () => {
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
               placed immediately above the bottom cards rectangle, right where the Zoom controls were (Zoom controls are now immediately to their right) */}
           <div className="absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
-            <div className="flex flex-col gap-1 w-[190px] sm:w-[215px] p-1.5 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
+            <div className="flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
               {/* 1. Construir (C) */}
               <BuildDrawerMenu
                 isOpen={isBuildDrawerOpen}
@@ -1156,6 +1181,8 @@ export const GameScreen: React.FC = () => {
                 restrictionReason={!infraPermission.allowed ? infraPermission.reason : undefined}
                 devDeckRemaining={gameState.devDeck.length}
                 disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                isRoadBuildingDev={isMyTurn && phase === 'ROAD_BUILDING_DEV'}
+                onFinishRoadBuilding={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
               />
 
               {/* 2. Intercambiar / Comerciar (I) */}
@@ -1166,10 +1193,10 @@ export const GameScreen: React.FC = () => {
                   setTradeModalInitialTab('BANK');
                   setShowTradeModal(true);
                 }}
-                className={`w-full px-3 py-1.5 rounded-xl border text-[11px] font-extrabold flex items-center justify-between gap-2 transition ${
+                className={`w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                     ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 hover:from-orange-400 hover:to-yellow-500 border-amber-300 text-stone-950 shadow cursor-pointer'
+                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 hover:from-orange-400 hover:to-yellow-500 border-amber-300 text-stone-950 shadow cursor-pointer active:scale-98'
                 }`}
                 title={
                   !tradePermission.allowed
@@ -1202,10 +1229,10 @@ export const GameScreen: React.FC = () => {
                 type="button"
                 disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 onClick={() => setShowDevModal(true)}
-                className={`w-full px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center justify-between gap-2 transition ${
+                className={`w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                     ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
-                    : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow'
+                    : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
                 }`}
                 title="Ver o comprar Cartas de Desarrollo (Atajo: D)"
               >
@@ -1224,10 +1251,10 @@ export const GameScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsTabletRightPanelVisible((v) => !v)}
-            className="lg:hidden absolute top-2 right-2 z-30 px-2.5 py-1.5 rounded-xl bg-[#1d140e]/95 border border-[#d4af37]/60 text-amber-300 shadow-xl pointer-events-auto flex items-center gap-1.5 text-[11px] font-black backdrop-blur-md cursor-pointer active:scale-95 transition"
+            className="lg:hidden absolute top-2 right-2 z-30 px-3 py-2 rounded-xl bg-[#1d140e]/95 border border-[#d4af37]/60 text-amber-300 shadow-xl pointer-events-auto flex items-center gap-2 text-xs font-black backdrop-blur-md cursor-pointer active:scale-95 transition"
             title="Mostrar u ocultar panel de jugadores y banca"
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="w-4 h-4" />
             <span>{isTabletRightPanelVisible ? 'Ocultar' : 'Jugadores'}</span>
           </button>
 
@@ -1357,13 +1384,24 @@ export const GameScreen: React.FC = () => {
           />
         </div>
 
-        {/* RIGHT: Pasar Turno */}
+        {/* RIGHT: Pasar Turno / Finalizar Carreteras */}
         <div className="flex items-center justify-end min-w-[140px]">
+          {isMyTurn && phase === 'ROAD_BUILDING_DEV' && !isPausedByHost && (
+            <button
+              type="button"
+              onClick={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
+              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 border border-amber-200 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.55)] cursor-pointer active:scale-95 transition"
+            >
+              <Check className="w-4 h-4 stroke-[3]" />
+              <span>Finalizar Carreteras</span>
+            </button>
+          )}
+
           {isMyTurn && phase === 'MAIN_PHASE' && !isPausedByHost && (
             <button
               type="button"
               onClick={() => dispatchAction({ type: 'END_TURN' })}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.45)] cursor-pointer"
+              className="px-5 py-3 sm:px-6 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 transition"
             >
               <SkipForward className="w-4 h-4" />
               <span>Pasar Turno</span>

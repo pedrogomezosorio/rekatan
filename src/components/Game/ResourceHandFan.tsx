@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ALL_RESOURCES, RESOURCE_CARD_PATHS, RESOURCE_META } from '../../shared/constants';
 import { ResourceType } from '../../shared/types';
@@ -19,6 +19,8 @@ interface FanCardItem {
  * Renders the player's resource cards in an interactive physical fan layout
  * in the center of the bottom panel using the exact pixel-by-pixel original
  * Catan card textures (/assets/cards/*.jpg).
+ * On touch / tablet devices, tapping expands and enlarges the cards for clear inspection,
+ * and tapping outside smoothly returns the fan to resting size.
  */
 export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
   resources,
@@ -26,7 +28,23 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
   onCardClick,
 }) => {
   const [isFanHovered, setIsFanHovered] = useState(false);
+  const [isExpandedTouch, setIsExpandedTouch] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const fanContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close expanded touch view when tapping anywhere outside the resource hand
+  useEffect(() => {
+    if (!isExpandedTouch) return;
+    const handleOutsidePointer = (e: PointerEvent) => {
+      if (fanContainerRef.current && !fanContainerRef.current.contains(e.target as Node)) {
+        setIsExpandedTouch(false);
+        setHoveredIndex(null);
+      }
+    };
+
+    window.addEventListener('pointerdown', handleOutsidePointer);
+    return () => window.removeEventListener('pointerdown', handleOutsidePointer);
+  }, [isExpandedTouch]);
 
   // Build individual physical cards for the fan (caps cleanly at 15 physical cards, stacking extras)
   const fanCards = useMemo<FanCardItem[]>(() => {
@@ -77,25 +95,52 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
 
   const count = fanCards.length;
   const mid = (count - 1) / 2;
+  const isExpanded = isFanHovered || isExpandedTouch;
 
-  // Spread parameters: wider and flatter when hovered, compact arc at rest
-  const angleStep = isFanHovered
+  // Spread parameters: wider and amplified when hovered or expanded on tablet, compact arc at rest
+  const angleStep = isExpandedTouch
+    ? Math.min(8.5, 80 / Math.max(1, count))
+    : isFanHovered
     ? Math.min(7.5, 68 / Math.max(1, count))
     : Math.min(4.8, 44 / Math.max(1, count));
 
-  const xStep = isFanHovered
+  const xStep = isExpandedTouch
+    ? Math.min(54, 540 / Math.max(1, count))
+    : isFanHovered
     ? Math.min(48, 480 / Math.max(1, count))
     : Math.min(30, 300 / Math.max(1, count));
 
   return (
     <div
-      className="relative flex flex-col items-center justify-end select-none overflow-visible"
+      ref={fanContainerRef}
+      className={`relative flex flex-col items-center justify-end select-none overflow-visible transition-all duration-300 ${
+        isExpandedTouch ? 'z-40' : 'z-20'
+      }`}
       onMouseEnter={() => setIsFanHovered(true)}
       onMouseLeave={() => {
         setIsFanHovered(false);
         setHoveredIndex(null);
       }}
+      onClick={(e) => {
+        // Toggle touch expansion when tapping on the fan container
+        if (!isExpandedTouch) {
+          setIsExpandedTouch(true);
+        }
+      }}
     >
+      {/* Tablet-friendly Expanded Indicator Banner */}
+      {isExpandedTouch && (
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 5 }}
+          className="absolute -top-10 px-3 py-1 rounded-full bg-black/85 backdrop-blur-md border border-[#d4af37]/60 text-amber-200 text-[11px] font-black shadow-2xl flex items-center gap-1.5 pointer-events-none"
+        >
+          <span>Mazo Ampliado ({totalCards} cartas)</span>
+          <span className="text-[9px] text-stone-400 font-semibold">• Toca el mapa para cerrar</span>
+        </motion.div>
+      )}
+
       {/* Fan Container protruding above the bottom bar */}
       <div className="relative h-14 sm:h-16 flex items-end justify-center min-w-[260px] sm:min-w-[400px] overflow-visible">
         <AnimatePresence mode="popLayout">
@@ -114,13 +159,21 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
             const translateX = offsetFromCenter * xStep + neighborPushX;
             // Parabolic arch: outer cards sit slightly lower than center cards
             const archDropY =
-              Math.abs(offsetFromCenter) * Math.abs(offsetFromCenter) * (isFanHovered ? 0.85 : 1.3);
+              Math.abs(offsetFromCenter) * Math.abs(offsetFromCenter) * (isExpanded ? 0.85 : 1.3);
             const translateY = isCardHovered
-              ? -32
+              ? (isExpandedTouch ? -44 : -32)
+              : isExpandedTouch
+              ? -28 + archDropY
               : isFanHovered
               ? -12 + archDropY
               : archDropY;
-            const scale = isCardHovered ? 1.26 : isFanHovered ? 1.08 : 1;
+            const scale = isCardHovered
+              ? (isExpandedTouch ? 1.36 : 1.26)
+              : isExpandedTouch
+              ? 1.24
+              : isFanHovered
+              ? 1.08
+              : 1;
 
             const meta = RESOURCE_META[card.resource];
             const portRatio = portRatios?.[card.resource] || 4;
@@ -145,7 +198,10 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   damping: 24,
                 }}
                 onMouseEnter={() => setHoveredIndex(idx)}
-                onClick={() => onCardClick?.(card.resource)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCardClick?.(card.resource);
+                }}
                 title={`${meta.name}${portRatio < 4 ? ` (Puerto ${portRatio}:1)` : ''}`}
                 style={{
                   zIndex: isCardHovered ? 60 : 10 + idx,
@@ -154,6 +210,8 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                 className={`absolute bottom-0.5 w-[68px] h-[106px] sm:w-[76px] sm:h-[120px] rounded-[9px] overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.9)] cursor-pointer transition-shadow ${
                   isCardHovered
                     ? 'ring-2 ring-amber-300 shadow-[0_16px_34px_rgba(251,191,36,0.45)]'
+                    : isExpandedTouch
+                    ? 'ring-1.5 ring-amber-400/80 shadow-[0_14px_30px_rgba(0,0,0,0.95)]'
                     : 'ring-1 ring-black/60'
                 }`}
               >
@@ -172,8 +230,8 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   </span>
                 )}
 
-                {/* Tooltip Badge on Hover (Resource Name + Active Port Ratio) */}
-                {isCardHovered && (
+                {/* Tooltip Badge on Hover or Touch Expansion (Resource Name + Active Port Ratio) */}
+                {(isCardHovered || isExpandedTouch) && (
                   <div className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 py-0.5 px-1 rounded bg-stone-950/90 border border-amber-400/60 text-[9px] font-black text-amber-200 shadow-lg">
                     <span className="truncate">{meta.name}</span>
                     {portRatio < 4 && (

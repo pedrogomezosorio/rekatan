@@ -397,5 +397,6 @@ export type GameAction =
     }
   | { type: 'RESUME_GAME' }
   | { type: 'TOGGLE_HOST_PAUSE' }
-  | { type: 'ABANDON_GAME' };
+  | { type: 'ABANDON_GAME' }
+  | { type: 'FINISH_ROAD_BUILDING' };
 
