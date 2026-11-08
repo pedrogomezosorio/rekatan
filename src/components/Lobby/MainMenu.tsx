@@ -14,8 +14,9 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
-import { AVATAR_LIST, PLAYER_COLORS } from '../../shared/constants';
+import { AVATAR_LIST, DEPOR_AVATAR, PLAYER_COLORS } from '../../shared/constants';
 import { PlayerColor } from '../../shared/types';
+import { AvatarIcon } from '../UI/ResourceIcon';
 
 export const MainMenu: React.FC = () => {
   const {
@@ -30,6 +31,7 @@ export const MainMenu: React.FC = () => {
     serverUrl,
     updateServerUrl,
     connected,
+    showErrorToast,
     createRoom,
     joinRoom,
   } = useGame();
@@ -120,7 +122,7 @@ export const MainMenu: React.FC = () => {
               CATAN
             </h1>
             <p className="text-sm text-amber-100/85 font-medium mt-1">
-              Experiencia Hiperrealista Multijugador en Tiempo Real
+              Un proyecto hecho con fines lúdicos y educativos en honor al gran juego de mesa, creado por gomesixio.
             </p>
 
             <div className="mt-6 space-y-3.5 text-xs text-slate-300">
@@ -251,14 +253,22 @@ export const MainMenu: React.FC = () => {
                   <button
                     key={av}
                     type="button"
-                    onClick={() => setPlayerAvatar(av)}
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition cursor-pointer ${
+                    onClick={() => {
+                      setPlayerAvatar(av);
+                      if (
+                        av === DEPOR_AVATAR &&
+                        playerName.trim().toLowerCase() !== 'mantecado de coco'
+                      ) {
+                        showErrorToast('te falta flow');
+                      }
+                    }}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition cursor-pointer overflow-hidden p-1 ${
                       playerAvatar === av
                         ? 'bg-amber-500/25 border-2 border-amber-400 scale-105 shadow-md'
                         : 'bg-slate-800/70 border border-slate-700 hover:bg-slate-800'
                     }`}
                   >
-                    {av}
+                    <AvatarIcon avatar={av} className="w-7 h-7" />
                   </button>
                 ))}
               </div>

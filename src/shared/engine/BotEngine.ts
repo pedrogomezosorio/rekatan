@@ -208,7 +208,16 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
     }
 
     // A. Play Dev Card if useful (Knight, Year of Plenty, Monopoly, Road Building)
-    if (!currentState.turn.devCardPlayedThisTurn && activeBot.devCards.some((c) => !c.played)) {
+    const canPlayDev =
+      (!currentState.config.maxOneDevCardPerTurn || !currentState.turn.devCardPlayedThisTurn) &&
+      activeBot.devCards.some(
+        (c) =>
+          !c.played &&
+          c.type !== 'VICTORY_POINT' &&
+          (currentState.config.allowInstantDevCards ||
+            c.boughtAtTurn !== currentState.turn.turnNumber)
+      );
+    if (canPlayDev) {
       const devState = tryPlayBotDevCard(currentState, activeBot, difficulty);
       if (devState !== currentState) {
         return withBotNotice(devState, `${activeBot.name} usa una Carta de Desarrollo`);
@@ -565,7 +574,8 @@ export function pickRobberStealVictim(
 
 /**
  * Tries playing a development card smartly:
- * - Knight: plays to remove robber if blocking bot's productive hex.
+ * - Knight: plays to move the robber and build Largest Army.
+ * - Road Building: places up to 2 free roads immediately.
  * - Year of Plenty / Monopoly: extracts needed resources.
  */
 function tryPlayBotDevCard(
@@ -573,60 +583,113 @@ function tryPlayBotDevCard(
   bot: PlayerState,
   difficulty: BotDifficulty
 ): GameState {
-  if (state.turn.devCardPlayedThisTurn) return state;
+  if (state.config.maxOneDevCardPerTurn && state.turn.devCardPlayedThisTurn) {
+    return state;
+  }
 
-  const robberTouchesBot = Object.values(state.board.vertices).some(
-    (v) =>
-      v.hexIds.includes(state.board.robberHexId) &&
-      v.playerId === bot.id &&
-      v.building !== null
+  const playableCards = bot.devCards.filter(
+    (c) =>
+      !c.played &&
+      c.type !== 'VICTORY_POINT' &&
+      (state.config.allowInstantDevCards || c.boughtAtTurn !== state.turn.turnNumber)
   );
+  if (playableCards.length === 0) return state;
 
-  // Knight card
-  const knightCard = bot.devCards.find((c) => !c.played && c.type === 'KNIGHT');
-  if (knightCard && (robberTouchesBot || difficulty === 'HARD')) {
-    return applyGameAction(state, bot.id, {
+  // 1. Knight card: play to remove robber from bot's hex or attack opponents / pursue Largest Army
+  const knightCard = playableCards.find((c) => c.type === 'KNIGHT');
+  if (knightCard) {
+    const res = applyGameAction(state, bot.id, {
       type: 'PLAY_DEV_CARD',
       cardId: knightCard.id,
-    }).state;
+    });
+    if (!res.error) return res.state;
   }
 
-  // Year of Plenty
-  const yopCard = bot.devCards.find((c) => !c.played && c.type === 'YEAR_OF_PLENTY');
+  // 2. Road Building: play if bot has road pieces and valid road spots
+  const roadBuildingCard = playableCards.find((c) => c.type === 'ROAD_BUILDING');
+  if (roadBuildingCard && bot.roadsLeft > 0) {
+    const validRoads = getValidRoadEdges(
+      {
+        ...state,
+        phase: 'ROAD_BUILDING_DEV',
+        turn: { ...state.turn, freeRoadsRemaining: Math.min(2, bot.roadsLeft) },
+      },
+      bot.id
+    );
+    if (validRoads.length > 0) {
+      const res = applyGameAction(state, bot.id, {
+        type: 'PLAY_DEV_CARD',
+        cardId: roadBuildingCard.id,
+      });
+      if (!res.error) return res.state;
+    }
+  }
+
+  // 3. Year of Plenty: pick 2 needed resources that are available in the bank
+  const yopCard = playableCards.find((c) => c.type === 'YEAR_OF_PLENTY');
   if (yopCard) {
-    const needed = getMissingResourcesForTarget(bot.resources, BUILDING_COSTS.CITY);
-    const r1 = needed[0] || 'WHEAT';
-    const r2 = needed[1] || 'ORE';
-    return applyGameAction(state, bot.id, {
-      type: 'PLAY_DEV_CARD',
-      cardId: yopCard.id,
-      yearOfPlentyResources: [r1, r2],
-    }).state;
+    const neededCity = getMissingResourcesForTarget(bot.resources, BUILDING_COSTS.CITY);
+    const neededSettlement = getMissingResourcesForTarget(bot.resources, BUILDING_COSTS.SETTLEMENT);
+    const neededRoad = getMissingResourcesForTarget(bot.resources, BUILDING_COSTS.ROAD);
+    const desiredPool = [...neededCity, ...neededSettlement, ...neededRoad, ...ALL_RESOURCES];
+
+    const chosen: ResourceType[] = [];
+    const simulatedBank = { ...state.bank };
+    for (const r of desiredPool) {
+      if (chosen.length >= 2) break;
+      if ((simulatedBank[r] || 0) >= 1) {
+        chosen.push(r);
+        simulatedBank[r] -= 1;
+      }
+    }
+
+    if (chosen.length === 2) {
+      const res = applyGameAction(state, bot.id, {
+        type: 'PLAY_DEV_CARD',
+        cardId: yopCard.id,
+        yearOfPlentyResources: [chosen[0], chosen[1]],
+      });
+      if (!res.error) return res.state;
+    }
   }
 
-  // Monopoly (Hard bot checks which resource has circulated most)
-  const monopolyCard = bot.devCards.find((c) => !c.played && c.type === 'MONOPOLY');
-  if (monopolyCard && difficulty === 'HARD') {
-    // Check which resource the opponents hold most in total
+  // 4. Monopoly: check which resource opponents hold in total
+  const monopolyCard = playableCards.find((c) => c.type === 'MONOPOLY');
+  if (monopolyCard) {
     const opponentTotals: Record<ResourceType, number> = {
-      WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 0,
+      WOOD: 0,
+      BRICK: 0,
+      SHEEP: 0,
+      WHEAT: 0,
+      ORE: 0,
     };
+    let totalOpponentCards = 0;
     for (const p of state.players) {
       if (p.id !== bot.id) {
         for (const res of ALL_RESOURCES) {
-          opponentTotals[res] += p.resources[res] || 0;
+          const count = p.resources[res] || 0;
+          opponentTotals[res] += count;
+          totalOpponentCards += count;
         }
       }
     }
-    const bestRes = ALL_RESOURCES.reduce((prev, curr) => {
-      return opponentTotals[curr] > opponentTotals[prev] ? curr : prev;
-    }, 'WHEAT');
 
-    return applyGameAction(state, bot.id, {
-      type: 'PLAY_DEV_CARD',
-      cardId: monopolyCard.id,
-      monopolyResource: bestRes,
-    }).state;
+    if (totalOpponentCards > 0) {
+      const availableResources = ALL_RESOURCES.filter((r) => opponentTotals[r] > 0);
+      const bestRes =
+        difficulty === 'EASY'
+          ? availableResources[Math.floor(Math.random() * availableResources.length)] || 'WHEAT'
+          : ALL_RESOURCES.reduce((prev, curr) => {
+              return opponentTotals[curr] > opponentTotals[prev] ? curr : prev;
+            }, 'WHEAT' as ResourceType);
+
+      const res = applyGameAction(state, bot.id, {
+        type: 'PLAY_DEV_CARD',
+        cardId: monopolyCard.id,
+        monopolyResource: bestRes,
+      });
+      if (!res.error) return res.state;
+    }
   }
 
   return state;

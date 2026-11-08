@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ALL_RESOURCES, RESOURCE_CARD_PATHS, RESOURCE_META } from '../../shared/constants';
 import { ResourceType } from '../../shared/types';
-import { ResourceIcon } from '../UI/ResourceIcon';
 
 interface ResourceHandFanProps {
   resources: Record<ResourceType, number>;
@@ -90,15 +89,15 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
 
   return (
     <div
-      className="relative flex flex-col items-center justify-end select-none"
+      className="relative flex flex-col items-center justify-end select-none overflow-visible"
       onMouseEnter={() => setIsFanHovered(true)}
       onMouseLeave={() => {
         setIsFanHovered(false);
         setHoveredIndex(null);
       }}
     >
-      {/* Fan Container */}
-      <div className="relative h-28 sm:h-32 flex items-end justify-center min-w-[260px] sm:min-w-[400px] pt-4">
+      {/* Fan Container protruding above the bottom bar */}
+      <div className="relative h-14 sm:h-16 flex items-end justify-center min-w-[260px] sm:min-w-[400px] overflow-visible">
         <AnimatePresence mode="popLayout">
           {fanCards.map((card, idx) => {
             const offsetFromCenter = idx - mid;
@@ -117,9 +116,9 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
             const archDropY =
               Math.abs(offsetFromCenter) * Math.abs(offsetFromCenter) * (isFanHovered ? 0.85 : 1.3);
             const translateY = isCardHovered
-              ? -30
+              ? -32
               : isFanHovered
-              ? -10 + archDropY
+              ? -12 + archDropY
               : archDropY;
             const scale = isCardHovered ? 1.26 : isFanHovered ? 1.08 : 1;
 
@@ -152,7 +151,7 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   zIndex: isCardHovered ? 60 : 10 + idx,
                   transformOrigin: '50% 115%',
                 }}
-                className={`absolute bottom-1 w-[66px] h-[104px] sm:w-[74px] sm:h-[116px] rounded-[9px] overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.9)] cursor-pointer transition-shadow ${
+                className={`absolute bottom-0.5 w-[68px] h-[106px] sm:w-[76px] sm:h-[120px] rounded-[9px] overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.9)] cursor-pointer transition-shadow ${
                   isCardHovered
                     ? 'ring-2 ring-amber-300 shadow-[0_16px_34px_rgba(251,191,36,0.45)]'
                     : 'ring-1 ring-black/60'
@@ -186,22 +185,6 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
             );
           })}
         </AnimatePresence>
-      </div>
-
-      {/* Compact Summary Pill Beneath the Fan */}
-      <div className="flex items-center gap-2.5 px-3.5 py-1 rounded-full bg-[#0c0806]/95 border border-[#d4af37]/35 text-[11px] text-stone-200 shadow-lg">
-        <span className="font-extrabold text-amber-300">Mano ({totalCards}):</span>
-        {ALL_RESOURCES.map((r) => (
-          <span
-            key={r}
-            className={`inline-flex items-center gap-1 font-mono font-bold ${
-              resources[r] > 0 ? 'text-amber-100' : 'text-stone-600'
-            }`}
-          >
-            <ResourceIcon resource={r} size={14} />
-            <span>{resources[r]}</span>
-          </span>
-        ))}
       </div>
     </div>
   );

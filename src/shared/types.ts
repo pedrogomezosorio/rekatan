@@ -102,6 +102,10 @@ export interface GameConfig {
   minSettlementDistance: 1 | 2;
   // 2. Uso Inmediato de Cartas de Desarrollo (true = jugables en el mismo turno de compra)
   allowInstantDevCards: boolean;
+  // Límite de cartas de desarrollo por turno (false = ilimitadas por defecto, true = máx 1 por turno)
+  maxOneDevCardPerTurn?: boolean;
+  // Recursos en las 2 casas iniciales (true = ambas casas dan recursos por defecto, false = ninguna da recursos)
+  initialSettlementsGiveResources?: boolean;
   // 3. Niveles de Acción por Turno (3 Sectores: Libre, Limitado, Estricto)
   turnActionRestriction: TurnActionRestrictionLevel;
   // Compatibilidad con selectores individuales previos
@@ -263,6 +267,17 @@ export interface GameState {
   robberStealCandidates: string[]; // playerIds adjacent to robber hex with >0 resources
   winnerId: string | null;
   logs: GameLogEntry[];
+  lastCompletedTrade?: {
+    nonce: number;
+    proposerId: string;
+    proposerName: string;
+    proposerAvatar: string;
+    accepterId: string;
+    accepterName: string;
+    accepterAvatar: string;
+    offered: Record<ResourceType, number>;
+    requested: Record<ResourceType, number>;
+  };
   // Transient animation payloads (incrementing event nonce so frontend animates once per event)
   lastEvent?: {
     nonce: number;
@@ -291,6 +306,9 @@ export interface GameState {
     devCardPlayerId?: string;
     devCardPlayerName?: string;
     devCardTitle?: string;
+    monopolyResource?: ResourceType;
+    monopolyTotalClaimed?: number;
+    yearOfPlentyResources?: [ResourceType, ResourceType];
     buyerPlayerId?: string;
     buyerPlayerName?: string;
     builtItem?: {
@@ -298,6 +316,25 @@ export interface GameState {
       vertexId?: string;
       edgeId?: string;
       playerId: string;
+    };
+    completedTrade?: {
+      proposerId: string;
+      proposerName: string;
+      proposerAvatar: string;
+      accepterId: string;
+      accepterName: string;
+      accepterAvatar: string;
+      offered: Record<ResourceType, number>;
+      requested: Record<ResourceType, number>;
+    };
+    bankTradeNotice?: {
+      playerName: string;
+      giveResource: ResourceType;
+      giveAmount: number;
+      receiveResource: ResourceType;
+      receiveAmount: number;
+      ratio: 2 | 3 | 4;
+      message: string;
     };
     botActionNotice?: string;
   };

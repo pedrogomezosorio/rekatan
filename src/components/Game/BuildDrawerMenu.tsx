@@ -116,23 +116,26 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
     };
 
     return (
-      <div className="relative flex items-center">
+      <div className="relative flex items-center w-full">
         <motion.button
           type="button"
           initial={{ scale: 0.92, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onClick={() => onSelectBuildMode(null)}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 border-2 border-red-300/80 text-white font-black text-xs sm:text-sm flex items-center gap-2.5 shadow-[0_0_25px_rgba(239,68,68,0.6)] cursor-pointer animate-pulse"
+          className="w-full px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 border border-red-300/80 text-white font-black text-[11px] flex items-center justify-between gap-2 shadow-[0_0_20px_rgba(239,68,68,0.6)] cursor-pointer animate-pulse"
         >
-          <X className="w-4 h-4 stroke-[3]" />
-          <span>Cancelar Construcción ({modeNames[buildMode]})</span>
+          <span className="flex items-center gap-1.5 truncate">
+            <X className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+            <span className="truncate">Cancelar ({modeNames[buildMode]})</span>
+          </span>
+          <span className="px-1.5 py-0.5 rounded bg-black/30 font-mono text-[9px] text-red-100">C</span>
         </motion.button>
       </div>
     );
   }
 
   return (
-    <div className="relative flex items-center">
+    <div className="relative flex items-center w-full">
       {/* Upward Animated Smart Construction Drawer */}
       <AnimatePresence>
         {isOpen && (
@@ -142,7 +145,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-            className="absolute bottom-[calc(100%+14px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3"
+            className="absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3"
           >
             <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5">
               <div className="flex items-center gap-2">
@@ -244,21 +247,24 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
         type="button"
         disabled={disabledBeforeDice}
         onClick={onToggleOpen}
-        className={`px-5 py-3 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center gap-2.5 transition ${
+        className={`w-full px-3 py-1.5 rounded-xl border font-black text-[11px] flex items-center justify-between gap-2 transition ${
           disabledBeforeDice
             ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
             : isOpen
-            ? 'bg-amber-400 text-stone-950 border-amber-200 shadow-[0_0_25px_rgba(251,191,36,0.5)] cursor-pointer'
+            ? 'bg-amber-400 text-stone-950 border-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)] cursor-pointer'
             : anyOptionAvailable
-            ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-stone-950 border-amber-300 shadow-[0_6px_25px_rgba(245,158,11,0.4)] cursor-pointer'
+            ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-stone-950 border-amber-300 shadow-[0_4px_15px_rgba(245,158,11,0.35)] cursor-pointer'
             : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-100 cursor-pointer'
         }`}
       >
-        <Hammer className="w-4 h-4" />
-        <span>Construir</span>
-        {anyOptionAvailable && !disabledBeforeDice && (
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-stone-950 animate-pulse" />
-        )}
+        <span className="flex items-center gap-1.5">
+          <Hammer className="w-3.5 h-3.5 shrink-0" />
+          <span>Construir</span>
+          {anyOptionAvailable && !disabledBeforeDice && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-stone-950 animate-pulse" />
+          )}
+        </span>
+        <span className="px-1.5 py-0.5 rounded bg-black/25 text-[9px] font-mono opacity-80">C</span>
       </button>
     </div>
   );

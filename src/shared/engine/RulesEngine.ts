@@ -1,6 +1,7 @@
 import {
   ALL_RESOURCES,
   AVATAR_LIST,
+  BOT_AVATAR_LIST,
   BUILDING_COSTS,
   countTotalResources,
   createEmptyResources,
@@ -720,10 +721,11 @@ export function applyGameAction(
     return { state: prevState, error: 'Jugador no encontrado en la sala.' };
   }
 
-  // If the game is paused by the Host, block all actions except TOGGLE_HOST_PAUSE and ABANDON_GAME
+  // If the game is paused by the Host, block all actions except TOGGLE_HOST_PAUSE, RESUME_GAME and ABANDON_GAME
   if (
     state.turn.isPausedByHost &&
     action.type !== 'TOGGLE_HOST_PAUSE' &&
+    action.type !== 'RESUME_GAME' &&
     action.type !== 'ABANDON_GAME'
   ) {
     return {
@@ -974,7 +976,7 @@ export function applyGameAction(
         id: `BOT_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
         name: botNames[botIdx % botNames.length],
         color: availableColor,
-        avatar: AVATAR_LIST[(state.players.length + 2) % AVATAR_LIST.length],
+        avatar: BOT_AVATAR_LIST[(state.players.length + 2) % BOT_AVATAR_LIST.length],
         isHost: false,
         isBot: true,
         botDifficulty,
@@ -1273,60 +1275,44 @@ export function applyGameAction(
       vertex.playerId = playerId;
       actor.settlementsLeft -= 1;
 
-      if (state.phase === 'SETUP_SETTLEMENT_1') {
+      if (state.phase === 'SETUP_SETTLEMENT_1' || state.phase === 'SETUP_SETTLEMENT_2') {
+        const isFirstSetup = state.phase === 'SETUP_SETTLEMENT_1';
         state.turn.lastPlacedSetupSettlementId = vertex.id;
-        state.phase = 'SETUP_ROAD_1';
-        state.lastEvent = {
-          nonce: nextNonce,
-          type: 'BUILDING_PLACED',
-          builtItem: {
-            type: 'SETTLEMENT',
-            vertexId: vertex.id,
-            playerId: actor.id,
-          },
-        };
-        refreshTurnDeadline(state);
-        addLog(
-          state,
-          `${actor.name} colocó su primer poblado inicial. Ahora debe colocar su carretera adyacente.`,
-          'BUILD',
-          actor.id
-        );
-      } else if (state.phase === 'SETUP_SETTLEMENT_2') {
-        state.turn.lastPlacedSetupSettlementId = vertex.id;
-        state.phase = 'SETUP_ROAD_2';
+        state.phase = isFirstSetup ? 'SETUP_ROAD_1' : 'SETUP_ROAD_2';
         refreshTurnDeadline(state);
 
-        // Official Catan Rule: Grant 1 resource card for each resource-producing terrain hex adjacent to the SECOND settlement
+        const giveInitialResources = state.config.initialSettlementsGiveResources !== false;
         const flights: ResourceFlightEvent[] = [];
         const gainedNames: string[] = [];
 
-        for (const hId of vertex.hexIds) {
-          const hex = state.board.hexes[hId];
-          if (
-            hex &&
-            hex.terrain !== 'DESERT' &&
-            hex.terrain !== 'SEA' &&
-            state.bank[hex.terrain] > 0
-          ) {
-            const res = hex.terrain as ResourceType;
-            state.bank[res] -= 1;
-            actor.resources[res] += 1;
-            gainedNames.push(RESOURCE_META[res].name);
-            flights.push({
-              id: `FLIGHT_SETUP_${hId}_${actor.id}`,
-              hexId: hId,
-              playerId: actor.id,
-              resource: res,
-              amount: 1,
-            });
+        if (giveInitialResources) {
+          for (const hId of vertex.hexIds) {
+            const hex = state.board.hexes[hId];
+            if (
+              hex &&
+              hex.terrain !== 'DESERT' &&
+              hex.terrain !== 'SEA' &&
+              state.bank[hex.terrain] > 0
+            ) {
+              const res = hex.terrain as ResourceType;
+              state.bank[res] -= 1;
+              actor.resources[res] += 1;
+              gainedNames.push(RESOURCE_META[res].name);
+              flights.push({
+                id: `FLIGHT_SETUP_${isFirstSetup ? '1' : '2'}_${hId}_${actor.id}`,
+                hexId: hId,
+                playerId: actor.id,
+                resource: res,
+                amount: 1,
+              });
+            }
           }
         }
 
         // During initial placement, hexagons must NOT glow or illuminate (producingHexIds: [])
         state.lastEvent = {
           nonce: nextNonce,
-          type: 'RESOURCES_PRODUCED',
+          type: flights.length > 0 ? 'RESOURCES_PRODUCED' : 'BUILDING_PLACED',
           producingHexIds: [],
           flights,
           builtItem: {
@@ -1338,9 +1324,11 @@ export function applyGameAction(
 
         addLog(
           state,
-          `${actor.name} colocó su segundo poblado y recibió recursos iniciales: ${
-            gainedNames.length > 0 ? gainedNames.join(', ') : 'ninguno'
-          }.`,
+          giveInitialResources
+            ? `${actor.name} colocó su ${isFirstSetup ? 'primer' : 'segundo'} poblado inicial y recibió recursos: ${
+                gainedNames.length > 0 ? gainedNames.join(', ') : 'ninguno'
+              }.`
+            : `${actor.name} colocó su ${isFirstSetup ? 'primer' : 'segundo'} poblado inicial (sin recursos iniciales).`,
           'BUILD',
           actor.id
         );
@@ -1936,7 +1924,7 @@ export function applyGameAction(
       if (state.phase !== 'MAIN_PHASE') {
         return { state: prevState, error: 'Solo puedes jugar Cartas de Desarrollo en la fase principal.' };
       }
-      if (state.turn.devCardPlayedThisTurn) {
+      if (state.config.maxOneDevCardPerTurn && state.turn.devCardPlayedThisTurn) {
         return {
           state: prevState,
           error: 'Solo puedes jugar un máximo de 1 Carta de Desarrollo por turno.',
@@ -2030,6 +2018,7 @@ export function applyGameAction(
         actor.resources[r1] += 1;
         state.bank[r2] -= 1;
         actor.resources[r2] += 1;
+        state.lastEvent.yearOfPlentyResources = [r1, r2];
 
         addLog(
           state,
@@ -2054,6 +2043,8 @@ export function applyGameAction(
             totalClaimed += count;
           }
         }
+        state.lastEvent.monopolyResource = targetRes;
+        state.lastEvent.monopolyTotalClaimed = totalClaimed;
         addLog(
           state,
           `${actor.name} jugó Monopolio de ${RESOURCE_META[targetRes].name} y confiscó ${totalClaimed} cartas en total.`,
@@ -2098,7 +2089,23 @@ export function applyGameAction(
 
       state.turn.hasTradedThisTurn = true;
       state.turn.tradesAndBurnsThisTurn = (state.turn.tradesAndBurnsThisTurn || 0) + 1;
-      state.lastEvent = { nonce: nextNonce, type: 'TRADE_COMPLETED' };
+      const bankNoticeMsg =
+        ratio === 4
+          ? `${actor.name} quemó ${giveAmount} de ${RESOURCE_META[giveResource].name} (4:1) por ${receiveAmount} de ${RESOURCE_META[receiveResource].name}`
+          : `${actor.name} comerció en puerto (${ratio}:1): ${giveAmount} de ${RESOURCE_META[giveResource].name} por ${receiveAmount} de ${RESOURCE_META[receiveResource].name}`;
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'TRADE_COMPLETED',
+        bankTradeNotice: {
+          playerName: actor.name,
+          giveResource,
+          giveAmount,
+          receiveResource,
+          receiveAmount,
+          ratio,
+          message: bankNoticeMsg,
+        },
+      };
 
       addLog(
         state,
@@ -2218,18 +2225,12 @@ export function applyGameAction(
         return { state };
       }
 
-      // ACCEPT: verify responder has the requested resources
+      // ACCEPT: verify responder has the requested resources and execute the trade immediately!
       if (!hasResources(actor.resources, offer.request)) {
         return { state: prevState, error: 'No tienes los recursos solicitados para aceptar esta oferta.' };
       }
       offer.responses[playerId] = 'ACCEPTED';
-
-      // If the responder IS the active player accepting a counter-offer, or if creator wants immediate execution, execute!
-      if (playerId === state.turn.activePlayerId) {
-        return executeTradeBetweenPlayers(state, offer, actor.id, nextNonce);
-      }
-
-      return { state };
+      return executeTradeBetweenPlayers(state, offer, actor.id, nextNonce);
     }
 
     case 'EXECUTE_TRADE_OFFER': {
@@ -2325,9 +2326,18 @@ export function applyGameAction(
         state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
         state.turn.phaseBeforePause = undefined;
         state.turn.pausedForPlayerId = null;
-        refreshTurnDeadline(state);
-        addLog(state, `La partida se ha reanudado.`, 'SYSTEM');
       }
+      if (state.turn.isPausedByHost) {
+        state.turn.isPausedByHost = false;
+        state.turn.pausedRemainingTimerMs = null;
+      }
+      for (const p of state.players) {
+        if (p.connected && !p.isBot) {
+          p.status = 'ACTIVE';
+        }
+      }
+      refreshTurnDeadline(state);
+      addLog(state, `La partida se ha reanudado.`, 'SYSTEM');
       return { state };
     }
 
@@ -2339,16 +2349,18 @@ export function applyGameAction(
         return { state: prevState, error: 'No se puede pausar fuera de la partida activa.' };
       }
 
-      if (!state.turn.isPausedByHost) {
-        state.turn.isPausedByHost = true;
-        const remainingMs = state.turn.turnDeadlineMs
-          ? Math.max(1000, state.turn.turnDeadlineMs - Date.now())
-          : null;
-        state.turn.pausedRemainingTimerMs = remainingMs;
-        state.turn.turnDeadlineMs = null;
-        addLog(state, `El anfitrión (${actor.name}) ha pausado la partida.`, 'SYSTEM', actor.id);
-      } else {
+      if (state.turn.isPausedByHost || state.phase === 'PAUSED_DISCONNECT') {
         state.turn.isPausedByHost = false;
+        if (state.phase === 'PAUSED_DISCONNECT') {
+          state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
+          state.turn.phaseBeforePause = undefined;
+          state.turn.pausedForPlayerId = null;
+        }
+        for (const p of state.players) {
+          if (p.connected && !p.isBot) {
+            p.status = 'ACTIVE';
+          }
+        }
         if (state.turn.pausedRemainingTimerMs) {
           state.turn.turnDeadlineMs = Date.now() + state.turn.pausedRemainingTimerMs;
         } else {
@@ -2356,7 +2368,16 @@ export function applyGameAction(
         }
         state.turn.pausedRemainingTimerMs = null;
         addLog(state, `El anfitrión (${actor.name}) ha reanudado la partida.`, 'SYSTEM', actor.id);
+        return { state };
       }
+
+      state.turn.isPausedByHost = true;
+      const remainingMs = state.turn.turnDeadlineMs
+        ? Math.max(1000, state.turn.turnDeadlineMs - Date.now())
+        : null;
+      state.turn.pausedRemainingTimerMs = remainingMs;
+      state.turn.turnDeadlineMs = null;
+      addLog(state, `El anfitrión (${actor.name}) ha pausado la partida.`, 'SYSTEM', actor.id);
       return { state };
     }
 
@@ -2438,7 +2459,25 @@ function executeTradeBetweenPlayers(
   state.turn.hasTradedThisTurn = true;
   state.turn.tradesAndBurnsThisTurn = (state.turn.tradesAndBurnsThisTurn || 0) + 1;
   state.activeTradeOffers = state.activeTradeOffers.filter((o) => o.id !== offer.id);
-  state.lastEvent = { nonce: nextNonce, type: 'TRADE_COMPLETED' };
+  const completedTradeSummary = {
+    proposerId: proposer.id,
+    proposerName: proposer.name,
+    proposerAvatar: proposer.avatar,
+    accepterId: partner.id,
+    accepterName: partner.name,
+    accepterAvatar: partner.avatar,
+    offered: { ...offer.offer },
+    requested: { ...offer.request },
+  };
+  state.lastCompletedTrade = {
+    nonce: nextNonce,
+    ...completedTradeSummary,
+  };
+  state.lastEvent = {
+    nonce: nextNonce,
+    type: 'TRADE_COMPLETED',
+    completedTrade: completedTradeSummary,
+  };
 
   addLog(
     state,

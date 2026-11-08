@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import {
   AVATAR_LIST,
   createEmptyResources,
+  DEPOR_AVATAR,
   PLAYER_COLORS,
 } from '../src/shared/constants';
 import {
@@ -86,6 +87,13 @@ async function startServer() {
         color: PlayerColor;
         avatar: string;
       }) => {
+        if (
+          payload.avatar === DEPOR_AVATAR &&
+          (payload.playerName || '').trim().toLowerCase() !== 'mantecado de coco'
+        ) {
+          socket.emit('ACTION_ERROR', { message: 'te falta flow' });
+          return;
+        }
         const roomCode = generateRoomCode();
         const playerId = payload.playerId || `P_${ socket.id }`;
         const gameState = createInitialGameState(roomCode, {
@@ -112,6 +120,13 @@ async function startServer() {
         color: PlayerColor;
         avatar: string;
       }) => {
+        if (
+          payload.avatar === DEPOR_AVATAR &&
+          (payload.playerName || '').trim().toLowerCase() !== 'mantecado de coco'
+        ) {
+          socket.emit('ACTION_ERROR', { message: 'te falta flow' });
+          return;
+        }
         const roomCode = (payload.roomCode || '').trim().toUpperCase();
         const room = rooms.get(roomCode);
 
@@ -503,17 +518,16 @@ async function startServer() {
               ev?.type === 'CARD_STOLEN' ||
               ev?.type === 'DEV_CARD_PLAYED'
             ) {
-              await delay(3200);
+              await delay(3800);
             } else if (ev?.type === 'DEV_CARD_BOUGHT') {
-              // Dev card bought: wait for slide-spinning flight across screen into player casillero (~3.2s)
-              await delay(3200);
-            } else if (ev?.builtItem) {
-              // Built road, settlement, or city: pause so players see the highlight on the board
-              await delay(3000);
+              // Dev card bought: wait for slide-spinning flight across screen into player casillero (~3.8s)
+              await delay(3800);
+            } else if (ev?.builtItem || ev?.bankTradeNotice || ev?.completedTrade) {
+              // Built road/settlement/city or traded/burned with bank/port: wait 3.8s so top-center notice finishes cleanly
+              await delay(3800);
             } else {
-              // Main phase actions (trade, or end turn)
-              // Ensure a generous pause between consecutive actions so nothing feels instant!
-              await delay(2600);
+              // Main phase actions (trade offer or end turn)
+              await delay(2800);
             }
           } finally {
             runningBotRooms.delete(roomCode);

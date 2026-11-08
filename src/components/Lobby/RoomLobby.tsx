@@ -27,7 +27,7 @@ import {
 } from '../../shared/constants';
 import { BoardMode, BotDifficulty, ExpansionModule, PortType, TerrainType } from '../../shared/types';
 import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
-import { ResourceIcon } from '../UI/ResourceIcon';
+import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 
 export const RoomLobby: React.FC = () => {
   const { gameState, playerId, dispatchAction, leaveRoomClient, lowEndPcMode, setLowEndPcMode } =
@@ -241,13 +241,13 @@ export const RoomLobby: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-base border-2 shadow shrink-0"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center text-base border-2 shadow shrink-0 overflow-hidden p-0.5"
                         style={{
                           backgroundColor: colorCfg.primary,
                           borderColor: colorCfg.stroke,
                         }}
                       >
-                        {p.avatar}
+                        <AvatarIcon avatar={p.avatar} className="w-6 h-6" />
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 text-sm font-bold text-slate-100 truncate">
@@ -720,6 +720,96 @@ export const RoomLobby: React.FC = () => {
                 >
                   <div>Uso Inmediato (Activo)</div>
                   <div className="text-[10px] opacity-80">Jugables en el mismo turno de compra</div>
+                </button>
+              </div>
+            </div>
+
+            {/* 4B. Cartas de Desarrollo por Turno (2 Sectores) */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-200">
+                Cartas de Desarrollo por Turno
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { maxOneDevCardPerTurn: false },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    !config.maxOneDevCardPerTurn
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Usar las que quieras (Por defecto)</div>
+                  <div className="text-[10px] opacity-80">Sin límite de cartas jugadas por turno</div>
+                </button>
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { maxOneDevCardPerTurn: true },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    config.maxOneDevCardPerTurn
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Solo 1 Carta por Turno</div>
+                  <div className="text-[10px] opacity-80">Máximo una carta de desarrollo en cada turno</div>
+                </button>
+              </div>
+            </div>
+
+            {/* 4C. Recursos de las 2 Casas Iniciales (2 Sectores) */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-200">
+                Recursos de las Casas Iniciales
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { initialSettlementsGiveResources: true },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    config.initialSettlementsGiveResources !== false
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Ambas Casas dan Recursos</div>
+                  <div className="text-[10px] opacity-80">Las 2 casas iniciales dan recursos contiguos</div>
+                </button>
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { initialSettlementsGiveResources: false },
+                    })
+                  }
+                  className={`p-2 rounded-xl border text-left text-xs transition ${
+                    config.initialSettlementsGiveResources === false
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div>Sin Recursos Iniciales</div>
+                  <div className="text-[10px] opacity-80">Las casas iniciales no dan recursos</div>
                 </button>
               </div>
             </div>

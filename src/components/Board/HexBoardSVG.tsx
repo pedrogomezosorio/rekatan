@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ZoomIn, ZoomOut, RotateCcw, Compass, ShieldAlert } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, ShieldAlert } from 'lucide-react';
 import {
   BoardState,
   Edge,
@@ -70,7 +70,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   lastEvent,
 }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [showCoords, setShowCoords] = useState<boolean>(false);
+  const showCoords = false;
   const [swapSourceHexId, setSwapSourceHexId] = useState<string | null>(null);
   const [robberImpact, setRobberImpact] = useState<boolean>(false);
 
@@ -133,16 +133,19 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     }
   }, [lastEvent?.nonce, lastEvent?.builtItem]);
 
-  // Trigger screen shake & impact shockwave whenever the Robber moves
+  // Trigger screen shake & impact shockwave whenever the Robber moves OR stays on the same hex
   useEffect(() => {
-    if (prevRobberHexRef.current && prevRobberHexRef.current !== board.robberHexId) {
+    if (
+      (prevRobberHexRef.current && prevRobberHexRef.current !== board.robberHexId) ||
+      Boolean(lastEvent?.robberTargetHexId)
+    ) {
       setRobberImpact(true);
       const t = setTimeout(() => setRobberImpact(false), 650);
       prevRobberHexRef.current = board.robberHexId;
       return () => clearTimeout(t);
     }
     prevRobberHexRef.current = board.robberHexId;
-  }, [board.robberHexId]);
+  }, [board.robberHexId, lastEvent?.nonce, lastEvent?.robberTargetHexId]);
 
   // 60-120fps Physics & Interpolation Loop (Inertia + Smooth Lerp)
   useEffect(() => {
@@ -414,7 +417,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(212,175,55,0.12)_0%,rgba(0,0,0,0.55)_100%)]" />
 
       {/* Tabletop Camera Controls (Dark Walnut & Antique Gold) */}
-      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)]">
+      <div
+        className={`absolute z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
+          editorTool ? 'bottom-4 left-4' : 'bottom-3 left-[210px] sm:left-[236px]'
+        }`}
+      >
         <button
           onClick={() => zoomByStep(1.18)}
           className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
@@ -435,19 +442,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           title="Centrar Tablero"
         >
           <RotateCcw className="w-4 h-4" />
-        </button>
-        <div className="h-4 w-px bg-[#d4af37]/25 mx-0.5" />
-        <button
-          onClick={() => setShowCoords((s) => !s)}
-          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
-            showCoords
-              ? 'bg-[#d4af37]/25 text-amber-200 border border-[#d4af37]/50'
-              : 'text-stone-400 hover:bg-[#292018] hover:text-amber-200'
-          }`}
-          title="Mostrar Coordenadas Cúbicas (q, r, s)"
-        >
-          <Compass className="w-3.5 h-3.5" />
-          <span>(q,r,s)</span>
         </button>
       </div>
 

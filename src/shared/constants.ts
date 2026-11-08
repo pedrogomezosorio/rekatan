@@ -270,7 +270,11 @@ export const PLAYER_COLORS: Record<
   },
 };
 
-export const AVATAR_LIST = [
+export const CUSTOM_AVATAR_PONTEVEDRA = '/assets/avatars/pontevedra.png';
+export const CUSTOM_AVATAR_CELTA = '/assets/avatars/celta.jpg';
+export const DEPOR_AVATAR = '/assets/avatars/depor.jpg';
+
+export const BOT_AVATAR_LIST = [
   '👑',
   '⚔️',
   '🦁',
@@ -284,6 +288,17 @@ export const AVATAR_LIST = [
   '🔥',
   '🧙',
 ];
+
+export const AVATAR_LIST = [
+  ...BOT_AVATAR_LIST,
+  CUSTOM_AVATAR_PONTEVEDRA,
+  CUSTOM_AVATAR_CELTA,
+  DEPOR_AVATAR,
+];
+
+export function isImageAvatar(avatar?: string): boolean {
+  return Boolean(avatar && (avatar.startsWith('/') || avatar.startsWith('http')));
+}
 
 export const BUILDING_COSTS: Record<
   'ROAD' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD',
@@ -314,6 +329,8 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   desertInCenter: true,
   minSettlementDistance: 2,
   allowInstantDevCards: false,
+  maxOneDevCardPerTurn: false,
+  initialSettlementsGiveResources: true,
   turnActionRestriction: 'LEVEL_1_FREE',
   maxInfrastructurePerTurn: 'UNLIMITED',
   exclusiveTradeOrSpend: false,

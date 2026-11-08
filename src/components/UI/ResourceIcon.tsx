@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
-import { RESOURCE_ICON_PATHS, RESOURCE_META } from '../../shared/constants';
+import { isImageAvatar, RESOURCE_ICON_PATHS, RESOURCE_META } from '../../shared/constants';
 import { ResourceType } from '../../shared/types';
+
+export const AvatarIcon: React.FC<{
+  avatar?: string;
+  className?: string;
+}> = ({ avatar = '👑', className = 'w-6 h-6' }) => {
+  if (isImageAvatar(avatar)) {
+    return (
+      <img
+        src={avatar}
+        alt="Avatar"
+        draggable={false}
+        className={`inline-block object-contain rounded-md select-none shrink-0 ${className}`}
+      />
+    );
+  }
+  return <span className="leading-none select-none">{avatar}</span>;
+};
 
 export interface ResourceIconProps {
   resource: ResourceType;

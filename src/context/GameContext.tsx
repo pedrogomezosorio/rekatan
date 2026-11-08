@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { DEPOR_AVATAR } from '../shared/constants';
 import { GameAction, GameState, PlayerColor } from '../shared/types';
 
 interface GameContextValue {
@@ -16,7 +17,9 @@ interface GameContextValue {
   updateServerUrl: (url: string) => void;
   gameState: GameState | null;
   connected: boolean;
+  reconnectSocket: () => void;
   errorToast: string | null;
+  showErrorToast: (msg: string) => void;
   clearErrorToast: () => void;
   createRoom: () => void;
   joinRoom: (code: string) => void;
@@ -100,8 +103,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const socket = io(targetUrl, {
       transports: ['websocket', 'polling'],
-      timeout: 6000,
-      reconnectionAttempts: 5,
+      timeout: 20000,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
     });
     socketRef.current = socket;
 
@@ -120,8 +127,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      console.warn('[Socket] Disconnected from server. Reason:', reason);
       setConnected(false);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] Connection error:', err.message);
+      setConnected(false);
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log(`[Socket] Reconnected successfully on attempt #${attemptNumber}`);
+      setConnected(true);
+      const savedRoom = activeRoomRef.current || sessionStorage.getItem('catan_active_room');
+      if (savedRoom) {
+        socket.emit('JOIN_ROOM', {
+          roomCode: savedRoom,
+          playerId,
+          playerName: sessionStorage.getItem('catan_player_name') || 'Jugador',
+          color: (sessionStorage.getItem('catan_player_color') as PlayerColor) || 'RED',
+          avatar: sessionStorage.getItem('catan_player_avatar') || '👑',
+        });
+      }
     });
 
     socket.on('ROOM_JOINED', (payload: { roomCode: string; playerId: string; state: GameState }) => {
@@ -153,8 +181,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearTimeout(timer);
   }, [errorToast]);
 
-  const createRoom = () => {
+  const reconnectSocket = () => {
     if (!socketRef.current) return;
+    if (!socketRef.current.connected) {
+      socketRef.current.connect();
+    }
+  };
+
+  const createRoom = () => {
+    if (
+      playerAvatar === DEPOR_AVATAR &&
+      playerName.trim().toLowerCase() !== 'mantecado de coco'
+    ) {
+      setErrorToast('te falta flow');
+      return;
+    }
+    if (!socketRef.current) return;
+    if (!socketRef.current.connected) {
+      socketRef.current.connect();
+      setErrorToast('Conectando con el servidor... Reintenta en unos instantes.');
+      return;
+    }
     const finalName = playerName.trim() || 'Colono';
     setPlayerName(finalName);
     socketRef.current.emit('CREATE_ROOM', {
@@ -166,7 +213,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const joinRoom = (code: string) => {
+    if (
+      playerAvatar === DEPOR_AVATAR &&
+      playerName.trim().toLowerCase() !== 'mantecado de coco'
+    ) {
+      setErrorToast('te falta flow');
+      return;
+    }
     if (!socketRef.current) return;
+    if (!socketRef.current.connected) {
+      socketRef.current.connect();
+      setErrorToast('Conectando con el servidor... Reintenta en unos instantes.');
+      return;
+    }
     const cleanCode = code.trim().toUpperCase();
     if (!cleanCode) {
       setErrorToast('Introduce un código de sala válido.');
@@ -184,7 +243,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const dispatchAction = (action: GameAction) => {
-    if (!socketRef.current || !gameState) return;
+    if (!socketRef.current) return;
+    if (!socketRef.current.connected) {
+      socketRef.current.connect();
+      setErrorToast('Reconectando con el servidor... Inténtalo de nuevo en unos segundos.');
+      return;
+    }
+    if (!gameState) return;
     socketRef.current.emit('GAME_ACTION', {
       roomCode: gameState.roomCode,
       playerId,
@@ -193,7 +258,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const leaveRoomClient = () => {
-    if (gameState && socketRef.current) {
+    if (gameState && socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('GAME_ACTION', {
         roomCode: gameState.roomCode,
         playerId,
@@ -224,7 +289,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateServerUrl,
         gameState,
         connected,
+        reconnectSocket,
         errorToast,
+        showErrorToast: (msg: string) => setErrorToast(msg),
         clearErrorToast: () => setErrorToast(null),
         createRoom,
         joinRoom,

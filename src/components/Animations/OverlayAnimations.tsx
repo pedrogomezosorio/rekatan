@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ShieldAlert, Swords } from 'lucide-react';
+import { ShieldAlert, Swords, X } from 'lucide-react';
 import {
   DiscardAnimationEvent,
   GameState,
@@ -34,11 +34,17 @@ interface PositionedResourceFlight extends ResourceFlightEvent {
 
 interface CentralAlertPayload {
   id: string;
-  kind: 'KNIGHT_PLAYED' | 'ROBBER_ON_MY_HEX';
+  kind:
+    | 'KNIGHT_PLAYED'
+    | 'MONOPOLY_PLAYED'
+    | 'YEAR_OF_PLENTY_PLAYED'
+    | 'ROAD_BUILDING_PLAYED'
+    | 'ROBBER_ON_MY_HEX';
   title: string;
   subtitle: string;
   actorName?: string;
   cardImage?: string;
+  resources?: ResourceType[];
 }
 
 interface DevCardFlight {
@@ -107,7 +113,6 @@ function resolvePlayerCasilleroCenter(
   gameState: GameState
 ): { x: number; y: number } {
   const el =
-    document.getElementById(`left-box-${playerId}`) ||
     document.getElementById(`player-casillero-${playerId}`) ||
     document.getElementById(`right-player-card-${playerId}`);
   if (el) {
@@ -119,13 +124,14 @@ function resolvePlayerCasilleroCenter(
       };
     }
   }
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const idx = Math.max(
     0,
     gameState.players.findIndex((p) => p.id === playerId)
   );
   return {
-    x: 105,
-    y: 110 + idx * 115,
+    x: vw - 150,
+    y: 110 + idx * 95,
   };
 }
 
@@ -137,9 +143,14 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   const [activeDiceStage, setActiveDiceStage] = useState<DiceRollStage | null>(null);
   const [activeFlightItems, setActiveFlightItems] = useState<PositionedResourceFlight[]>([]);
   const [activeDevCardFlights, setActiveDevCardFlights] = useState<DevCardFlight[]>([]);
-  const [centralAlert, setCentralAlert] = useState<CentralAlertPayload | null>(null);
+  const [centralAlertQueue, setCentralAlertQueue] = useState<CentralAlertPayload[]>([]);
   const [activeDiscards, setActiveDiscards] = useState<DiscardAnimationEvent[]>([]);
   const [activeSteal, setActiveSteal] = useState<RobberStealEvent | null>(null);
+
+  const centralAlert = centralAlertQueue[0] || null;
+  const enqueueCentralAlert = (alert: CentralAlertPayload) => {
+    setCentralAlertQueue((prev) => [...prev, alert]);
+  };
 
   const lastSeenNonceRef = useRef<number>(0);
   const sequenceRunIdRef = useRef<number>(0);
@@ -182,20 +193,61 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
     }
 
     // 2. Central Critical Alerts:
-    // Case A: Someone plays a Knight Development Card
-    if (ev.type === 'DEV_CARD_PLAYED' && ev.devCardType === 'KNIGHT') {
+    // Case A: Someone plays any Development Card (Knight, Monopoly, Year of Plenty / Progreso, Road Building)
+    if (ev.type === 'DEV_CARD_PLAYED' && ev.devCardType) {
       const actorName =
         ev.devCardPlayerName ||
         gameState.players.find((p) => p.id === ev.devCardPlayerId)?.name ||
         'Un jugador';
-      setCentralAlert({
-        id: `ALERT_KNIGHT_${ev.nonce}`,
-        kind: 'KNIGHT_PLAYED',
-        title: 'Carta de Caballero en Juego',
-        subtitle: `${actorName} ha desplegado un Caballero y toma el control del Ladrón.`,
-        actorName,
-        cardImage: DEV_CARD_IMAGE_PATHS.KNIGHT,
-      });
+
+      if (ev.devCardType === 'KNIGHT') {
+        enqueueCentralAlert({
+          id: `ALERT_KNIGHT_${ev.nonce}`,
+          kind: 'KNIGHT_PLAYED',
+          title: 'Carta de Caballero en Juego',
+          subtitle: `${actorName} ha desplegado un Caballero y toma el control del Ladrón.`,
+          actorName,
+          cardImage: DEV_CARD_IMAGE_PATHS.KNIGHT,
+        });
+      } else if (ev.devCardType === 'MONOPOLY' && ev.monopolyResource) {
+        const resName = RESOURCE_META[ev.monopolyResource].name;
+        const stolenCount = ev.monopolyTotalClaimed ?? 0;
+        enqueueCentralAlert({
+          id: `ALERT_MONOPOLY_${ev.nonce}`,
+          kind: 'MONOPOLY_PLAYED',
+          title: 'Monopolio en Juego',
+          subtitle: `${actorName} ha usado Monopolio con ${resName} (${stolenCount} carta${
+            stolenCount === 1 ? '' : 's'
+          } confiscada${stolenCount === 1 ? '' : 's'}).`,
+          actorName,
+          cardImage: DEV_CARD_IMAGE_PATHS.MONOPOLY,
+          resources: [ev.monopolyResource],
+        });
+      } else if (
+        ev.devCardType === 'YEAR_OF_PLENTY' &&
+        ev.yearOfPlentyResources &&
+        ev.yearOfPlentyResources.length === 2
+      ) {
+        const [r1, r2] = ev.yearOfPlentyResources;
+        enqueueCentralAlert({
+          id: `ALERT_PLENTY_${ev.nonce}`,
+          kind: 'YEAR_OF_PLENTY_PLAYED',
+          title: 'Progreso: Año de la Abundancia',
+          subtitle: `${actorName} usó Progreso y tomó ${RESOURCE_META[r1].name} y ${RESOURCE_META[r2].name}.`,
+          actorName,
+          cardImage: DEV_CARD_IMAGE_PATHS.YEAR_OF_PLENTY,
+          resources: [r1, r2],
+        });
+      } else if (ev.devCardType === 'ROAD_BUILDING') {
+        enqueueCentralAlert({
+          id: `ALERT_ROADS_${ev.nonce}`,
+          kind: 'ROAD_BUILDING_PLAYED',
+          title: 'Progreso: Construcción de Carreteras',
+          subtitle: `${actorName} usó Progreso de Carreteras para colocar hasta 2 carreteras gratis.`,
+          actorName,
+          cardImage: DEV_CARD_IMAGE_PATHS.ROAD_BUILDING,
+        });
+      }
     }
 
     // Case B: Someone places (or keeps) the Robber on one of the local player's terrains
@@ -211,7 +263,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           ? `${RESOURCE_META[targetHex.terrain as ResourceType].terrainName} (${targetHex.numberToken})`
           : 'tu terreno';
 
-      setCentralAlert({
+      enqueueCentralAlert({
         id: `ALERT_ROBBER_${ev.nonce}`,
         kind: 'ROBBER_ON_MY_HEX',
         title: 'El Ladrón Bloquea tu Terreno',
@@ -355,12 +407,14 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
     return () => clearTimeout(landedTimer);
   }, [activeDiceStage?.stage]);
 
-  // Auto-dismiss Central Critical Alert after 3.4 seconds
+  // Auto-dismiss Central Critical Alert after 3.6 seconds (FIFO queue)
   useEffect(() => {
     if (!centralAlert) return;
-    const timer = setTimeout(() => setCentralAlert(null), 3400);
+    const timer = setTimeout(() => {
+      setCentralAlertQueue((prev) => prev.slice(1));
+    }, 3600);
     return () => clearTimeout(timer);
-  }, [centralAlert]);
+  }, [centralAlert?.id]);
 
   // Auto-dismiss Robber Discards
   useEffect(() => {
@@ -482,58 +536,125 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         ))}
       </AnimatePresence>
 
-      {/* 3. CENTRAL CRITICAL ALERTS (KNIGHT PLAYED OR ROBBER PLACED ON LOCAL PLAYER'S TERRAIN) */}
-      <AnimatePresence>
-        {centralAlert && (
-          <motion.div
-            key={centralAlert.id}
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-              x: lowEndPcMode ? 0 : [0, -12, 12, -8, 8, -4, 4, 0],
-              y: lowEndPcMode ? 0 : [0, 6, -6, 4, -4, 2, -2, 0],
-            }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.55 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)] backdrop-blur-[2px]"
-          >
+      {/* 3. CENTRAL CRITICAL ALERTS (PROGRESS CARDS IN PALE BLUE | KNIGHT & ROBBER IN RED) */}
+      <AnimatePresence mode="wait">
+        {centralAlert && (() => {
+          const isRed =
+            centralAlert.kind === 'ROBBER_ON_MY_HEX' || centralAlert.kind === 'KNIGHT_PLAYED';
+          return (
             <motion.div
-              initial={{ scale: 0.72, y: 24 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.88, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-              className="flex flex-col items-center text-center max-w-xl mx-4 px-10 py-8 rounded-3xl bg-gradient-to-b from-[#330a0a]/98 via-[#1f0606]/98 to-[#0e0202]/98 border-4 border-red-500 shadow-[0_0_100px_rgba(220,38,38,0.9)]"
+              key={centralAlert.id}
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity: 1,
+                x: lowEndPcMode ? 0 : [0, -12, 12, -8, 8, -4, 4, 0],
+                y: lowEndPcMode ? 0 : [0, 6, -6, 4, -4, 2, -2, 0],
+              }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.55 }}
+              className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px] cursor-pointer ${
+                isRed
+                  ? 'bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)]'
+                  : 'bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.42)_0%,rgba(12,28,48,0.84)_100%)]'
+              }`}
+              onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
             >
-              {centralAlert.cardImage ? (
-                <div className="w-24 h-36 rounded-xl overflow-hidden border-2 border-amber-400/80 shadow-[0_12px_30px_rgba(0,0,0,0.9)] mb-4">
-                  <img
-                    src={centralAlert.cardImage}
-                    alt={centralAlert.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-red-950 border-2 border-red-400 flex items-center justify-center mb-4 shadow-lg">
-                  {centralAlert.kind === 'KNIGHT_PLAYED' ? (
-                    <Swords className="w-9 h-9 text-red-200" />
-                  ) : (
-                    <ShieldAlert className="w-9 h-9 text-red-200" />
-                  )}
-                </div>
-              )}
+              <motion.div
+                initial={{ scale: 0.72, y: 24 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.88, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className={`relative flex flex-col items-center text-center max-w-xl mx-4 px-10 py-8 rounded-3xl border-4 ${
+                  isRed
+                    ? 'bg-gradient-to-b from-[#330a0a]/98 via-[#1f0606]/98 to-[#0e0202]/98 border-red-500 shadow-[0_0_100px_rgba(220,38,38,0.9)]'
+                    : 'bg-gradient-to-b from-[#163654]/98 via-[#0e243b]/98 to-[#071525]/98 border-sky-300 shadow-[0_0_95px_rgba(125,211,252,0.78)]'
+                }`}
+              >
+                {/* Instant dismiss button */}
+                <button
+                  type="button"
+                  onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
+                  className="absolute top-4 right-4 p-2 rounded-xl bg-black/40 hover:bg-black/70 text-stone-300 hover:text-white transition cursor-pointer"
+                  title="Cerrar aviso"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                {centralAlert.cardImage ? (
+                  <div
+                    className={`w-24 h-36 rounded-xl overflow-hidden border-2 shadow-[0_12px_30px_rgba(0,0,0,0.9)] mb-4 ${
+                      isRed ? 'border-amber-400/80' : 'border-sky-200/90'
+                    }`}
+                  >
+                    <img
+                      src={centralAlert.cardImage}
+                      alt={centralAlert.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center mb-4 shadow-lg ${
+                      isRed ? 'bg-red-950 border-red-400' : 'bg-sky-900/90 border-sky-300'
+                    }`}
+                  >
+                    {centralAlert.kind === 'KNIGHT_PLAYED' ? (
+                      <Swords className="w-9 h-9 text-red-200" />
+                    ) : (
+                      <ShieldAlert
+                        className={`w-9 h-9 ${isRed ? 'text-red-200' : 'text-sky-200'}`}
+                      />
+                    )}
+                  </div>
+                )}
 
-              <span className="text-[11px] font-black uppercase tracking-[0.28em] text-red-300/90 mb-1">
-                Alerta Crítica de Partida
-              </span>
-              <h2 className="text-2xl sm:text-4xl font-black font-serif text-red-50 tracking-wide drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)]">
-                {centralAlert.title}
-              </h2>
-              <p className="text-sm sm:text-base text-red-200/95 font-semibold mt-2.5 max-w-md leading-relaxed">
-                {centralAlert.subtitle}
-              </p>
+                <span
+                  className={`text-[11px] font-black uppercase tracking-[0.28em] mb-1 ${
+                    isRed ? 'text-red-300/90' : 'text-sky-200/95'
+                  }`}
+                >
+                  {centralAlert.kind === 'ROBBER_ON_MY_HEX'
+                    ? 'Alerta Crítica de Partida'
+                    : centralAlert.kind === 'KNIGHT_PLAYED'
+                    ? 'Carta de Caballero en Juego'
+                    : 'Carta de Progreso Jugada'}
+                </span>
+                <h2
+                  className={`text-2xl sm:text-4xl font-black font-serif tracking-wide drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)] ${
+                    isRed ? 'text-red-50' : 'text-sky-50'
+                  }`}
+                >
+                  {centralAlert.title}
+                </h2>
+                <p
+                  className={`text-sm sm:text-base font-semibold mt-2.5 max-w-md leading-relaxed ${
+                    isRed ? 'text-red-200/95' : 'text-sky-100/95'
+                  }`}
+                >
+                  {centralAlert.subtitle}
+                </p>
+
+                {centralAlert.resources && centralAlert.resources.length > 0 && (
+                  <div className="mt-4 flex items-center justify-center gap-2.5 flex-wrap">
+                    {centralAlert.resources.map((res, i) => (
+                      <span
+                        key={`${res}_${i}`}
+                        className={`px-3.5 py-1.5 rounded-2xl border-2 text-xs sm:text-sm font-black inline-flex items-center gap-2 shadow-lg ${
+                          isRed
+                            ? 'bg-black/65 border-amber-400/70 text-amber-100'
+                            : 'bg-sky-950/85 border-sky-300/80 text-sky-100'
+                        }`}
+                      >
+                        <ResourceIcon resource={res} size={20} />
+                        <span>{RESOURCE_META[res].name}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       {/* 4. ROBBER DISCARD LOSS ANIMATION (MANUAL & RANDOM) */}

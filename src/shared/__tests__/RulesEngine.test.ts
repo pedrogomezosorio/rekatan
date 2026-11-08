@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { countTotalResources } from '../constants';
 import {
   generateBoard,
   hasAdjacentRedNumbers,
@@ -110,10 +111,18 @@ describe('Official Rules & House Rules Engine', () => {
     expect(state.phase).toBe('SETUP_SETTLEMENT_1');
     expect(state.turn.setupOrder).toEqual(['P1', p2Id, p2Id, 'P1']);
 
-    // P1 places 1st settlement & road
+    // P1 places 1st settlement & road (receives resources from adjacent land hexes of 1st settlement)
     const v1 = getValidSettlementVertices(state, 'P1')[0];
+    const v1LandHexes = state.board.vertices[v1].hexIds.filter(
+      (hId) =>
+        state.board.hexes[hId] &&
+        state.board.hexes[hId].terrain !== 'SEA' &&
+        state.board.hexes[hId].terrain !== 'DESERT'
+    );
     state = applyGameAction(state, 'P1', { type: 'PLACE_SETTLEMENT', vertexId: v1 }).state;
     expect(state.phase).toBe('SETUP_ROAD_1');
+    expect(countTotalResources(state.players[0].resources)).toBe(v1LandHexes.length);
+    expect(countTotalResources(state.players[0].resources)).toBeGreaterThan(0);
     const e1 = state.board.vertices[v1].adjacentEdgeIds[0];
     state = applyGameAction(state, 'P1', { type: 'PLACE_ROAD', edgeId: e1 }).state;
 
@@ -132,9 +141,18 @@ describe('Official Rules & House Rules Engine', () => {
     const e3 = state.board.vertices[v3].adjacentEdgeIds[0];
     state = applyGameAction(state, p2Id, { type: 'PLACE_ROAD', edgeId: e3 }).state;
 
-    // P1 places 2nd settlement & road -> game enters strict WAITING_FOR_DICE phase
+    // P1 places 2nd settlement & road (receives resources from adjacent land hexes of 2nd settlement too!)
     const v4 = getValidSettlementVertices(state, 'P1')[0];
+    const v4LandHexes = state.board.vertices[v4].hexIds.filter(
+      (hId) =>
+        state.board.hexes[hId] &&
+        state.board.hexes[hId].terrain !== 'SEA' &&
+        state.board.hexes[hId].terrain !== 'DESERT'
+    );
     state = applyGameAction(state, 'P1', { type: 'PLACE_SETTLEMENT', vertexId: v4 }).state;
+    expect(countTotalResources(state.players[0].resources)).toBe(
+      v1LandHexes.length + v4LandHexes.length
+    );
     const e4 = state.board.vertices[v4].adjacentEdgeIds[0];
     state = applyGameAction(state, 'P1', { type: 'PLACE_ROAD', edgeId: e4 }).state;
 
@@ -565,5 +583,58 @@ describe('Official Rules & House Rules Engine', () => {
     });
     expect(resumeRes.state.phase).toBe('MAIN_PHASE');
     expect(resumeRes.state.turn.phaseBeforePause).toBeUndefined();
+  });
+
+  it('enforces initialSettlementsGiveResources (2 sectors) and maxOneDevCardPerTurn (2 sectors)', () => {
+    let state = createInitialGameState('RULES2', {
+      id: 'P1',
+      name: 'mantecado de coco',
+      color: 'RED',
+      avatar: '/assets/avatars/depor.jpg',
+    });
+    state = applyGameAction(state, 'P1', { type: 'ADD_BOT' }).state;
+
+    // Sector 2: initialSettlementsGiveResources = false (no initial resources on either settlement)
+    state = applyGameAction(state, 'P1', {
+      type: 'UPDATE_CONFIG',
+      config: { initialSettlementsGiveResources: false, maxOneDevCardPerTurn: false },
+    }).state;
+    state = applyGameAction(state, 'P1', { type: 'START_GAME' }).state;
+    state.phase = 'SETUP_SETTLEMENT_1';
+    state.turn.activePlayerId = 'P1';
+
+    const vFirst = Object.values(state.board.vertices)[0];
+    state = applyGameAction(state, 'P1', {
+      type: 'PLACE_SETTLEMENT',
+      vertexId: vFirst.id,
+    }).state;
+    const totalResAfterNoGive = Object.values(state.players[0].resources).reduce((a, b) => a + b, 0);
+    expect(totalResAfterNoGive).toBe(0);
+
+    // Test maxOneDevCardPerTurn = false (default: unlimited dev cards per turn) vs true (1 per turn)
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+    state.turn.turnNumber = 5;
+    state.players[0].devCards = [
+      { id: 'D1', type: 'YEAR_OF_PLENTY', title: 'Invento', boughtAtTurn: 1, played: false },
+      { id: 'D2', type: 'YEAR_OF_PLENTY', title: 'Invento', boughtAtTurn: 1, played: false },
+    ];
+
+    const play1 = applyGameAction(state, 'P1', {
+      type: 'PLAY_DEV_CARD',
+      cardId: 'D1',
+      yearOfPlentyResources: ['WOOD', 'BRICK'],
+    });
+    expect(play1.error).toBeUndefined();
+    state = play1.state;
+
+    // Playing second dev card in same turn succeeds when maxOneDevCardPerTurn is false
+    const play2 = applyGameAction(state, 'P1', {
+      type: 'PLAY_DEV_CARD',
+      cardId: 'D2',
+      yearOfPlentyResources: ['WHEAT', 'ORE'],
+    });
+    expect(play2.error).toBeUndefined();
   });
 });

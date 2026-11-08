@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
@@ -42,7 +42,7 @@ import {
   getPlayerBankTradeRatios,
   hasResources,
 } from '../../shared/engine/RulesEngine';
-import { ResourceIcon } from '../UI/ResourceIcon';
+import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 
 const modalBackdropVariants = {
   hidden: { opacity: 0 },
@@ -117,7 +117,9 @@ export const TurnOrderModal: React.FC<{
         {/* My Initiative Roll Call-To-Action */}
         <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1a120b] via-[#261a10] to-[#1a120b] border border-[#d4af37]/40 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{me.avatar}</span>
+            <span className="text-3xl flex items-center justify-center w-10 h-10">
+              <AvatarIcon avatar={me.avatar} className="w-8 h-8" />
+            </span>
             <div>
               <div className="text-sm font-extrabold text-amber-100">
                 Tu Tirada de Iniciativa ({me.name})
@@ -190,13 +192,13 @@ export const TurnOrderModal: React.FC<{
                     </div>
 
                     <span
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-display font-black text-stone-950 border-2 shadow"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-display font-black text-stone-950 border-2 shadow overflow-hidden p-0.5"
                       style={{
                         backgroundColor: colorCfg.primary,
                         borderColor: colorCfg.stroke,
                       }}
                     >
-                      {p.avatar}
+                      <AvatarIcon avatar={p.avatar} className="w-6 h-6" />
                     </span>
 
                     <div>
@@ -324,18 +326,126 @@ export const TurnOrderModal: React.FC<{
   );
 };
 
-// 0.5 FLOATING LIVE TRADE BANNER ON THE TABLETOP (1-CLICK ACCEPT / COUNTER / REJECT)
+// 0.5 FLOATING LIVE TRADE BANNER ON THE TABLETOP (1-CLICK ACCEPT / COUNTER / REJECT + COMPLETED TRADE SUMMARY)
 export const ActiveTradeFloatingBanner: React.FC<{
   gameState: GameState;
   me: PlayerState;
   dispatchAction: (action: GameAction) => void;
   onOpenCounterOffer: () => void;
 }> = ({ gameState, me, dispatchAction, onOpenCounterOffer }) => {
-  if (gameState.activeTradeOffers.length === 0) return null;
+  const [completedTrade, setCompletedTrade] = useState<
+    NonNullable<GameState['lastCompletedTrade']> | null
+  >(null);
+  const lastSeenTradeNonceRef = useRef<number>(
+    gameState.lastCompletedTrade?.nonce ?? 0
+  );
+
+  useEffect(() => {
+    const trade = gameState.lastCompletedTrade;
+    if (trade && trade.nonce !== lastSeenTradeNonceRef.current) {
+      lastSeenTradeNonceRef.current = trade.nonce;
+      setCompletedTrade(trade);
+    }
+  }, [gameState.lastCompletedTrade]);
+
+  useEffect(() => {
+    if (!completedTrade) return;
+    const timer = setTimeout(() => {
+      setCompletedTrade(null);
+    }, 7500);
+    return () => clearTimeout(timer);
+  }, [completedTrade?.nonce]);
+
+  if (gameState.activeTradeOffers.length === 0 && !completedTrade) return null;
 
   return (
-    <div className="absolute top-3 left-3 z-25 max-w-xl w-full space-y-2 pointer-events-auto">
+    <div className="absolute top-3 left-3 z-25 max-w-xl w-full space-y-2 pointer-events-none">
       <AnimatePresence>
+        {/* Summary Popup for Accepted Trade */}
+        {completedTrade && (
+          <motion.div
+            key={`completed-trade-${completedTrade.nonce}`}
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            className="p-3.5 rounded-2xl bg-gradient-to-b from-[#112417]/98 to-[#0a140d]/98 backdrop-blur-xl border-2 border-emerald-400/90 shadow-[0_15px_40px_rgba(0,0,0,0.9)] space-y-2.5 pointer-events-auto"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-black text-emerald-200">
+                <span className="text-base leading-none">✅</span>
+                <span className="uppercase tracking-wide text-emerald-300">
+                  Intercambio completado
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCompletedTrade(null)}
+                className="p-1 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-white cursor-pointer"
+                title="Cerrar resumen"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 bg-[#08100a] p-2.5 rounded-xl border border-emerald-500/35 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 font-extrabold text-amber-200">
+                  <AvatarIcon avatar={completedTrade.proposerAvatar} className="w-4 h-4" />
+                  <span>{completedTrade.proposerName}</span>
+                </span>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {ALL_RESOURCES.map(
+                    (r) =>
+                      completedTrade.offered[r] > 0 && (
+                        <span
+                          key={r}
+                          className="px-2 py-0.5 rounded-lg bg-emerald-950/90 border border-emerald-400/50 text-emerald-100 text-xs font-black inline-flex items-center gap-1 shadow-sm"
+                        >
+                          <span>{completedTrade.offered[r]}x</span>
+                          <ResourceIcon resource={r} size={14} />
+                        </span>
+                      )
+                  )}
+                </div>
+              </div>
+
+              <div className="px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-black flex items-center justify-center shrink-0">
+                <ArrowLeftRight className="w-4 h-4" />
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {ALL_RESOURCES.map(
+                    (r) =>
+                      completedTrade.requested[r] > 0 && (
+                        <span
+                          key={r}
+                          className="px-2 py-0.5 rounded-lg bg-sky-950/90 border border-sky-400/50 text-sky-100 text-xs font-black inline-flex items-center gap-1 shadow-sm"
+                        >
+                          <span>{completedTrade.requested[r]}x</span>
+                          <ResourceIcon resource={r} size={14} />
+                        </span>
+                      )
+                  )}
+                </div>
+                <span className="inline-flex items-center gap-1.5 font-extrabold text-sky-200">
+                  <AvatarIcon avatar={completedTrade.accepterAvatar} className="w-4 h-4" />
+                  <span>{completedTrade.accepterName}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full h-1 bg-black/50 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: 7.5, ease: 'linear' }}
+                className="h-full bg-emerald-400"
+              />
+            </div>
+          </motion.div>
+        )}
+
         {gameState.activeTradeOffers.map((tOffer) => {
           const sender = gameState.players.find((p) => p.id === tOffer.fromPlayerId);
           const isMine = tOffer.fromPlayerId === me.id;
@@ -348,11 +458,13 @@ export const ActiveTradeFloatingBanner: React.FC<{
               initial={{ opacity: 0, y: -18, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -15, scale: 0.95 }}
-              className="p-3.5 rounded-2xl bg-[#1a120b]/95 backdrop-blur-xl border-2 border-[#d4af37] shadow-[0_15px_40px_rgba(0,0,0,0.85)] space-y-2.5"
+              className="p-3.5 rounded-2xl bg-[#1a120b]/95 backdrop-blur-xl border-2 border-[#d4af37] shadow-[0_15px_40px_rgba(0,0,0,0.85)] space-y-2.5 pointer-events-auto"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{sender?.avatar}</span>
+                  <span className="text-lg flex items-center justify-center w-6 h-6">
+                    <AvatarIcon avatar={sender?.avatar} className="w-5 h-5" />
+                  </span>
                   <span className="text-xs font-black text-amber-100">
                     {isMine ? 'Tu Oferta Activa en la Mesa' : `${sender?.name} propone un cambio:`}
                   </span>
@@ -670,13 +782,13 @@ export const RobberStealModal: React.FC<{
               >
                 <div className="flex items-center gap-3">
                   <span
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border-2"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border-2 overflow-hidden"
                     style={{
                       backgroundColor: colorCfg.primary,
                       borderColor: colorCfg.stroke,
                     }}
                   >
-                    {victim.avatar}
+                    <AvatarIcon avatar={victim.avatar} className="w-6 h-6" />
                   </span>
                   <div className="text-left">
                     <div className="text-sm font-bold text-amber-100">{victim.name}</div>
@@ -897,8 +1009,8 @@ export const TradeModal: React.FC<{
                       className="p-3.5 rounded-2xl bg-[#140e0a] border border-[#d4af37]/40 flex flex-wrap items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-display font-black text-amber-300">
-                          {sender?.avatar}
+                        <span className="text-sm font-display font-black text-amber-300 flex items-center justify-center">
+                          <AvatarIcon avatar={sender?.avatar} className="w-5 h-5" />
                         </span>
                         <div>
                           <div className="text-xs font-bold text-amber-100">{sender?.name}</div>
@@ -1516,9 +1628,9 @@ export const DevCardModal: React.FC<{
           )}
         </div>
 
-        {gameState.turn.devCardPlayedThisTurn && (
+        {Boolean(gameState.config.maxOneDevCardPerTurn) && gameState.turn.devCardPlayedThisTurn && (
           <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-200 text-xs">
-            Ya has jugado 1 Carta de Desarrollo en este turno (límite oficial: 1 por turno).
+            Ya has jugado 1 Carta de Desarrollo en este turno (límite de la sala: 1 por turno).
           </div>
         )}
 
@@ -1540,10 +1652,13 @@ export const DevCardModal: React.FC<{
                     !gameState.config.allowInstantDevCards &&
                     card.boughtAtTurn === gameState.turn.turnNumber;
                   const isVP = card.type === 'VICTORY_POINT';
+                  const blockedByOnePerTurn =
+                    Boolean(gameState.config.maxOneDevCardPerTurn) &&
+                    gameState.turn.devCardPlayedThisTurn;
                   const canPlay =
                     !isVP &&
                     !boughtThisTurnBlocked &&
-                    !gameState.turn.devCardPlayedThisTurn &&
+                    !blockedByOnePerTurn &&
                     gameState.turn.activePlayerId === me.id &&
                     gameState.phase === 'MAIN_PHASE';
                   const meta = cardArt[card.type];
@@ -1784,30 +1899,73 @@ export const DisconnectResolutionBanner: React.FC<{
   dispatchAction: (action: GameAction) => void;
 }> = ({ gameState, currentPlayerId, dispatchAction }) => {
   const [dismissedPlayerIds, setDismissedPlayerIds] = useState<string[]>([]);
+  const [secondsElapsed, setSecondsElapsed] = useState(0);
+
+  const me = gameState.players.find((p) => p.id === currentPlayerId);
+  const isHost = Boolean(me?.isHost);
 
   // 1. Identify genuinely disconnected human players
   const disconnectedHumans = gameState.players.filter(
     (p) => !p.connected && !p.isBot && p.status === 'DISCONNECTED_WAITING'
   );
 
+  // Filter out targets dismissed by the user, and NEVER show options to the player about themselves!
+  const pendingTargets = disconnectedHumans.filter(
+    (p) => p.id !== currentPlayerId && !dismissedPlayerIds.includes(p.id)
+  );
+  const target = pendingTargets[0];
+
+  // When everyone has reconnected, clear any temporary dismissals so future disconnects register cleanly
+  useEffect(() => {
+    if (disconnectedHumans.length === 0 && dismissedPlayerIds.length > 0) {
+      setDismissedPlayerIds([]);
+    }
+  }, [disconnectedHumans.length, dismissedPlayerIds.length]);
+
+  // Track elapsed seconds since this disconnect notification appeared (MUST run before any early return!)
+  useEffect(() => {
+    if (!target?.id) {
+      setSecondsElapsed(0);
+      return;
+    }
+    setSecondsElapsed(0);
+    const interval = setInterval(() => {
+      setSecondsElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [target?.id]);
+
   // 2. If NO human players are disconnected:
   if (disconnectedHumans.length === 0) {
-    // If the game is still paused in PAUSED_DISCONNECT, offer a simple unpause button
-    if (gameState.phase === 'PAUSED_DISCONNECT') {
+    // If the game is still paused in PAUSED_DISCONNECT, offer an unpause card WITH an X button
+    if (gameState.phase === 'PAUSED_DISCONNECT' && !dismissedPlayerIds.includes('PAUSE_CARD')) {
       return (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4 pointer-events-auto">
-          <div className="bg-[#1c140e]/95 border-2 border-emerald-500/80 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-4 pointer-events-none">
+          <div className="bg-[#1c140e]/95 border-2 border-emerald-500/80 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-3 pointer-events-auto">
             <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
               <Check className="w-5 h-5 text-emerald-400 shrink-0" />
               <span>Todos los jugadores están conectados. La partida puede continuar.</span>
             </div>
-            <button
-              type="button"
-              onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
-              className="py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 text-xs font-black shrink-0 shadow cursor-pointer"
-            >
-              Reanudar Partida
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
+                className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 text-xs font-black shadow cursor-pointer"
+              >
+                Reanudar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedPlayerIds((prev) => [...prev, 'PAUSE_CARD']);
+                  dispatchAction({ type: 'RESUME_GAME' });
+                }}
+                className="p-1.5 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-emerald-300 transition cursor-pointer"
+                title="Cerrar aviso y reanudar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -1816,20 +1974,16 @@ export const DisconnectResolutionBanner: React.FC<{
     return null;
   }
 
-  // 3. Filter out targets dismissed by the user, and NEVER show options to the player about themselves!
-  const pendingTargets = disconnectedHumans.filter(
-    (p) => p.id !== currentPlayerId && !dismissedPlayerIds.includes(p.id)
-  );
-
-  if (pendingTargets.length === 0) {
+  if (!target) {
     return null;
   }
 
-  const target = pendingTargets[0];
+  // Host can dismiss if 10 seconds have passed or if everyone is reconnected. Non-hosts can dismiss immediately.
+  const canDismiss = !isHost || secondsElapsed >= 10;
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-4 pointer-events-auto">
-      <div className="bg-[#1c140e]/95 border-2 border-[#d4af37] rounded-2xl p-4 shadow-2xl space-y-3">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-4 pointer-events-none">
+      <div className="bg-[#1c140e]/95 border-2 border-[#d4af37] rounded-2xl p-4 shadow-2xl space-y-3 pointer-events-auto">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-amber-300 text-xs font-extrabold">
             <PauseCircle className="w-4 h-4 shrink-0 text-amber-400" />
@@ -1837,31 +1991,49 @@ export const DisconnectResolutionBanner: React.FC<{
               {target.name} se ha desconectado. ¿Cómo deseas proceder con la partida?
             </span>
           </div>
-          {/* Top-Right Dismiss Button */}
-          <button
-            type="button"
-            onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
-            className="p-1 rounded-lg hover:bg-stone-800 text-stone-400 hover:text-amber-200 transition cursor-pointer"
-            title="Borrar notificación"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          {/* Top-Right Dismiss Button / Countdown */}
+          {canDismiss ? (
+            <button
+              type="button"
+              onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
+              className="p-1.5 rounded-xl bg-stone-800/80 hover:bg-stone-700 text-stone-300 hover:text-amber-200 transition cursor-pointer border border-stone-600/50"
+              title="Cerrar notificación (X)"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-stone-900/80 border border-stone-700/60 text-[10px] text-stone-400 font-mono shrink-0">
+              <span>Cerrar (X) en</span>
+              <span className="text-amber-400 font-bold">{10 - secondsElapsed}s</span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              dispatchAction({
-                type: 'HANDLE_DISCONNECTED_PLAYER',
-                targetPlayerId: target.id,
-                resolution: 'WAIT_PAUSE',
-              })
-            }
-            className="py-2 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-xs font-bold cursor-pointer"
-          >
-            Pausar y Esperar
-          </button>
+          {gameState.phase === 'PAUSED_DISCONNECT' ? (
+            <button
+              type="button"
+              onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
+              className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 font-black text-xs cursor-pointer shadow animate-pulse"
+            >
+              Reanudar Partida
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                dispatchAction({
+                  type: 'HANDLE_DISCONNECTED_PLAYER',
+                  targetPlayerId: target.id,
+                  resolution: 'WAIT_PAUSE',
+                })
+              }
+              className="py-2 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-200 text-xs font-bold cursor-pointer"
+            >
+              Pausar y Esperar
+            </button>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -1888,13 +2060,23 @@ export const DisconnectResolutionBanner: React.FC<{
           >
             Reemplazar con IA
           </button>
-          <button
-            type="button"
-            onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
-            className="py-2 px-2.5 rounded-xl bg-stone-800/80 hover:bg-stone-700 border border-stone-600/50 text-stone-300 text-xs font-bold cursor-pointer"
-          >
-            Cerrar Aviso
-          </button>
+          {canDismiss ? (
+            <button
+              type="button"
+              onClick={() => setDismissedPlayerIds((prev) => [...prev, target.id])}
+              className="py-2 px-2.5 rounded-xl bg-stone-800/80 hover:bg-stone-700 border border-stone-600/50 text-stone-300 text-xs font-bold cursor-pointer"
+            >
+              Cerrar Aviso
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="py-2 px-2.5 rounded-xl bg-stone-900/60 border border-stone-800/80 text-stone-500 text-xs font-bold cursor-not-allowed"
+            >
+              Cerrar ({10 - secondsElapsed}s)
+            </button>
+          )}
         </div>
       </div>
     </div>
