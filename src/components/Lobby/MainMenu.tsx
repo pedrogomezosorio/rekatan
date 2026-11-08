@@ -62,7 +62,7 @@ export const MainMenu: React.FC = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 overflow-hidden bg-[#040d1a]">
+    <div className="relative min-h-screen min-h-[100dvh] w-full flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-[#040d1a]">
       {/* ANIMATED CINEMATIC LANDSCAPE BACKGROUND (SUNSET OVER CATAN ISLAND) */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Golden Sunset Sky Gradient */}

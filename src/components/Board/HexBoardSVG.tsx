@@ -325,6 +325,90 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     }
   };
 
+  const lastTouchDistRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (lowEndRef.current) return;
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      isDraggingRef.current = true;
+      didMoveRef.current = false;
+      velocityRef.current = { vx: 0, vy: 0 };
+      const now = performance.now();
+      lastPointerRef.current = { x: touch.clientX, y: touch.clientY, time: now };
+      dragStartClientRef.current = { x: touch.clientX, y: touch.clientY };
+      lastTouchDistRef.current = null;
+    } else if (e.touches.length === 2) {
+      // Two-finger pinch-to-zoom
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      lastTouchDistRef.current = dist;
+      didMoveRef.current = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (lowEndRef.current || !svgRef.current) return;
+
+    if (e.touches.length === 1 && isDraggingRef.current) {
+      const touch = e.touches[0];
+      const rect = svgRef.current.getBoundingClientRect();
+      const scaleX = 960 / rect.width;
+      const scaleY = 840 / rect.height;
+
+      const totalDx = touch.clientX - dragStartClientRef.current.x;
+      const totalDy = touch.clientY - dragStartClientRef.current.y;
+      if (Math.hypot(totalDx, totalDy) > 6) {
+        didMoveRef.current = true;
+      }
+
+      const now = performance.now();
+      const dt = Math.max(8, now - lastPointerRef.current.time);
+      const stepX = (touch.clientX - lastPointerRef.current.x) * scaleX;
+      const stepY = (touch.clientY - lastPointerRef.current.y) * scaleY;
+
+      targetCamRef.current.x += stepX;
+      targetCamRef.current.y += stepY;
+
+      const instantVx = (stepX / dt) * 15;
+      const instantVy = (stepY / dt) * 15;
+      velocityRef.current.vx = velocityRef.current.vx * 0.35 + instantVx * 0.65;
+      velocityRef.current.vy = velocityRef.current.vy * 0.35 + instantVy * 0.65;
+
+      lastPointerRef.current = { x: touch.clientX, y: touch.clientY, time: now };
+    } else if (e.touches.length === 2 && lastTouchDistRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (dist > 10 && lastTouchDistRef.current > 10) {
+        const factor = dist / lastTouchDistRef.current;
+        const smoothFactor = 1 + (factor - 1) * 0.65;
+        zoomByStep(smoothFactor);
+        lastTouchDistRef.current = dist;
+      }
+      didMoveRef.current = true;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length === 0) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      lastTouchDistRef.current = null;
+      if (performance.now() - lastPointerRef.current.time > 80) {
+        velocityRef.current = { vx: 0, vy: 0 };
+      }
+    } else if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      lastTouchDistRef.current = null;
+      lastPointerRef.current = { x: touch.clientX, y: touch.clientY, time: performance.now() };
+    }
+  };
+
   const zoomByStep = (factor: number) => {
     velocityRef.current = { vx: 0, vy: 0 };
     const oldZoom = targetCamRef.current.zoom;
@@ -456,11 +540,16 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       <svg
         ref={svgRef}
         viewBox="-480 -420 960 840"
-        className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`w-full h-full select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ touchAction: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         <defs>
           {/* Local ClipPaths for Hexagon Textures */}
@@ -689,13 +778,13 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 onClick={() => handleEdgeInteraction(edge)}
                 className={isValidRoad || isPortEditTarget ? 'cursor-pointer' : undefined}
               >
-                {/* Invisible Fat Hit Area for Easy Clicking */}
+                {/* Invisible Fat Hit Area for Easy Clicking / Touching on Tablet */}
                 {(isValidRoad || isPortEditTarget) && (
                   <rect
                     x={-len / 2}
-                    y={-11}
+                    y={-14}
                     width={len}
-                    height={22}
+                    height={28}
                     fill="transparent"
                   />
                 )}
@@ -844,6 +933,16 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 onClick={() => handleVertexInteraction(vertex)}
                 className={isValidSettlement || isValidCity ? 'cursor-pointer' : undefined}
               >
+                {/* Invisible Touch / Click Hit Target for Vertices (50px diameter on tablet) */}
+                {(isValidSettlement || isValidCity) && (
+                  <circle
+                    cx={0}
+                    cy={0}
+                    r={25}
+                    fill="transparent"
+                  />
+                )}
+
                 {/* Built 3D Settlement */}
                 {vertex.building === 'SETTLEMENT' && colorCfg && (
                   <g filter={lowEndPcMode ? undefined : 'url(#piece-drop-shadow)'}>

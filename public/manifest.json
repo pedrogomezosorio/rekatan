@@ -1,0 +1,22 @@
+{
+  "name": "Rekatan — Catan Tabletop Digital",
+  "short_name": "Rekatan",
+  "description": "Implementación digital de Catan para escritorio, tablets y navegador con multijugador e IA.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0d0906",
+  "theme_color": "#0d0906",
+  "icons": [
+    {
+      "src": "/assets/avatars/celta.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/avatars/celta.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

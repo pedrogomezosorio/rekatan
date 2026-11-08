@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  html, body, #root {
+    height: 100%;
+    height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-touch-callout: none;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     user-select: none;

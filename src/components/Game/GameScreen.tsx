@@ -25,6 +25,7 @@ import {
   Sparkles,
   Swords,
   SkipForward,
+  Users,
   X,
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
@@ -80,6 +81,7 @@ export const GameScreen: React.FC = () => {
   const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChronicle, setShowChronicle] = useState(false);
+  const [isTabletRightPanelVisible, setIsTabletRightPanelVisible] = useState<boolean>(true);
   const [showProfileCardFans, setShowProfileCardFans] = useState<boolean>(() => {
     try {
       return localStorage.getItem('catan_profile_card_fans') !== 'false';
@@ -627,7 +629,7 @@ export const GameScreen: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative">
+    <div className="h-screen h-[100dvh] w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative">
       {/* Intermittent Green Screen Border Glow STRICTLY ONLY when it is the local player's turn */}
       {isStrictlyMyTurn && (
         <motion.div
@@ -1218,9 +1220,24 @@ export const GameScreen: React.FC = () => {
             </div>
           </div>
 
+          {/* Tablet-Only Toggle Button to Collapse/Expand Right Side Panel (hidden on desktop: lg:hidden) */}
+          <button
+            type="button"
+            onClick={() => setIsTabletRightPanelVisible((v) => !v)}
+            className="lg:hidden absolute top-2 right-2 z-30 px-2.5 py-1.5 rounded-xl bg-[#1d140e]/95 border border-[#d4af37]/60 text-amber-300 shadow-xl pointer-events-auto flex items-center gap-1.5 text-[11px] font-black backdrop-blur-md cursor-pointer active:scale-95 transition"
+            title="Mostrar u ocultar panel de jugadores y banca"
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>{isTabletRightPanelVisible ? 'Ocultar' : 'Jugadores'}</span>
+          </button>
+
           {/* Right Area: NO outer rectangle/border line for the column!
               Only individual rounded player profile rectangles + the single bordered rectangle for Bank Resources & Island Chronicles */}
-          <aside className="absolute top-2.5 bottom-2.5 right-2.5 w-[274px] xl:w-[308px] flex flex-col justify-between z-20 pointer-events-none">
+          <aside
+            className={`absolute top-2.5 bottom-2.5 right-2.5 w-[260px] md:w-[274px] xl:w-[308px] flex flex-col justify-between z-20 pointer-events-none transition-transform duration-300 ease-in-out ${
+              isTabletRightPanelVisible ? 'translate-x-0' : 'translate-x-[115%] lg:translate-x-0'
+            }`}
+          >
             {/* 1. Floating Rounded Player Profile Rectangles (with left horizontal card fan) */}
             <div className="flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none">
               {gameState.players.map((p) => (
@@ -1322,7 +1339,7 @@ export const GameScreen: React.FC = () => {
       </div>
 
       {/* Slim Bottom Tabletop HUD: Cards Protrude Above */}
-      <footer className="h-[70px] sm:h-[76px] bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-t border-[#d4af37]/35 px-4 py-1 flex items-center justify-between gap-4 shrink-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.85)] overflow-visible relative">
+      <footer className="h-[70px] sm:h-[76px] bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-t border-[#d4af37]/35 px-2 sm:px-4 py-1 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.85)] overflow-visible relative pb-[max(4px,env(safe-area-inset-bottom))]">
         {/* LEFT SPACER FOR SYMMETRY */}
         <div className="hidden sm:block min-w-[140px]" />
 
