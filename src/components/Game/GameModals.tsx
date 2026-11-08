@@ -1,3 +1,4 @@
+import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -24,7 +25,6 @@ import {
   countTotalResources,
   createEmptyResources,
   getDevCardImagePath,
-  PLAYER_COLORS,
   RESOURCE_META,
 } from '../../shared/constants';
 import {
@@ -166,7 +166,6 @@ export const TurnOrderModal: React.FC<{
 
           <div className="space-y-2">
             {gameState.players.map((p, idx) => {
-              const colorCfg = PLAYER_COLORS[p.color];
               const roll = orderRolls[p.id];
               const sum = roll ? roll[0] + roll[1] : null;
 
@@ -174,11 +173,8 @@ export const TurnOrderModal: React.FC<{
                 <motion.div
                   layout
                   key={p.id}
-                  className={`flex items-center justify-between p-3 rounded-2xl border transition ${
-                    idx === 0
-                      ? 'bg-[#281c12] border-[#d4af37] shadow-lg'
-                      : 'bg-[#140e0a] border-stone-800'
-                  }`}
+                  className="flex items-center justify-between p-3 rounded-2xl border-2 transition"
+                  style={playerCardStyle(p.color, idx === 0)}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -192,11 +188,7 @@ export const TurnOrderModal: React.FC<{
                     </div>
 
                     <span
-                      className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-display font-black text-stone-950 border-2 shadow overflow-hidden p-0.5"
-                      style={{
-                        backgroundColor: colorCfg.primary,
-                        borderColor: colorCfg.stroke,
-                      }}
+                      className="w-9 h-9 flex items-center justify-center bg-transparent text-xs font-display font-black text-white shrink-0 p-0.5"
                     >
                       <AvatarIcon avatar={p.avatar} className="w-6 h-6" />
                     </span>
@@ -215,7 +207,7 @@ export const TurnOrderModal: React.FC<{
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-stone-400">
+                      <div className="text-[11px] text-slate-200">
                         {p.isBot ? 'Bot IA' : 'Jugador Humano'}
                       </div>
                     </div>
@@ -771,28 +763,24 @@ export const RobberStealModal: React.FC<{
 
         <div className="space-y-2">
           {candidates.map((victim) => {
-            const colorCfg = PLAYER_COLORS[victim.color];
             const totalCards = countTotalResources(victim.resources);
             return (
               <button
                 key={victim.id}
                 type="button"
                 onClick={() => onSelectVictim(victim.id)}
-                className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-[#140e0a] hover:bg-[#241911] border border-[#d4af37]/30 hover:border-[#d4af37] transition cursor-pointer"
+                className="w-full flex items-center justify-between p-3.5 rounded-2xl border-2 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 transition cursor-pointer"
+                style={playerCardStyle(victim.color)}
               >
                 <div className="flex items-center gap-3">
                   <span
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-lg border-2 overflow-hidden"
-                    style={{
-                      backgroundColor: colorCfg.primary,
-                      borderColor: colorCfg.stroke,
-                    }}
+                    className="w-9 h-9 flex items-center justify-center bg-transparent text-lg text-white shrink-0"
                   >
                     <AvatarIcon avatar={victim.avatar} className="w-6 h-6" />
                   </span>
                   <div className="text-left">
                     <div className="text-sm font-bold text-amber-100">{victim.name}</div>
-                    <div className="text-xs text-stone-400">
+                    <div className="text-xs text-slate-200">
                       {totalCards} cartas de recurso en mano
                     </div>
                   </div>

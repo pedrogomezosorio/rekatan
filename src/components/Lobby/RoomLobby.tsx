@@ -1,3 +1,4 @@
+import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useState } from 'react';
 import {
   Bot,
@@ -237,15 +238,12 @@ export const RoomLobby: React.FC = () => {
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800"
+                    className="flex items-center justify-between px-3 py-2 rounded-xl border-2"
+                    style={playerCardStyle(p.color)}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span
-                        className="w-8 h-8 rounded-xl flex items-center justify-center text-base border-2 shadow shrink-0 overflow-hidden p-0.5"
-                        style={{
-                          backgroundColor: colorCfg.primary,
-                          borderColor: colorCfg.stroke,
-                        }}
+                        className="w-8 h-8 flex items-center justify-center bg-transparent text-base text-white shrink-0 p-0.5"
                       >
                         <AvatarIcon avatar={p.avatar} className="w-6 h-6" />
                       </span>
@@ -253,7 +251,7 @@ export const RoomLobby: React.FC = () => {
                         <div className="flex items-center gap-1.5 text-sm font-bold text-slate-100 truncate">
                           <span className="truncate">{p.name}</span>
                           {p.id === playerId && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-semibold shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950/70 text-sky-200 font-semibold shrink-0">
                               Tú
                             </span>
                           )}
@@ -263,7 +261,7 @@ export const RoomLobby: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                        <div className="text-[11px] text-slate-200 flex items-center gap-1.5 mt-0.5">
                           <span>{colorCfg.name}</span>
                           <span>•</span>
                           {p.isBot ? (
@@ -320,7 +318,7 @@ export const RoomLobby: React.FC = () => {
                           onClick={() =>
                             dispatchAction({ type: 'REMOVE_PLAYER', targetPlayerId: p.id })
                           }
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition"
+                          className="p-1.5 rounded-lg text-slate-200 hover:text-red-200 hover:bg-red-950/40 transition"
                           title="Expulsar de la sala"
                         >
                           <Trash2 className="w-4 h-4" />
