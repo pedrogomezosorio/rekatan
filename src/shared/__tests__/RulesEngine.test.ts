@@ -588,9 +588,9 @@ describe('Official Rules & House Rules Engine', () => {
   it('enforces initialSettlementsGiveResources (2 sectors) and maxOneDevCardPerTurn (2 sectors)', () => {
     let state = createInitialGameState('RULES2', {
       id: 'P1',
-      name: 'mantecado de coco',
+      name: 'joel',
       color: 'RED',
-      avatar: '/assets/avatars/depor.jpg',
+      avatar: '/assets/avatars/depor.png',
     });
     state = applyGameAction(state, 'P1', { type: 'ADD_BOT' }).state;
 

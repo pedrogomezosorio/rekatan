@@ -1,3 +1,4 @@
+import { getAvatarNameError, getPublicPlayerName, normalizeAvatar } from '../src/shared/playerIdentity';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -7,7 +8,6 @@ import { fileURLToPath } from 'url';
 import {
   AVATAR_LIST,
   createEmptyResources,
-  DEPOR_AVATAR,
   PLAYER_COLORS,
 } from '../src/shared/constants';
 import {
@@ -87,20 +87,18 @@ async function startServer() {
         color: PlayerColor;
         avatar: string;
       }) => {
-        if (
-          payload.avatar === DEPOR_AVATAR &&
-          (payload.playerName || '').trim().toLowerCase() !== 'mantecado de coco'
-        ) {
-          socket.emit('ACTION_ERROR', { message: 'te falta flow' });
+        const avatarError = getAvatarNameError(payload.avatar, payload.playerName || '');
+        if (avatarError) {
+          socket.emit('ACTION_ERROR', { message: avatarError });
           return;
         }
         const roomCode = generateRoomCode();
         const playerId = payload.playerId || `P_${ socket.id }`;
         const gameState = createInitialGameState(roomCode, {
           id: playerId,
-          name: (payload.playerName || 'Anfitrión').trim().slice(0, 20),
+          name: getPublicPlayerName(payload.playerName || '') || 'Anfitrión',
           color: payload.color || 'RED',
-          avatar: payload.avatar || 'I',
+          avatar: normalizeAvatar(payload.avatar) || 'I',
         });
 
         rooms.set(roomCode, gameState);
@@ -120,11 +118,9 @@ async function startServer() {
         color: PlayerColor;
         avatar: string;
       }) => {
-        if (
-          payload.avatar === DEPOR_AVATAR &&
-          (payload.playerName || '').trim().toLowerCase() !== 'mantecado de coco'
-        ) {
-          socket.emit('ACTION_ERROR', { message: 'te falta flow' });
+        const avatarError = getAvatarNameError(payload.avatar, payload.playerName || '');
+        if (avatarError) {
+          socket.emit('ACTION_ERROR', { message: avatarError });
           return;
         }
         const roomCode = (payload.roomCode || '').trim().toUpperCase();
@@ -141,12 +137,18 @@ async function startServer() {
         const existingPlayer = room.players.find((p) => p.id === playerId);
 
         if (existingPlayer) {
+          const reconnectError = getAvatarNameError(existingPlayer.avatar, payload.playerName || '');
+          if (reconnectError) {
+            socket.emit('ACTION_ERROR', { message: reconnectError });
+            return;
+          }
+          existingPlayer.avatar = normalizeAvatar(existingPlayer.avatar);
           // Reconnecting player!
           existingPlayer.connected = true;
           existingPlayer.isBot = false;
           existingPlayer.status = 'ACTIVE';
           if (payload.playerName) {
-            existingPlayer.name = payload.playerName.trim().slice(0, 20);
+            existingPlayer.name = getPublicPlayerName(payload.playerName) || existingPlayer.name;
           }
 
           // If no other human players remain disconnected, automatically resume the game!
@@ -183,9 +185,15 @@ async function startServer() {
           const disconnectedMatch = room.players.find(
             (p) =>
               !p.connected &&
-              p.name.toLowerCase() === (payload.playerName || '').trim().toLowerCase()
+              p.name.toLowerCase() === getPublicPlayerName(payload.playerName || '').toLowerCase()
           );
           if (disconnectedMatch) {
+            const reconnectError = getAvatarNameError(disconnectedMatch.avatar, payload.playerName || '');
+            if (reconnectError) {
+              socket.emit('ACTION_ERROR', { message: reconnectError });
+              return;
+            }
+            disconnectedMatch.avatar = normalizeAvatar(disconnectedMatch.avatar);
             disconnectedMatch.connected = true;
             disconnectedMatch.isBot = false;
             disconnectedMatch.status = 'ACTIVE';
@@ -243,9 +251,9 @@ async function startServer() {
 
         const newPlayer: PlayerState = {
           id: playerId,
-          name: (payload.playerName || `Jugador ${room.players.length + 1}`).trim().slice(0, 20),
+          name: getPublicPlayerName(payload.playerName || '') || `Jugador ${room.players.length + 1}`,
           color: chosenColor,
-          avatar: payload.avatar || AVATAR_LIST[room.players.length % AVATAR_LIST.length],
+          avatar: normalizeAvatar(payload.avatar) || AVATAR_LIST[room.players.length % AVATAR_LIST.length],
           isHost: room.players.length === 0,
           isBot: false,
           connected: true,

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { DEPOR_AVATAR } from '../shared/constants';
+import { getAvatarNameError, normalizeAvatar } from '../shared/playerIdentity';
 import { GameAction, GameState, PlayerColor } from '../shared/types';
 
 interface GameContextValue {
@@ -46,7 +46,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => (sessionStorage.getItem('catan_player_color') as PlayerColor) || 'RED'
   );
   const [playerAvatar, setPlayerAvatar] = useState<string>(
-    () => sessionStorage.getItem('catan_player_avatar') || '👑'
+    () => normalizeAvatar(sessionStorage.getItem('catan_player_avatar') || '👑')
   );
   const [lowEndPcMode, setLowEndPcMode] = useState<boolean>(
     () => localStorage.getItem('catan_low_end_pc_mode') === 'true'
@@ -189,11 +189,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createRoom = () => {
-    if (
-      playerAvatar === DEPOR_AVATAR &&
-      playerName.trim().toLowerCase() !== 'mantecado de coco'
-    ) {
-      setErrorToast('te falta flow');
+    const avatarError = getAvatarNameError(playerAvatar, playerName);
+    if (avatarError) {
+      setErrorToast(avatarError);
       return;
     }
     if (!socketRef.current) return;
@@ -213,11 +211,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const joinRoom = (code: string) => {
-    if (
-      playerAvatar === DEPOR_AVATAR &&
-      playerName.trim().toLowerCase() !== 'mantecado de coco'
-    ) {
-      setErrorToast('te falta flow');
+    const avatarError = getAvatarNameError(playerAvatar, playerName);
+    if (avatarError) {
+      setErrorToast(avatarError);
       return;
     }
     if (!socketRef.current) return;

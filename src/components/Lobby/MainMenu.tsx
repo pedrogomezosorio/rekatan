@@ -14,7 +14,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
-import { AVATAR_LIST, DEPOR_AVATAR, PLAYER_COLORS } from '../../shared/constants';
+import { AVATAR_LIST, PLAYER_COLORS } from '../../shared/constants';
 import { PlayerColor } from '../../shared/types';
 import { AvatarIcon } from '../UI/ResourceIcon';
 
@@ -31,7 +31,6 @@ export const MainMenu: React.FC = () => {
     serverUrl,
     updateServerUrl,
     connected,
-    showErrorToast,
     createRoom,
     joinRoom,
   } = useGame();
@@ -235,7 +234,7 @@ export const MainMenu: React.FC = () => {
               </label>
               <input
                 type="text"
-                maxLength={20}
+                maxLength={33}
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 placeholder="Ej. Lord Catan..."
@@ -253,15 +252,7 @@ export const MainMenu: React.FC = () => {
                   <button
                     key={av}
                     type="button"
-                    onClick={() => {
-                      setPlayerAvatar(av);
-                      if (
-                        av === DEPOR_AVATAR &&
-                        playerName.trim().toLowerCase() !== 'mantecado de coco'
-                      ) {
-                        showErrorToast('te falta flow');
-                      }
-                    }}
+                    onClick={() => setPlayerAvatar(av)}
                     className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition cursor-pointer overflow-hidden p-1 ${
                       playerAvatar === av
                         ? 'bg-amber-500/25 border-2 border-amber-400 scale-105 shadow-md'
