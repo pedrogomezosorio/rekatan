@@ -2175,8 +2175,18 @@ export function applyGameAction(
       // Bots evaluate trade offers automatically via BotEngine heuristics!
       for (const bot of state.players.filter((p) => p.isBot)) {
         if (newOffer.responses[bot.id] === 'PENDING') {
-          newOffer.responses[bot.id] =
-            evaluateBotTradeOffer(state, bot.id, newOffer) === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED';
+          if (actor.isBot) {
+            // When a BOT proposes a trade, other bots do not accept immediately.
+            // They wait 3.5 seconds in BotEngine so human players have ample time to see and accept the deal!
+            const botDecision = evaluateBotTradeOffer(state, bot.id, newOffer);
+            if (botDecision === 'REJECT') {
+              newOffer.responses[bot.id] = 'REJECTED';
+            }
+            // If botDecision === 'ACCEPT', keep status 'PENDING' until offerAgeMs >= 3500
+          } else {
+            newOffer.responses[bot.id] =
+              evaluateBotTradeOffer(state, bot.id, newOffer) === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED';
+          }
         }
       }
 

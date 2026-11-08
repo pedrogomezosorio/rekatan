@@ -35,15 +35,19 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
   // Close expanded touch view when tapping anywhere outside the resource hand
   useEffect(() => {
     if (!isExpandedTouch) return;
-    const handleOutsidePointer = (e: PointerEvent) => {
+    const handleOutside = (e: Event) => {
       if (fanContainerRef.current && !fanContainerRef.current.contains(e.target as Node)) {
         setIsExpandedTouch(false);
         setHoveredIndex(null);
       }
     };
 
-    window.addEventListener('pointerdown', handleOutsidePointer);
-    return () => window.removeEventListener('pointerdown', handleOutsidePointer);
+    window.addEventListener('pointerdown', handleOutside);
+    window.addEventListener('touchstart', handleOutside, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleOutside);
+      window.removeEventListener('touchstart', handleOutside);
+    };
   }, [isExpandedTouch]);
 
   // Build individual physical cards for the fan (caps cleanly at 15 physical cards, stacking extras)
@@ -200,6 +204,14 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onClick={(e) => {
                   e.stopPropagation();
+                  const isTabletTouch =
+                    typeof window !== 'undefined' &&
+                    window.matchMedia('(pointer: coarse)').matches;
+                  if (isTabletTouch) {
+                    setIsExpandedTouch(true);
+                    setHoveredIndex((prev) => (prev === idx ? null : idx));
+                    return;
+                  }
                   onCardClick?.(card.resource);
                 }}
                 title={`${meta.name}${portRatio < 4 ? ` (Puerto ${portRatio}:1)` : ''}`}

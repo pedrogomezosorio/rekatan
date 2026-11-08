@@ -682,4 +682,63 @@ describe('Official Rules & House Rules Engine', () => {
     expect(finishRes.state.phase).toBe('MAIN_PHASE');
     expect(finishRes.state.turn.freeRoadsRemaining).toBe(0);
   });
+
+  it('delays bot trade acceptance by 3.5 seconds when another bot proposes, allowing humans to accept first', () => {
+    let state = createInitialGameState('BOT_TRADE_TEST', {
+      id: 'P1',
+      name: 'Human Player',
+      color: 'RED',
+      avatar: 'I',
+    });
+    // Add 2 bots: Bot 1 and Bot 2
+    state = applyGameAction(state, 'P1', { type: 'ADD_BOT', difficulty: 'MEDIUM' }).state;
+    state = applyGameAction(state, 'P1', { type: 'ADD_BOT', difficulty: 'MEDIUM' }).state;
+    state = applyGameAction(state, 'P1', { type: 'START_GAME' }).state;
+
+    const bot1 = state.players[1];
+    const bot2 = state.players[2];
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = bot1.id;
+    state.turn.hasRolledDice = true;
+    state.turn.turnNumber = 2;
+
+    // Bot 1 has lots of WOOD and wants ORE
+    bot1.resources = { WOOD: 5, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 0 };
+    // Bot 2 has plenty of ORE (surplus) and wants WOOD
+    bot2.resources = { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 4 };
+    // Human has some ORE too
+    state.players[0].resources = { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 2 };
+
+    // Bot 1 proposes a trade: giving 1 WOOD, requesting 1 ORE
+    const proposeRes = applyGameAction(state, bot1.id, {
+      type: 'CREATE_TRADE_OFFER',
+      targetPlayerId: null,
+      offer: { WOOD: 1, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 0 },
+      request: { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 1 },
+    });
+    expect(proposeRes.error).toBeUndefined();
+    state = proposeRes.state;
+
+    const offer = state.activeTradeOffers[0];
+    expect(offer).toBeDefined();
+
+    // 1. Immediately after proposition: Bot 2 must NOT have accepted automatically!
+    // Status must be 'PENDING', not 'ACCEPTED'
+    expect(offer.responses[bot2.id]).toBe('PENDING');
+
+    // 2. Before 3.5 seconds elapse, executing bot step should NOT close the trade with Bot 2
+    const intermediateState = executeBotStep(state, bot1.id);
+    expect(intermediateState.activeTradeOffers.length).toBe(1);
+    expect(intermediateState.activeTradeOffers[0].responses[bot2.id]).toBe('PENDING');
+
+    // 3. Fast-forward offer age past 3.5 seconds (3500ms)
+    intermediateState.activeTradeOffers[0].createdAt = Date.now() - 3600;
+
+    // Now execute bot step: Bot 2 should accept and the trade should execute!
+    const finalState = executeBotStep(intermediateState, bot1.id);
+    expect(finalState.activeTradeOffers.length).toBe(0); // Trade executed and closed
+    expect(finalState.players.find((p) => p.id === bot1.id)!.resources.ORE).toBe(1);
+    expect(finalState.players.find((p) => p.id === bot2.id)!.resources.WOOD).toBe(1);
+  });
 });

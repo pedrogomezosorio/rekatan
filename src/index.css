@@ -276,14 +276,33 @@
     padding: 0.75rem 1.25rem !important;
   }
   .tablet-drawer {
-    width: 440px !important;
-    max-width: 90vw !important;
-    padding: 1.25rem !important;
+    width: 370px !important;
+    max-width: 86vw !important;
+    max-height: calc(100vh - 120px) !important;
+    overflow-y: auto !important;
+    padding: 0.75rem 0.85rem !important;
+    border-radius: 1.25rem !important;
+  }
+  .tablet-drawer::-webkit-scrollbar {
+    width: 4px;
+  }
+  .tablet-drawer::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.4);
+    border-radius: 4px;
   }
   .tablet-drawer-item {
-    min-height: 58px !important;
-    padding: 0.85rem 1rem !important;
-    font-size: 0.95rem !important;
+    min-height: 46px !important;
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.825rem !important;
+    border-radius: 0.85rem !important;
+  }
+  .tablet-drawer-item .w-10 {
+    width: 2.1rem !important;
+    height: 2.1rem !important;
+  }
+  .tablet-drawer-item .w-10 svg {
+    width: 1.1rem !important;
+    height: 1.1rem !important;
   }
 
   /* 6. Material Flight Animations Target Glow on Tablet */

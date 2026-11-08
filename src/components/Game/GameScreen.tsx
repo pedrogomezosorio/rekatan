@@ -1385,6 +1385,10 @@ export const GameScreen: React.FC = () => {
             resources={me.resources}
             portRatios={myPortRatios}
             onCardClick={() => {
+              const isTabletTouch =
+                typeof window !== 'undefined' &&
+                window.matchMedia('(pointer: coarse)').matches;
+              if (isTabletTouch) return;
               if (!isWaitingForMandatoryDice && !isPausedByHost) {
                 setTradeModalInitialTab('BANK');
                 setShowTradeModal(true);

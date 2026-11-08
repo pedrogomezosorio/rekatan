@@ -148,9 +148,29 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
       (o) => o.fromPlayerId === activeBot.id
     );
     if (existingBotOffer) {
-      const acceptedEntry = Object.entries(existingBotOffer.responses).find(
+      const offerAgeMs = Date.now() - existingBotOffer.createdAt;
+
+      // 1. Check if any human or bot player has already accepted
+      let acceptedEntry = Object.entries(existingBotOffer.responses).find(
         ([, status]) => status === 'ACCEPTED'
       );
+
+      // 2. If no player has accepted yet, but 3.5 seconds have passed (3500ms delay for other bots),
+      // any other bot that is still PENDING can now accept if the trade is favorable!
+      if (!acceptedEntry && offerAgeMs >= 3500) {
+        for (const otherBot of currentState.players.filter((p) => p.isBot && p.id !== activeBot.id)) {
+          if (existingBotOffer.responses[otherBot.id] === 'PENDING') {
+            if (evaluateBotTradeOffer(currentState, otherBot.id, existingBotOffer) === 'ACCEPT') {
+              existingBotOffer.responses[otherBot.id] = 'ACCEPTED';
+              acceptedEntry = [otherBot.id, 'ACCEPTED'];
+              break;
+            } else {
+              existingBotOffer.responses[otherBot.id] = 'REJECTED';
+            }
+          }
+        }
+      }
+
       if (acceptedEntry) {
         const [partnerId] = acceptedEntry;
         const partner = currentState.players.find((p) => p.id === partnerId);
@@ -188,7 +208,6 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
         );
       }
 
-      const offerAgeMs = Date.now() - existingBotOffer.createdAt;
       // Bot offers stay active for 7.5 seconds (7500ms) unless rejected by all
       if (offerAgeMs < 7500) {
         const remainingSec = Math.max(1, Math.ceil((7500 - offerAgeMs) / 1000));
