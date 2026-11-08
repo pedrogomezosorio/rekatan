@@ -6,14 +6,14 @@ Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
 ---
 
-## Descargas (v1.1)
+## Descargas (v1.2)
 
 Las versiones ejecutables para escritorio se encuentran disponibles en la sección de [Releases de GitHub](https://github.com/pedrogomezosorio/rekatan/releases/latest).
 
 | Sistema Operativo | Tipo de Paquete | Archivo | Enlace de Descarga |
 | :--- | :--- | :--- | :--- |
-| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-arm64.dmg) |
-| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-mac.zip) |
+| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-1.1.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-1.1.0-arm64.dmg) |
+| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-1.1.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-1.1.0-arm64-mac.zip) |
 | **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 1.1.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.1.1.0.exe) |
 | **Windows** | Ejecutable Portable | `Catan Tabletop 1.1.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.1.1.0.exe) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
