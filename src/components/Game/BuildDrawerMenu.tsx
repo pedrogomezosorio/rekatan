@@ -218,7 +218,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                         : 'bg-[#0e0a07]/80 border-stone-800/70 opacity-45 grayscale-[45%] cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
                           opt.canExecute
@@ -228,16 +228,16 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                       >
                         {opt.icon}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-nowrap">
                           <span
-                            className={`text-xs sm:text-sm font-black ${
+                            className={`text-xs sm:text-sm font-black whitespace-nowrap ${
                               opt.canExecute ? 'text-amber-100' : 'text-stone-400'
                             }`}
                           >
                             {opt.title}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-amber-300/90 font-mono font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-amber-300/90 font-mono font-bold whitespace-nowrap shrink-0">
                             {opt.remainingLabel}
                           </span>
                         </div>
@@ -253,7 +253,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                         return (
                           <div
                             key={res}
-                            className={`px-2 py-1 rounded-xl border flex flex-col items-center min-w-[38px] ${
+                            className={`tablet-cost-badge px-2 py-1 rounded-xl border flex flex-col items-center min-w-[38px] ${
                               hasEnough
                                 ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
                                 : 'bg-red-950/50 border-red-500/40 text-red-300'
