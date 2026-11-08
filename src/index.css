@@ -89,29 +89,83 @@
     }
   }
 
-  /* Player Casillero List (Holds up to 6 compact single-line profiles) */
+  /* Player Casillero List (Supports both Detailed 4-player and Compact 5-6 player modes) */
   .tablet-player-list {
     display: flex !important;
     flex-direction: column !important;
-    gap: 0.3rem !important;
     overflow-y: auto !important;
   }
+  .tablet-player-list-compact {
+    gap: 0.3rem !important;
+  }
 
-  /* Player Casillero / Profile Card (Single Line on Tablet) */
-  .tablet-player-single-row {
+  /* A. Compact Single-Line Player Profile (Only when > 4 players on Tablet) */
+  .tablet-player-card-compact .tablet-player-single-row {
     display: flex !important;
   }
-  .desktop-player-card-content {
+  .tablet-player-card-compact .desktop-player-card-content {
     display: none !important;
   }
-  .profile-card-fan {
+  .tablet-player-card-compact .profile-card-fan {
     display: none !important;
   }
-  .tablet-player-card {
+  .tablet-player-card-compact {
     padding: 0.35rem 0.6rem !important;
     border-radius: 0.85rem !important;
     border-width: 1.5px !important;
     min-height: 40px !important;
+  }
+
+  /* B. Detailed Full Player Profile (When <= 4 players on Tablet, matches PC layout with touch-friendly sizes) */
+  .tablet-player-card:not(.tablet-player-card-compact) {
+    padding: 0.65rem 0.75rem !important;
+    border-radius: 1.15rem !important;
+    margin-bottom: 0.35rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-single-row {
+    display: none !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .desktop-player-card-content {
+    display: block !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar {
+    width: 2.3rem !important;
+    height: 2.3rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar svg,
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar img {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-name {
+    font-size: 0.9rem !important;
+    max-width: 140px !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-status {
+    font-size: 0.75rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-vp {
+    font-size: 0.9rem !important;
+    padding: 0.25rem 0.65rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-strip {
+    margin-top: 0.45rem !important;
+    padding-top: 0.35rem !important;
+    gap: 0.35rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-box {
+    padding: 0.35rem 0.45rem !important;
+    min-height: 30px !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-label {
+    font-size: 0.65rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-value {
+    font-size: 0.85rem !important;
+  }
+  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-icon {
+    width: 0.8rem !important;
+    height: 0.8rem !important;
   }
 
   /* Compact Bank Resources Box (Reduced size to give vertical room for 6 profiles) */
@@ -237,6 +291,11 @@
     width: 300px !important;
     height: 42px !important;
     border-radius: 0.75rem !important;
+  }
+  .tablet-flight-glow-detailed {
+    width: 280px !important;
+    height: 76px !important;
+    border-radius: 1.15rem !important;
   }
 }
 

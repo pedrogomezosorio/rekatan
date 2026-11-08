@@ -1270,7 +1270,11 @@ export const GameScreen: React.FC = () => {
             }`}
           >
             {/* 1. Floating Rounded Player Profile Rectangles (with left horizontal card fan) */}
-            <div className="tablet-player-list flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none">
+            <div
+              className={`tablet-player-list flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none ${
+                gameState.players.length > 4 ? 'tablet-player-list-compact' : ''
+              }`}
+            >
               {gameState.players.map((p) => (
                 <PlayerSummaryCard
                   key={p.id}
@@ -1280,6 +1284,7 @@ export const GameScreen: React.FC = () => {
                   hasLongestRoad={gameState.longestRoadPlayerId === p.id}
                   hasLargestArmy={gameState.largestArmyPlayerId === p.id}
                   showCardFan={showProfileCardFans}
+                  useCompactLayout={gameState.players.length > 4}
                 />
               ))}
             </div>
@@ -1615,6 +1620,7 @@ interface PlayerSummaryCardProps {
   hasLongestRoad: boolean;
   hasLargestArmy: boolean;
   showCardFan: boolean;
+  useCompactLayout?: boolean;
 }
 
 /**
@@ -1694,6 +1700,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   hasLongestRoad,
   hasLargestArmy,
   showCardFan,
+  useCompactLayout = false,
 }) => {
   const totalRes = countTotalResources(player.resources);
   const unplayedDevs = isLocalPlayer
@@ -1704,7 +1711,9 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   return (
     <div
       id={`player-casillero-${player.id}`}
-      className="tablet-player-card relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto"
+      className={`tablet-player-card ${
+        useCompactLayout ? 'tablet-player-card-compact' : ''
+      } relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto`}
       style={playerCardStyle(player.color, isActiveTurn)}
     >
       {/* Left Horizontal Resource Card Fan (Opened towards the left - Hidden on Tablet) */}

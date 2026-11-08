@@ -134,9 +134,12 @@ function resolvePlayerCasilleroCenter(
     gameState.players.findIndex((p) => p.id === playerId)
   );
   if (isTouch) {
+    const isCompact = gameState.players.length > 4;
+    const cardHeight = isCompact ? 44 : 88;
+    const startY = isCompact ? 65 : 75;
     return {
       x: vw - 165,
-      y: 65 + idx * 46,
+      y: startY + idx * cardHeight,
     };
   }
   return {
@@ -790,7 +793,9 @@ const ResourceDistributionFlightCard: React.FC<{
         animate={{ opacity: [0, 0.4, 0.95, 0], scale: [0.9, 1.02, 1.08, 1] }}
         transition={{ duration: 4.0, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
         style={{ left: flight.endX, top: flight.endY, borderColor: playerColor }}
-        className="tablet-flight-glow fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.5)]"
+        className={`fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.5)] ${
+          gameState.players.length > 4 ? 'tablet-flight-glow' : 'tablet-flight-glow-detailed'
+        }`}
       />
 
       {/* Floating Resource Card Traveling from Hex to Player Casillero (Doubled 4.0s duration) */}
@@ -904,7 +909,9 @@ const DevCardPurchaseFlightCard: React.FC<{
         animate={{ opacity: [0, 0.4, 0.95, 0], scale: [0.9, 1.02, 1.08, 1] }}
         transition={{ duration: 2.8, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
         style={{ left: flight.endX, top: flight.endY, borderColor: buyerColor }}
-        className="tablet-flight-glow fixed -translate-x-1/2 -translate-y-1/2 w-56 h-16 rounded-2xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.6)]"
+        className={`fixed -translate-x-1/2 -translate-y-1/2 w-56 h-16 rounded-2xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.6)] ${
+          gameState.players.length > 4 ? 'tablet-flight-glow' : 'tablet-flight-glow-detailed'
+        }`}
       />
 
       {/* Flying & Spinning Dev Card from Deck to Buyer's Left Box */}
