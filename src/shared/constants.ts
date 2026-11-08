@@ -271,8 +271,10 @@ export const PLAYER_COLORS: Record<
 };
 
 export const CUSTOM_AVATAR_PONTEVEDRA = '/assets/avatars/pontevedra.png';
-export const CUSTOM_AVATAR_CELTA = '/assets/avatars/celta.jpg';
-export const DEPOR_AVATAR = '/assets/avatars/depor.jpg';
+export const CUSTOM_AVATAR_CELTA = '/assets/avatars/celta.png';
+export const DEPOR_AVATAR = '/assets/avatars/depor.png';
+
+export const PONFE_AVATAR = '/assets/avatars/ponfe.png';
 
 export const BOT_AVATAR_LIST = [
   '👑',
@@ -294,6 +296,7 @@ export const AVATAR_LIST = [
   CUSTOM_AVATAR_PONTEVEDRA,
   CUSTOM_AVATAR_CELTA,
   DEPOR_AVATAR,
+  PONFE_AVATAR,
 ];
 
 export function isImageAvatar(avatar?: string): boolean {
