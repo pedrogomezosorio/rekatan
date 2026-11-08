@@ -557,7 +557,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                   ? 'bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)]'
                   : 'bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.42)_0%,rgba(12,28,48,0.84)_100%)]'
               }`}
-              onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
+              onClick={() => setCentralAlertQueue([])}
             >
               <motion.div
                 initial={{ scale: 0.72, y: 24 }}
@@ -574,11 +574,15 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                 {/* Instant dismiss button */}
                 <button
                   type="button"
-                  onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
-                  className="absolute top-4 right-4 p-2 rounded-xl bg-black/40 hover:bg-black/70 text-stone-300 hover:text-white transition cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCentralAlertQueue([]);
+                  }}
+                  className="absolute top-4 right-4 z-20 p-2.5 rounded-xl bg-black/60 hover:bg-black/90 text-stone-200 hover:text-white transition cursor-pointer border border-white/20 shadow-lg active:scale-95"
                   title="Cerrar aviso"
+                  aria-label="Cerrar aviso"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 stroke-[2.5]" />
                 </button>
                 {centralAlert.cardImage ? (
                   <div

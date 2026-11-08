@@ -487,7 +487,7 @@ export function pickRobberTargetHex(
   difficulty: BotDifficulty
 ): string {
   const candidateHexes = Object.values(state.board.hexes).filter(
-    (h) => h.terrain !== 'SEA'
+    (h) => h.terrain !== 'SEA' && h.terrain !== 'DESERT'
   );
   if (candidateHexes.length === 0) return state.board.robberHexId;
 
@@ -495,19 +495,21 @@ export function pickRobberTargetHex(
     return candidateHexes[Math.floor(Math.random() * candidateHexes.length)].id;
   }
 
-  // Find leader player (highest public/total victory points among opponents)
+  // Fairly identify opponent leaders (human or bot without bias towards player 0)
   const opponents = state.players.filter((p) => p.id !== botPlayerId);
-  const leader = opponents.reduce((prev, curr) => {
-    return curr.totalVictoryPoints > prev.totalVictoryPoints ? curr : prev;
-  }, opponents[0]);
+  if (opponents.length === 0) return state.board.robberHexId;
 
-  let bestHexId = candidateHexes[0].id;
+  const maxVP = Math.max(...opponents.map((p) => p.totalVictoryPoints));
+  const leadingOpponents = opponents.filter((p) => p.totalVictoryPoints === maxVP);
+  const leadingIds = new Set(leadingOpponents.map((p) => p.id));
+
+  let bestHexCandidates: string[] = [candidateHexes[0].id];
   let bestScore = -9999;
 
   for (const hex of candidateHexes) {
     const pips = hex.numberToken ? PIP_WEIGHTS[hex.numberToken] || 0 : 0;
     let touchesBot = false;
-    let touchesLeader = false;
+    let touchesLeadingOpponent = false;
     let touchesOpponentsCount = 0;
 
     const touchingVertices = Object.values(state.board.vertices).filter((v) =>
@@ -516,34 +518,41 @@ export function pickRobberTargetHex(
     for (const v of touchingVertices) {
       if (!v || !v.building) continue;
       if (v.playerId === botPlayerId) touchesBot = true;
-      if (leader && v.playerId === leader.id) touchesLeader = true;
+      if (v.playerId && leadingIds.has(v.playerId)) touchesLeadingOpponent = true;
       if (v.playerId !== botPlayerId) touchesOpponentsCount++;
     }
 
     let score = pips * 2;
 
     if (difficulty === 'HARD') {
-      if (touchesBot) score -= 50; // Hard bot never blocks itself!
-      if (touchesLeader) score += 35; // Strongly targets the leader
+      if (touchesBot) score -= 60; // Hard bot never blocks itself!
+      if (touchesLeadingOpponent) score += 25; // Targets leaders fairly (bot or human)
       score += touchesOpponentsCount * 8;
     } else {
-      // MEDIUM
-      if (touchesBot) score -= 15;
-      score += touchesOpponentsCount * 5;
+      // MEDIUM: Balanced pressure without focusing solely on any single player
+      if (touchesBot) score -= 20;
+      if (touchesLeadingOpponent) score += 10;
+      score += touchesOpponentsCount * 6;
     }
 
     if (score > bestScore) {
       bestScore = score;
-      bestHexId = hex.id;
+      bestHexCandidates = [hex.id];
+    } else if (Math.abs(score - bestScore) < 0.1) {
+      bestHexCandidates.push(hex.id);
     }
   }
 
-  return bestHexId;
+  // Pick randomly among tied best candidates to avoid deterministic targeting
+  return bestHexCandidates[Math.floor(Math.random() * bestHexCandidates.length)];
 }
 
 /**
  * Robber steal victim picker:
- * - HARD: steals from the leader or player with most cards.
+ * - Fairly distributes stealing across all opponents (human or bot) touching the hex.
+ * - EASY: random candidate.
+ * - MEDIUM: random candidate among those who currently hold resources.
+ * - HARD: selects among leading opponents with cards, picking randomly if tied.
  */
 export function pickRobberStealVictim(
   state: GameState,
@@ -559,17 +568,21 @@ export function pickRobberStealVictim(
     .map((id) => state.players.find((p) => p.id === id))
     .filter(Boolean) as PlayerState[];
 
-  // Sort by highest victory points first, then by most resource cards
-  candidates.sort((a, b) => {
-    if (difficulty === 'HARD') {
-      if (b.totalVictoryPoints !== a.totalVictoryPoints) {
-        return b.totalVictoryPoints - a.totalVictoryPoints;
-      }
-    }
-    return countTotalResources(b.resources) - countTotalResources(a.resources);
-  });
+  if (candidates.length === 0) return '';
+  if (candidates.length === 1) return candidates[0].id;
 
-  return candidates[0].id;
+  const withCards = candidates.filter((p) => countTotalResources(p.resources) > 0);
+  const activePool = withCards.length > 0 ? withCards : candidates;
+
+  if (difficulty === 'MEDIUM') {
+    // Fairly pick randomly among all candidates who have cards (human or bot equally)
+    return activePool[Math.floor(Math.random() * activePool.length)].id;
+  }
+
+  // HARD: Target the player(s) with highest VP, randomizing fairly on ties
+  const maxVP = Math.max(...activePool.map((p) => p.totalVictoryPoints));
+  const leaders = activePool.filter((p) => p.totalVictoryPoints === maxVP);
+  return leaders[Math.floor(Math.random() * leaders.length)].id;
 }
 
 /**
@@ -845,10 +858,17 @@ function getMissingResourcesForTarget(
 
 /**
  * Evaluates whether a bot should accept a trade offer from another player:
- * - EASY: accepts if it doesn't leave the bot with 0 cards.
- * - MEDIUM: accepts if receiving a needed resource and giving one with count >= 2.
- * - HARD: accepts ONLY if it immediately enables a city/settlement build this turn,
- *         and NEVER accepts if the offer benefits the game leader!
+ * - Much more open, frequent and logical trade acceptance!
+ * - EASY: Accepts almost any trade as long as the bot has the requested cards and receives >= 1 card.
+ * - MEDIUM:
+ *     - ALWAYS accepts if receiving MORE cards than giving (e.g. 2:1, 3:1).
+ *     - ALWAYS accepts if the trade enables building a City, Settlement, Road, or Dev Card.
+ *     - Accepts 1:1 if receiving a resource it has 0 or 1 of, or if it has surplus of what is requested.
+ *     - Does NOT require having 2+ cards of the requested resource.
+ * - HARD:
+ *     - Accepts favorable trades (receiving > giving).
+ *     - Accepts if the trade enables any build (City, Settlement, Road, Dev card).
+ *     - Only blocks if the proposer is within 1-2 VP of winning (e.g. >= 9 VP in a 10 VP game).
  */
 export function evaluateBotTradeOffer(
   state: GameState,
@@ -860,7 +880,7 @@ export function evaluateBotTradeOffer(
 
   const difficulty: BotDifficulty = bot.botDifficulty || state.config.defaultBotDifficulty || 'MEDIUM';
 
-  // Check if bot can afford what is requested
+  // Physical rule: Bot MUST have enough resources to give what is requested
   for (const [res, count] of Object.entries(offer.request) as Array<[ResourceType, number]>) {
     if ((bot.resources[res] || 0) < count) {
       return 'REJECT';
@@ -870,40 +890,93 @@ export function evaluateBotTradeOffer(
   const proposer = state.players.find((p) => p.id === offer.fromPlayerId);
   if (!proposer) return 'REJECT';
 
+  const totalGiving = countTotalResources(offer.request);
+  const totalReceiving = countTotalResources(offer.offer);
+
+  // Proposer must be offering at least one resource
+  if (totalReceiving === 0) return 'REJECT';
+
+  // EASY difficulty: very friendly and collaborative
   if (difficulty === 'EASY') {
-    const totalRemaining = countTotalResources(bot.resources) - countTotalResources(offer.request);
-    return totalRemaining > 0 ? 'ACCEPT' : 'REJECT';
+    return 'ACCEPT';
   }
 
+  // Check if simulated resources enable any build
+  const simulatedResources: Record<ResourceType, number> = { ...bot.resources };
+  for (const [res, count] of Object.entries(offer.request) as Array<[ResourceType, number]>) {
+    simulatedResources[res] -= count;
+  }
+  for (const [res, count] of Object.entries(offer.offer) as Array<[ResourceType, number]>) {
+    simulatedResources[res] = (simulatedResources[res] || 0) + count;
+  }
+
+  const enablesSettlement =
+    hasResources(simulatedResources, BUILDING_COSTS.SETTLEMENT) && bot.settlementsLeft > 0;
+  const enablesCity =
+    hasResources(simulatedResources, BUILDING_COSTS.CITY) && bot.citiesLeft > 0;
+  const enablesRoad =
+    hasResources(simulatedResources, BUILDING_COSTS.ROAD) && bot.roadsLeft > 0;
+  const enablesDevCard =
+    hasResources(simulatedResources, BUILDING_COSTS.DEV_CARD) && state.devDeck.length > 0;
+  const enablesAnyBuild = enablesSettlement || enablesCity || enablesRoad || enablesDevCard;
+
+  const isFavorableCount = totalReceiving > totalGiving;
+  const isOneForOne = totalReceiving === totalGiving;
+
+  // HARD difficulty: Strategic, accepts helpful or favorable trades, only wary of imminent winners
   if (difficulty === 'HARD') {
-    // Never help the player who is in the lead
-    const leader = state.players.reduce((prev, curr) => {
-      return curr.totalVictoryPoints > prev.totalVictoryPoints ? curr : prev;
-    }, state.players[0]);
-    if (proposer.id === leader.id && leader.id !== bot.id) {
+    // Only block if proposer is 1 or 2 points away from winning
+    const isImminentWinner = proposer.totalVictoryPoints >= state.config.victoryPointsTarget - 2;
+    if (isImminentWinner && !enablesCity && !enablesSettlement) {
       return 'REJECT';
     }
 
-    // Only accept if this trade allows bot to build city or settlement immediately!
-    const simulatedResources = { ...bot.resources };
-    for (const [res, count] of Object.entries(offer.request) as Array<[ResourceType, number]>) {
-      simulatedResources[res] -= count;
-    }
-    for (const [res, count] of Object.entries(offer.offer) as Array<[ResourceType, number]>) {
-      simulatedResources[res] += count;
+    if (isFavorableCount || enablesAnyBuild) {
+      return 'ACCEPT';
     }
 
-    const enablesCity = hasResources(simulatedResources, BUILDING_COSTS.CITY);
-    const enablesSettlement = hasResources(simulatedResources, BUILDING_COSTS.SETTLEMENT);
-    return enablesCity || enablesSettlement ? 'ACCEPT' : 'REJECT';
+    // Accept 1:1 if receiving a resource bot currently has 0 of
+    if (isOneForOne) {
+      const receivingNeededZero = Object.entries(offer.offer).some(
+        ([res, count]) => count > 0 && (bot.resources[res as ResourceType] || 0) === 0
+      );
+      if (receivingNeededZero) return 'ACCEPT';
+    }
+
+    return 'REJECT';
   }
 
-  // MEDIUM
-  let givesSpare = true;
-  for (const [res, count] of Object.entries(offer.request) as Array<[ResourceType, number]>) {
-    if ((bot.resources[res] || 0) - count < 1) {
-      givesSpare = false;
-    }
+  // MEDIUM difficulty: highly cooperative, accepts trades that make sense
+  // 1. If receiving more cards than giving, always accept!
+  if (isFavorableCount) {
+    return 'ACCEPT';
   }
-  return givesSpare ? 'ACCEPT' : 'REJECT';
+
+  // 2. If it enables building anything, always accept!
+  if (enablesAnyBuild) {
+    return 'ACCEPT';
+  }
+
+  // 3. For 1:1 trades: accept if receiving a resource the bot has few of (<= 1)
+  if (isOneForOne) {
+    const receivesScarceResource = Object.entries(offer.offer).some(
+      ([res, count]) => count > 0 && (bot.resources[res as ResourceType] || 0) <= 1
+    );
+    if (receivesScarceResource) {
+      return 'ACCEPT';
+    }
+
+    // Also accept if bot has 2+ of the requested card (surplus trade)
+    const givesSurplus = Object.entries(offer.request).every(
+      ([res, count]) => (bot.resources[res as ResourceType] || 0) >= count + 1
+    );
+    if (givesSurplus) {
+      return 'ACCEPT';
+    }
+
+    // Default friendly rate for balanced 1:1 trades: 75% accept
+    return Math.random() < 0.75 ? 'ACCEPT' : 'REJECT';
+  }
+
+  return 'REJECT';
 }

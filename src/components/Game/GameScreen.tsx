@@ -878,7 +878,7 @@ export const GameScreen: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.22 }}
-                  className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border text-xs font-extrabold shadow-[0_12px_30px_rgba(0,0,0,0.88)] backdrop-blur-xl ${
+                  className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border text-xs font-extrabold shadow-[0_12px_30px_rgba(0,0,0,0.88)] backdrop-blur-xl pointer-events-auto ${
                     currentQueuedNotice.kind === 'BANK_TRADE'
                       ? 'bg-gradient-to-r from-[#23150b]/95 via-[#2e1b0d]/95 to-[#23150b]/95 border-orange-400/75 text-amber-100'
                       : currentQueuedNotice.kind === 'KNIGHT'
@@ -942,6 +942,16 @@ export const GameScreen: React.FC = () => {
                         ))}
                     </span>
                   )}
+
+                  {/* Instant Dismiss Button for Notification */}
+                  <button
+                    type="button"
+                    onClick={() => setNoticeQueue((prev) => prev.slice(1))}
+                    className="ml-1 p-1 rounded-lg hover:bg-white/10 text-stone-300 hover:text-white transition cursor-pointer shrink-0"
+                    title="Cerrar aviso"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
