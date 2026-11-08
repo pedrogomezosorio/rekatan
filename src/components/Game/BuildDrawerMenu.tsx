@@ -164,14 +164,23 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       {/* Upward Animated Smart Construction Drawer */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            key="smart-build-drawer"
-            initial={{ opacity: 0, y: 28, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-            className="absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3"
-          >
+          <>
+            {/* Click-outside backdrop to dismiss and return to map */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onToggleOpen}
+              className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] cursor-pointer"
+            />
+            <motion.div
+              key="smart-build-drawer"
+              initial={{ opacity: 0, y: 28, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default"
+            >
             <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5">
               <div className="flex items-center gap-2">
                 <Hammer className="w-4 h-4 text-amber-400" />
@@ -203,7 +212,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                     type="button"
                     disabled={!opt.canExecute}
                     onClick={opt.onTrigger}
-                    className={`w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
+                    className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
                       opt.canExecute
                         ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
                         : 'bg-[#0e0a07]/80 border-stone-800/70 opacity-45 grayscale-[45%] cursor-not-allowed'
@@ -264,15 +273,16 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
               })}
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>
 
       {/* Main Bottom Panel "Construir" Trigger Button */}
       <button
         type="button"
         disabled={disabledBeforeDice}
         onClick={onToggleOpen}
-        className={`w-full px-3 py-1.5 rounded-xl border font-black text-[11px] flex items-center justify-between gap-2 transition ${
+        className={`tablet-action-btn w-full px-3 py-1.5 rounded-xl border font-black text-[11px] flex items-center justify-between gap-2 transition ${
           disabledBeforeDice
             ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
             : isOpen

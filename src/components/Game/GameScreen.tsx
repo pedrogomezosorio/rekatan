@@ -688,12 +688,12 @@ export const GameScreen: React.FC = () => {
       />
 
       {/* Top Header Bar */}
-      <header className="h-14 px-4 bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-b border-[#d4af37]/35 flex items-center justify-between gap-3 shrink-0 z-30 shadow-xl">
+      <header className="tablet-header h-14 px-4 bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-b border-[#d4af37]/35 flex items-center justify-between gap-3 shrink-0 z-30 shadow-xl">
         <div className="flex items-center gap-3">
-          <span className="font-display text-lg font-extrabold text-amber-400 tracking-wider drop-shadow">
+          <span className="tablet-header-title font-display text-lg font-extrabold text-amber-400 tracking-wider drop-shadow">
             CATAN
           </span>
-          <span className="font-mono text-xs px-2.5 py-0.5 rounded-lg bg-[#0d0906] text-amber-300 border border-[#d4af37]/40">
+          <span className="tablet-header-badge font-mono text-xs px-2.5 py-0.5 rounded-lg bg-[#0d0906] text-amber-300 border border-[#d4af37]/40">
             Sala {gameState.roomCode}
           </span>
           <span className="hidden md:inline-flex text-xs text-stone-400">
@@ -732,7 +732,7 @@ export const GameScreen: React.FC = () => {
 
         {/* Center Phase Instruction Banner */}
         <div
-          className={`flex-1 max-w-xl px-4 py-1.5 rounded-xl border text-center text-xs font-bold truncate ${
+          className={`tablet-header-instruction flex-1 max-w-xl px-4 py-1.5 rounded-xl border text-center text-xs font-bold truncate ${
             isPausedByHost
               ? 'bg-amber-950/80 border-amber-400 text-amber-200'
               : isMyTurn
@@ -791,7 +791,7 @@ export const GameScreen: React.FC = () => {
                   dispatchAction({ type: 'TOGGLE_HOST_PAUSE' });
                 }
               }}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow ${
+              className={`tablet-header-btn px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow active:scale-95 ${
                 isPausedByHost || phase === 'PAUSED_DISCONNECT'
                   ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-300 text-stone-950 animate-pulse'
                   : 'bg-amber-500/20 hover:bg-amber-500/30 border-[#d4af37]/60 text-amber-200'
@@ -816,7 +816,7 @@ export const GameScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
-              className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow animate-pulse"
+              className="tablet-header-btn px-3 py-1.5 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer shadow animate-pulse active:scale-95"
               title="Reanudar la partida pausada por desconexión"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
@@ -827,7 +827,7 @@ export const GameScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+            className={`tablet-header-btn px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 ${
               lowEndPcMode
                 ? 'bg-sky-950/90 border-sky-400/60 text-sky-200'
                 : 'bg-[#211710] hover:bg-[#2c1f16] border-[#d4af37]/35 text-amber-200'
@@ -835,7 +835,7 @@ export const GameScreen: React.FC = () => {
             title="Ajustes de Rendimiento y Animaciones"
           >
             <Settings className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Ajustes</span>
+            <span className="hidden sm:inline">Ajustes</span>
           </button>
 
           {isPausedByHost && (
@@ -847,7 +847,7 @@ export const GameScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowAbandonModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-red-950/75 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+            className="tablet-header-btn px-3 py-1.5 rounded-xl bg-red-950/75 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Abandonar</span>
@@ -1163,7 +1163,7 @@ export const GameScreen: React.FC = () => {
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
               placed immediately above the bottom cards rectangle, right where the Zoom controls were (Zoom controls are now immediately to their right) */}
           <div className="absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
-            <div className="flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
+            <div className="tablet-action-box flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
               {/* 1. Construir (C) */}
               <BuildDrawerMenu
                 isOpen={isBuildDrawerOpen}
@@ -1193,7 +1193,7 @@ export const GameScreen: React.FC = () => {
                   setTradeModalInitialTab('BANK');
                   setShowTradeModal(true);
                 }}
-                className={`w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition ${
+                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                     ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
                     : 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 hover:from-orange-400 hover:to-yellow-500 border-amber-300 text-stone-950 shadow cursor-pointer active:scale-98'
@@ -1229,7 +1229,7 @@ export const GameScreen: React.FC = () => {
                 type="button"
                 disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 onClick={() => setShowDevModal(true)}
-                className={`w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
+                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                     ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
                     : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
@@ -1261,7 +1261,7 @@ export const GameScreen: React.FC = () => {
           {/* Right Area: NO outer rectangle/border line for the column!
               Only individual rounded player profile rectangles + the single bordered rectangle for Bank Resources & Island Chronicles */}
           <aside
-            className={`absolute top-2.5 bottom-2.5 right-2.5 w-[260px] md:w-[274px] xl:w-[308px] flex flex-col justify-between z-20 pointer-events-none transition-transform duration-300 ease-in-out ${
+            className={`tablet-sidebar absolute top-2.5 bottom-2.5 right-2.5 w-[260px] md:w-[274px] xl:w-[308px] flex flex-col justify-between z-20 pointer-events-none transition-transform duration-300 ease-in-out ${
               isTabletRightPanelVisible ? 'translate-x-0' : 'translate-x-[115%] lg:translate-x-0'
             }`}
           >
@@ -1284,11 +1284,11 @@ export const GameScreen: React.FC = () => {
             <motion.div
               layout
               transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-              className="mt-2 shrink-0 flex flex-col bg-[#140e09]/95 backdrop-blur-xl border-2 border-[#d4af37]/45 rounded-2xl overflow-hidden shadow-[0_12px_35px_rgba(0,0,0,0.88)] pointer-events-auto"
+              className="tablet-bank-box mt-2 shrink-0 flex flex-col bg-[#140e09]/95 backdrop-blur-xl border-2 border-[#d4af37]/45 rounded-2xl overflow-hidden shadow-[0_12px_35px_rgba(0,0,0,0.88)] pointer-events-auto"
             >
               {/* Recursos de la Banca */}
               <motion.div layout="position" className="p-2.5 border-b border-[#d4af37]/25">
-                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-200 mb-1.5 px-0.5">
+                <div className="tablet-bank-header flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-200 mb-1.5 px-0.5">
                   <span>Recursos de la Banca</span>
                   <span className="px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-500/30 text-purple-200 text-[9px]">
                     Desarrollo: {gameState.devDeck.length}
@@ -1298,16 +1298,16 @@ export const GameScreen: React.FC = () => {
                   {ALL_RESOURCES.map((r) => (
                     <div
                       key={r}
-                      className="flex flex-col items-center justify-center py-1 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
+                      className="tablet-bank-slot flex flex-col items-center justify-center py-1 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
                       title={`Banca - ${RESOURCE_META[r].name}: ${gameState.bank[r]}`}
                     >
                       <div className="flex items-center gap-0.5">
                         <ResourceIcon resource={r} size={14} />
-                        <span className="font-mono text-[11px] font-black text-amber-100">
+                        <span className="tablet-bank-num font-mono text-[11px] font-black text-amber-100">
                           {gameState.bank[r]}
                         </span>
                       </div>
-                      <span className="text-[8px] font-semibold text-stone-400 mt-0.5 truncate max-w-full">
+                      <span className="tablet-bank-name text-[8px] font-semibold text-stone-400 mt-0.5 truncate max-w-full">
                         {RESOURCE_META[r].name}
                       </span>
                     </div>
@@ -1320,13 +1320,13 @@ export const GameScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowChronicle((prev) => !prev)}
-                  className="w-full py-2 px-3 rounded-xl bg-[#1d140e] hover:bg-[#281c13] border border-[#d4af37]/40 text-amber-200 text-xs font-black flex items-center justify-between transition cursor-pointer shadow"
+                  className="tablet-chronicle-btn w-full py-2 px-3 rounded-xl bg-[#1d140e] hover:bg-[#281c13] border border-[#d4af37]/40 text-amber-200 text-xs font-black flex items-center justify-between transition cursor-pointer shadow"
                 >
                   <span className="flex items-center gap-1.5">
                     <ScrollText className="w-3.5 h-3.5 text-amber-400" />
                     <span>Crónicas de la Isla</span>
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-400">
+                  <span className="tablet-chronicle-badge inline-flex items-center gap-1 text-[10px] font-mono text-amber-400">
                     <span>{showChronicle ? 'Cerrar' : `Ver (${gameState.logs.length})`}</span>
                     {showChronicle ? (
                       <ChevronDown className="w-3.5 h-3.5" />
@@ -1351,7 +1351,7 @@ export const GameScreen: React.FC = () => {
                       {gameState.logs.map((entry) => (
                         <div
                           key={entry.id}
-                          className="text-[11px] px-2.5 py-1.5 rounded-lg bg-[#140e0a] border border-stone-800 text-stone-300 leading-snug"
+                          className="tablet-chronicle-log text-[11px] px-2.5 py-1.5 rounded-lg bg-[#140e0a] border border-stone-800 text-stone-300 leading-snug"
                         >
                           {entry.message}
                         </div>
@@ -1366,7 +1366,7 @@ export const GameScreen: React.FC = () => {
       </div>
 
       {/* Slim Bottom Tabletop HUD: Cards Protrude Above */}
-      <footer className="h-[70px] sm:h-[76px] bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-t border-[#d4af37]/35 px-2 sm:px-4 py-1 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.85)] overflow-visible relative pb-[max(4px,env(safe-area-inset-bottom))]">
+      <footer className="tablet-footer h-[70px] sm:h-[76px] bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-t border-[#d4af37]/35 px-2 sm:px-4 py-1 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.85)] overflow-visible relative pb-[max(4px,env(safe-area-inset-bottom))]">
         {/* LEFT SPACER FOR SYMMETRY */}
         <div className="hidden sm:block min-w-[140px]" />
 
@@ -1390,7 +1390,7 @@ export const GameScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 border border-amber-200 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.55)] cursor-pointer active:scale-95 transition"
+              className="tablet-end-turn-btn px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 border border-amber-200 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.55)] cursor-pointer active:scale-95 transition"
             >
               <Check className="w-4 h-4 stroke-[3]" />
               <span>Finalizar Carreteras</span>
@@ -1401,7 +1401,7 @@ export const GameScreen: React.FC = () => {
             <button
               type="button"
               onClick={() => dispatchAction({ type: 'END_TURN' })}
-              className="px-5 py-3 sm:px-6 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 transition"
+              className="tablet-end-turn-btn px-5 py-3 sm:px-6 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.45)] cursor-pointer active:scale-95 transition"
             >
               <SkipForward className="w-4 h-4" />
               <span>Pasar Turno</span>
@@ -1418,13 +1418,15 @@ export const GameScreen: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 cursor-pointer"
+            onClick={() => setShowSettingsModal(false)}
           >
             <motion.div
               initial={{ scale: 0.92, y: 12 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.92, y: 12 }}
-              className="max-w-md w-full rounded-3xl bg-gradient-to-b from-[#231810] to-[#120c08] border-2 border-[#d4af37]/70 p-6 shadow-2xl space-y-5"
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-md w-full rounded-3xl bg-gradient-to-b from-[#231810] to-[#120c08] border-2 border-[#d4af37]/70 p-6 shadow-2xl space-y-5 cursor-default"
             >
               <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -1698,7 +1700,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   return (
     <div
       id={`player-casillero-${player.id}`}
-      className="relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto"
+      className="tablet-player-card relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto"
       style={playerCardStyle(player.color, isActiveTurn)}
     >
       {/* Left Horizontal Resource Card Fan (Opened towards the left) */}
@@ -1707,17 +1709,17 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="w-8 h-8 flex items-center justify-center bg-transparent text-sm font-display font-black shrink-0 text-white"
+            className="tablet-player-avatar w-8 h-8 flex items-center justify-center bg-transparent text-sm font-display font-black shrink-0 text-white"
           >
             <AvatarIcon avatar={player.avatar} className="w-5 h-5" />
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-1">
-              <span className="text-xs font-black text-white truncate max-w-[115px]">
+              <span className="tablet-player-name text-xs font-black text-white truncate max-w-[115px]">
                 {player.name}
               </span>
               {isLocalPlayer && (
-                <span className="text-[8px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
+                <span className="tablet-player-status text-[8px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
                   Tú
                 </span>
               )}
@@ -1725,7 +1727,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               )}
             </div>
-            <div className="text-[9px] font-semibold text-slate-200 truncate">
+            <div className="tablet-player-status text-[9px] font-semibold text-slate-200 truncate">
               {player.isBot
                 ? `IA (${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})`
                 : player.status === 'FROZEN_SKIP'
@@ -1740,7 +1742,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
         </div>
 
         {/* High-Contrast Victory Points Pill */}
-        <div className="flex items-center gap-1 shrink-0 bg-[#090604] px-2 py-0.5 rounded-lg border border-[#d4af37]/50 shadow-inner">
+        <div className="tablet-player-vp flex items-center gap-1 shrink-0 bg-[#090604] px-2 py-0.5 rounded-lg border border-[#d4af37]/50 shadow-inner">
           <span className="font-display text-xs font-black text-amber-300 leading-none">
             {player.publicVictoryPoints} PV
           </span>
@@ -1753,47 +1755,47 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
       </div>
 
       {/* Compact Stat Strip (Mano, Desarrollo, Ruta, Ejército) */}
-      <div className="mt-1.5 pt-1 border-t border-white/15 grid grid-cols-4 gap-1 text-center">
+      <div className="tablet-player-stat-strip mt-1.5 pt-1 border-t border-white/15 grid grid-cols-4 gap-1 text-center">
         <div
-          className="bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
+          className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
           title="Cartas de Recurso en Mano"
         >
-          <span className="text-[8px] font-bold uppercase text-stone-400">Mano</span>
-          <span className="text-[11px] font-black text-white">{totalRes}</span>
+          <span className="tablet-player-stat-label text-[8px] font-bold uppercase text-stone-400">Mano</span>
+          <span className="tablet-player-stat-value text-[11px] font-black text-white">{totalRes}</span>
         </div>
 
         <div
-          className="bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
+          className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
           title="Cartas de Desarrollo sin jugar"
         >
-          <Layers className="w-2.5 h-2.5 text-purple-300 shrink-0" />
-          <span className="text-[11px] font-black text-purple-300">{unplayedDevs}</span>
+          <Layers className="tablet-player-stat-icon w-2.5 h-2.5 text-purple-300 shrink-0" />
+          <span className="tablet-player-stat-value text-[11px] font-black text-purple-300">{unplayedDevs}</span>
         </div>
 
         <div
-          className={`rounded-md py-0.5 px-1 border flex items-center justify-between ${
+          className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
             hasLongestRoad
               ? 'bg-amber-950/60 border-amber-400'
               : 'bg-[#090604] border-stone-800/80'
           }`}
           title="Longitud de Carretera"
         >
-          <Route className="w-2.5 h-2.5 text-amber-300 shrink-0" />
-          <span className="text-[11px] font-black text-amber-300">
+          <Route className="tablet-player-stat-icon w-2.5 h-2.5 text-amber-300 shrink-0" />
+          <span className="tablet-player-stat-value text-[11px] font-black text-amber-300">
             {player.longestRoadLength}
           </span>
         </div>
 
         <div
-          className={`rounded-md py-0.5 px-1 border flex items-center justify-between ${
+          className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
             hasLargestArmy
               ? 'bg-red-950/60 border-red-400'
               : 'bg-[#090604] border-stone-800/80'
           }`}
           title="Caballeros jugados"
         >
-          <Swords className="w-2.5 h-2.5 text-red-300 shrink-0" />
-          <span className="text-[11px] font-black text-red-300">
+          <Swords className="tablet-player-stat-icon w-2.5 h-2.5 text-red-300 shrink-0" />
+          <span className="tablet-player-stat-value text-[11px] font-black text-red-300">
             {player.knightsPlayed}
           </span>
         </div>

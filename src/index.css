@@ -22,16 +22,201 @@
   }
 }
 
-/* Tablet & Mobile Touchscreen Optimizations (pointer: coarse keeps desktop PC/Mac unchanged) */
+/* Tablet Touchscreen Optimizations (pointer: coarse keeps desktop PC/Mac 100% untouched) */
 @media (pointer: coarse) {
   button, [role="button"], a {
     touch-action: manipulation;
   }
 
-  /* Ensure bottom action buttons and tabs have generous hit areas on tablet */
-  .touch-target-coarse {
-    min-height: 44px;
-    font-size: 0.95rem;
+  /* 1. Header Bar */
+  .tablet-header {
+    height: 64px !important;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+  .tablet-header-title {
+    font-size: 1.35rem !important;
+  }
+  .tablet-header-badge {
+    font-size: 0.85rem !important;
+    padding: 0.35rem 0.75rem !important;
+  }
+  .tablet-header-instruction {
+    font-size: 0.875rem !important;
+    padding: 0.5rem 1rem !important;
+    min-height: 42px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .tablet-header-btn {
+    min-height: 44px !important;
+    padding: 0.55rem 1rem !important;
+    font-size: 0.875rem !important;
+    gap: 0.5rem !important;
+  }
+  .tablet-header-btn svg {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+  }
+
+  /* 2. Right Sidebar (Player Profiles, Bank Resources, Chronicles) */
+  .tablet-sidebar {
+    width: 320px !important;
+  }
+  @media (min-width: 768px) {
+    .tablet-sidebar {
+      width: 340px !important;
+    }
+  }
+
+  /* Player Casillero / Profile Card */
+  .tablet-player-card {
+    padding: 0.85rem !important;
+    border-radius: 1.25rem !important;
+  }
+  .tablet-player-avatar {
+    width: 2.6rem !important;
+    height: 2.6rem !important;
+  }
+  .tablet-player-avatar svg, .tablet-player-avatar img {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+  .tablet-player-name {
+    font-size: 0.95rem !important;
+    max-width: 160px !important;
+  }
+  .tablet-player-status {
+    font-size: 0.75rem !important;
+  }
+  .tablet-player-vp {
+    font-size: 0.95rem !important;
+    padding: 0.35rem 0.75rem !important;
+  }
+  .tablet-player-stat-strip {
+    margin-top: 0.65rem !important;
+    padding-top: 0.5rem !important;
+    gap: 0.4rem !important;
+  }
+  .tablet-player-stat-box {
+    padding: 0.4rem 0.5rem !important;
+    min-height: 34px !important;
+  }
+  .tablet-player-stat-label {
+    font-size: 0.675rem !important;
+  }
+  .tablet-player-stat-value {
+    font-size: 0.925rem !important;
+  }
+  .tablet-player-stat-icon {
+    width: 0.85rem !important;
+    height: 0.85rem !important;
+  }
+
+  /* Bank Resources Box */
+  .tablet-bank-box {
+    border-radius: 1.25rem !important;
+  }
+  .tablet-bank-header {
+    font-size: 0.85rem !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0.45rem 0.6rem !important;
+  }
+  .tablet-bank-slot {
+    padding: 0.6rem 0.3rem !important;
+    border-radius: 0.85rem !important;
+  }
+  .tablet-bank-slot img, .tablet-bank-slot svg {
+    width: 1.4rem !important;
+    height: 1.4rem !important;
+  }
+  .tablet-bank-num {
+    font-size: 1rem !important;
+  }
+  .tablet-bank-name {
+    font-size: 0.725rem !important;
+    margin-top: 0.3rem !important;
+  }
+
+  /* Chronicles of the Island */
+  .tablet-chronicle-btn {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.925rem !important;
+    min-height: 46px !important;
+  }
+  .tablet-chronicle-btn svg {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+  }
+  .tablet-chronicle-badge {
+    font-size: 0.775rem !important;
+  }
+  .tablet-chronicle-log {
+    font-size: 0.85rem !important;
+    padding: 0.55rem 0.8rem !important;
+    line-height: 1.4 !important;
+  }
+
+  /* 3. Bottom-Left Floating Action Buttons */
+  .tablet-action-box {
+    width: 240px !important;
+    padding: 0.65rem !important;
+    gap: 0.5rem !important;
+    border-radius: 1.25rem !important;
+  }
+  @media (min-width: 640px) {
+    .tablet-action-box {
+      width: 260px !important;
+    }
+  }
+  .tablet-action-btn {
+    min-height: 48px !important;
+    padding: 0.7rem 1rem !important;
+    font-size: 0.9rem !important;
+  }
+  .tablet-action-btn svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+
+  /* 4. Bottom Footer Bar & Pass Turn */
+  .tablet-footer {
+    height: 84px !important;
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+  .tablet-end-turn-btn {
+    min-height: 52px !important;
+    padding: 0.85rem 1.85rem !important;
+    font-size: 0.975rem !important;
+  }
+  .tablet-end-turn-btn svg {
+    width: 1.3rem !important;
+    height: 1.3rem !important;
+  }
+
+  /* 5. Modals & Drawers on Tablet */
+  .tablet-modal-title {
+    font-size: 1.35rem !important;
+  }
+  .tablet-modal-sub {
+    font-size: 0.85rem !important;
+  }
+  .tablet-modal-btn {
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+    padding: 0.75rem 1.25rem !important;
+  }
+  .tablet-drawer {
+    width: 440px !important;
+    max-width: 90vw !important;
+    padding: 1.25rem !important;
+  }
+  .tablet-drawer-item {
+    min-height: 58px !important;
+    padding: 0.85rem 1rem !important;
+    font-size: 0.95rem !important;
   }
 }
 

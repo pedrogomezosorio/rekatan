@@ -914,11 +914,13 @@ export const TradeModal: React.FC<{
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 cursor-pointer"
     >
       <motion.div
         variants={modalCardVariants}
-        className="w-full max-w-3xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.94)] space-y-5 max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.94)] space-y-5 max-h-[92vh] overflow-y-auto cursor-default"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-3">
@@ -1515,11 +1517,13 @@ export const DevCardModal: React.FC<{
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 cursor-pointer"
     >
       <motion.div
         variants={modalCardVariants}
-        className="w-full max-w-4xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5 max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-4xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5 max-h-[92vh] overflow-y-auto cursor-default"
       >
         <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-3">
           <div className="flex items-center gap-3">
@@ -1845,11 +1849,13 @@ export const AbandonConfirmModal: React.FC<{
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onCancel}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-pointer"
     >
       <motion.div
         variants={modalCardVariants}
-        className="w-full max-w-md bg-gradient-to-b from-[#211811] to-[#120d09] border-2 border-red-500/50 rounded-3xl p-6 shadow-2xl space-y-4"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md bg-gradient-to-b from-[#211811] to-[#120d09] border-2 border-red-500/50 rounded-3xl p-6 shadow-2xl space-y-4 cursor-default"
       >
         <div className="flex items-center gap-3 text-red-400">
           <AlertTriangle className="w-6 h-6 shrink-0" />
