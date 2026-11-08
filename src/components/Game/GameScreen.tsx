@@ -1,3 +1,4 @@
+import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -31,7 +32,6 @@ import {
   ALL_RESOURCES,
   BUILDING_COSTS,
   countTotalResources,
-  PLAYER_COLORS,
   RESOURCE_META,
 } from '../../shared/constants';
 import {
@@ -1634,7 +1634,6 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   hasLargestArmy,
   showCardFan,
 }) => {
-  const colorCfg = PLAYER_COLORS[player.color];
   const totalRes = countTotalResources(player.resources);
   const unplayedDevs = isLocalPlayer
     ? player.devCards.filter((c) => !c.played).length
@@ -1644,11 +1643,8 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   return (
     <div
       id={`player-casillero-${player.id}`}
-      className={`relative p-2.5 rounded-2xl border-2 transition-all duration-200 backdrop-blur-md pointer-events-auto ${
-        isActiveTurn
-          ? 'bg-gradient-to-b from-[#2a1c11]/95 to-[#18100a]/95 border-[#fbbf24] shadow-[0_6px_20px_rgba(251,191,36,0.3)]'
-          : 'bg-[#120d09]/92 border-[#d4af37]/35 shadow-[0_6px_18px_rgba(0,0,0,0.75)]'
-      }`}
+      className="relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto"
+      style={playerCardStyle(player.color, isActiveTurn)}
     >
       {/* Left Horizontal Resource Card Fan (Opened towards the left) */}
       {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} />}
@@ -1656,11 +1652,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-display font-black border-2 shrink-0 shadow-sm text-stone-950 overflow-hidden"
-            style={{
-              backgroundColor: colorCfg.primary,
-              borderColor: colorCfg.stroke,
-            }}
+            className="w-8 h-8 flex items-center justify-center bg-transparent text-sm font-display font-black shrink-0 text-white"
           >
             <AvatarIcon avatar={player.avatar} className="w-5 h-5" />
           </span>
@@ -1678,7 +1670,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               )}
             </div>
-            <div className="text-[9px] font-semibold text-stone-400 truncate">
+            <div className="text-[9px] font-semibold text-slate-200 truncate">
               {player.isBot
                 ? `IA (${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})`
                 : player.status === 'FROZEN_SKIP'
@@ -1706,7 +1698,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
       </div>
 
       {/* Compact Stat Strip (Mano, Desarrollo, Ruta, Ejército) */}
-      <div className="mt-1.5 pt-1 border-t border-stone-800/80 grid grid-cols-4 gap-1 text-center">
+      <div className="mt-1.5 pt-1 border-t border-white/15 grid grid-cols-4 gap-1 text-center">
         <div
           className="bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
           title="Cartas de Recurso en Mano"
