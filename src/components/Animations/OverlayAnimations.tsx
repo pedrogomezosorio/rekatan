@@ -118,17 +118,27 @@ function resolvePlayerCasilleroCenter(
   if (el) {
     const rect = el.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
-      return {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      };
+      const isOffscreen = typeof window !== 'undefined' && rect.left >= window.innerWidth;
+      if (!isOffscreen) {
+        return {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+      }
     }
   }
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const idx = Math.max(
     0,
     gameState.players.findIndex((p) => p.id === playerId)
   );
+  if (isTouch) {
+    return {
+      x: vw - 165,
+      y: 65 + idx * 46,
+    };
+  }
   return {
     x: vw - 150,
     y: 110 + idx * 95,
@@ -780,7 +790,7 @@ const ResourceDistributionFlightCard: React.FC<{
         animate={{ opacity: [0, 0.4, 0.95, 0], scale: [0.9, 1.02, 1.08, 1] }}
         transition={{ duration: 4.0, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
         style={{ left: flight.endX, top: flight.endY, borderColor: playerColor }}
-        className="fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.5)]"
+        className="tablet-flight-glow fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.5)]"
       />
 
       {/* Floating Resource Card Traveling from Hex to Player Casillero (Doubled 4.0s duration) */}
@@ -894,7 +904,7 @@ const DevCardPurchaseFlightCard: React.FC<{
         animate={{ opacity: [0, 0.4, 0.95, 0], scale: [0.9, 1.02, 1.08, 1] }}
         transition={{ duration: 2.8, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
         style={{ left: flight.endX, top: flight.endY, borderColor: buyerColor }}
-        className="fixed -translate-x-1/2 -translate-y-1/2 w-56 h-16 rounded-2xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.6)]"
+        className="tablet-flight-glow fixed -translate-x-1/2 -translate-y-1/2 w-56 h-16 rounded-2xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.6)]"
       />
 
       {/* Flying & Spinning Dev Card from Deck to Buyer's Left Box */}

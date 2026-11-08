@@ -473,7 +473,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
       {/* Tabletop Camera Controls (Dark Walnut & Antique Gold) */}
       <div
-        className={`absolute z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
+        className={`tablet-zoom-controls absolute z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
           editorTool ? 'bottom-4 left-4' : 'bottom-3 left-[210px] sm:left-[236px]'
         }`}
       >

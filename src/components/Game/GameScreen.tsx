@@ -1106,7 +1106,11 @@ export const GameScreen: React.FC = () => {
           />
 
           {/* Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck (positioned left of the right profiles & card fans) */}
-          <div className="absolute top-3 right-[338px] xl:right-[374px] z-20 flex flex-col items-end gap-2.5 pointer-events-none">
+          <div
+            className={`tablet-dev-deck-container absolute top-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none ${
+              isTabletRightPanelVisible ? 'right-[338px] xl:right-[374px]' : 'right-4'
+            }`}
+          >
             {turn.diceRoll && (
               <div className="flex items-center gap-2 bg-[#16110d]/95 backdrop-blur-xl border border-[#d4af37]/45 px-3.5 py-2 rounded-2xl shadow-2xl pointer-events-auto">
                 <Dices className="w-4 h-4 text-amber-400" />
@@ -1266,7 +1270,7 @@ export const GameScreen: React.FC = () => {
             }`}
           >
             {/* 1. Floating Rounded Player Profile Rectangles (with left horizontal card fan) */}
-            <div className="flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none">
+            <div className="tablet-player-list flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none">
               {gameState.players.map((p) => (
                 <PlayerSummaryCard
                   key={p.id}
@@ -1703,119 +1707,211 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
       className="tablet-player-card relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto"
       style={playerCardStyle(player.color, isActiveTurn)}
     >
-      {/* Left Horizontal Resource Card Fan (Opened towards the left) */}
-      {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} />}
-      {/* Top Row: Player Emblem, Name, Status & Victory Points Badge */}
-      <div className="flex items-center justify-between gap-1.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="tablet-player-avatar w-8 h-8 flex items-center justify-center bg-transparent text-sm font-display font-black shrink-0 text-white"
-          >
-            <AvatarIcon avatar={player.avatar} className="w-5 h-5" />
+      {/* Left Horizontal Resource Card Fan (Opened towards the left - Hidden on Tablet) */}
+      <div className="profile-card-fan">
+        {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} />}
+      </div>
+
+      {/* 1. TABLET SINGLE-ROW COMPACT VIEW (pointer: coarse) */}
+      <div className="tablet-player-single-row w-full items-center justify-between gap-1 text-white">
+        {/* Left: Avatar + Name + Tú + Turn Dot */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className="w-6 h-6 flex items-center justify-center rounded-lg bg-black/40 shrink-0 text-white shadow-sm border border-white/20">
+            <AvatarIcon avatar={player.avatar} className="w-3.5 h-3.5" />
           </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <span className="tablet-player-name text-xs font-black text-white truncate max-w-[115px]">
-                {player.name}
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-xs font-black text-white truncate max-w-[80px] sm:max-w-[100px]">
+              {player.name}
+            </span>
+            {isLocalPlayer && (
+              <span className="text-[7.5px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase shrink-0">
+                Tú
               </span>
-              {isLocalPlayer && (
-                <span className="tablet-player-status text-[8px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
-                  Tú
-                </span>
-              )}
-              {isActiveTurn && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              )}
-            </div>
-            <div className="tablet-player-status text-[9px] font-semibold text-slate-200 truncate">
-              {player.isBot
-                ? `IA (${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})`
-                : player.status === 'FROZEN_SKIP'
-                ? 'Turno omitido'
-                : !player.connected
-                ? 'Desconectado'
-                : isActiveTurn
-                ? 'En turno'
-                : 'En línea'}
-            </div>
+            )}
+            {isActiveTurn && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0 ring-1 ring-emerald-300" />
+            )}
           </div>
         </div>
 
-        {/* High-Contrast Victory Points Pill */}
-        <div className="tablet-player-vp flex items-center gap-1 shrink-0 bg-[#090604] px-2 py-0.5 rounded-lg border border-[#d4af37]/50 shadow-inner">
-          <span className="font-display text-xs font-black text-amber-300 leading-none">
+        {/* Center: PV Badge */}
+        <div className="flex items-center gap-0.5 shrink-0 bg-[#090604] px-1.5 py-0.5 rounded-md border border-[#d4af37]/50 shadow-inner">
+          <span className="font-display text-[11px] font-black text-amber-300 leading-none">
             {player.publicVictoryPoints} PV
           </span>
           {isLocalPlayer && player.totalVictoryPoints > player.publicVictoryPoints && (
-            <span className="text-[9px] font-extrabold text-emerald-300">
+            <span className="text-[8px] font-extrabold text-emerald-300 leading-none">
               ({player.totalVictoryPoints})
             </span>
           )}
         </div>
+
+        {/* Right: 4 stats in mini badges (Mano, Dev, Ruta, Caballeros) */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Mano */}
+          <div
+            className="bg-[#090604] border border-stone-800/80 rounded px-1.5 py-0.5 flex items-center gap-1"
+            title="Cartas de Recurso en Mano"
+          >
+            <span className="text-[8px] font-bold text-stone-400 uppercase">M</span>
+            <span className="text-[11px] font-black text-white font-mono">{totalRes}</span>
+          </div>
+
+          {/* Cartas de Desarrollo */}
+          <div
+            className="bg-[#090604] border border-stone-800/80 rounded px-1.5 py-0.5 flex items-center gap-0.5"
+            title="Cartas de Desarrollo sin jugar"
+          >
+            <Layers className="w-2.5 h-2.5 text-purple-300 shrink-0" />
+            <span className="text-[11px] font-black text-purple-300 font-mono">{unplayedDevs}</span>
+          </div>
+
+          {/* Ruta más larga */}
+          <div
+            className={`rounded px-1.5 py-0.5 border flex items-center gap-0.5 ${
+              hasLongestRoad
+                ? 'bg-amber-950/70 border-amber-400'
+                : 'bg-[#090604] border-stone-800/80'
+            }`}
+            title={`Longitud de Carretera: ${player.longestRoadLength}${hasLongestRoad ? ' (Gran Ruta +2 PV)' : ''}`}
+          >
+            <Route className={`w-2.5 h-2.5 ${hasLongestRoad ? 'text-amber-300' : 'text-stone-400'} shrink-0`} />
+            <span className={`text-[11px] font-black font-mono ${hasLongestRoad ? 'text-amber-300' : 'text-amber-200'}`}>
+              {player.longestRoadLength}
+            </span>
+          </div>
+
+          {/* Caballeros jugados */}
+          <div
+            className={`rounded px-1.5 py-0.5 border flex items-center gap-0.5 ${
+              hasLargestArmy
+                ? 'bg-red-950/70 border-red-400'
+                : 'bg-[#090604] border-stone-800/80'
+            }`}
+            title={`Caballeros jugados: ${player.knightsPlayed}${hasLargestArmy ? ' (Gran Ejército +2 PV)' : ''}`}
+          >
+            <Swords className={`w-2.5 h-2.5 ${hasLargestArmy ? 'text-red-300' : 'text-stone-400'} shrink-0`} />
+            <span className={`text-[11px] font-black font-mono ${hasLargestArmy ? 'text-red-300' : 'text-red-200'}`}>
+              {player.knightsPlayed}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Compact Stat Strip (Mano, Desarrollo, Ruta, Ejército) */}
-      <div className="tablet-player-stat-strip mt-1.5 pt-1 border-t border-white/15 grid grid-cols-4 gap-1 text-center">
-        <div
-          className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
-          title="Cartas de Recurso en Mano"
-        >
-          <span className="tablet-player-stat-label text-[8px] font-bold uppercase text-stone-400">Mano</span>
-          <span className="tablet-player-stat-value text-[11px] font-black text-white">{totalRes}</span>
+      {/* 2. DESKTOP MULTI-ROW VIEW (pointer: fine - 100% UNTOUCHED PC / MAC) */}
+      <div className="desktop-player-card-content w-full">
+        {/* Top Row: Player Emblem, Name, Status & Victory Points Badge */}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="tablet-player-avatar w-8 h-8 flex items-center justify-center bg-transparent text-sm font-display font-black shrink-0 text-white"
+            >
+              <AvatarIcon avatar={player.avatar} className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="tablet-player-name text-xs font-black text-white truncate max-w-[115px]">
+                  {player.name}
+                </span>
+                {isLocalPlayer && (
+                  <span className="tablet-player-status text-[8px] px-1 py-0.2 rounded bg-amber-400 text-stone-950 font-black uppercase">
+                    Tú
+                  </span>
+                )}
+                {isActiveTurn && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                )}
+              </div>
+              <div className="tablet-player-status text-[9px] font-semibold text-slate-200 truncate">
+                {player.isBot
+                  ? `IA (${player.botDifficulty === 'EASY' ? 'Fácil' : player.botDifficulty === 'HARD' ? 'Difícil' : 'Normal'})`
+                  : player.status === 'FROZEN_SKIP'
+                  ? 'Turno omitido'
+                  : !player.connected
+                  ? 'Desconectado'
+                  : isActiveTurn
+                  ? 'En turno'
+                  : 'En línea'}
+              </div>
+            </div>
+          </div>
+
+          {/* High-Contrast Victory Points Pill */}
+          <div className="tablet-player-vp flex items-center gap-1 shrink-0 bg-[#090604] px-2 py-0.5 rounded-lg border border-[#d4af37]/50 shadow-inner">
+            <span className="font-display text-xs font-black text-amber-300 leading-none">
+              {player.publicVictoryPoints} PV
+            </span>
+            {isLocalPlayer && player.totalVictoryPoints > player.publicVictoryPoints && (
+              <span className="text-[9px] font-extrabold text-emerald-300">
+                ({player.totalVictoryPoints})
+              </span>
+            )}
+          </div>
         </div>
 
-        <div
-          className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
-          title="Cartas de Desarrollo sin jugar"
-        >
-          <Layers className="tablet-player-stat-icon w-2.5 h-2.5 text-purple-300 shrink-0" />
-          <span className="tablet-player-stat-value text-[11px] font-black text-purple-300">{unplayedDevs}</span>
+        {/* Compact Stat Strip (Mano, Desarrollo, Ruta, Ejército) */}
+        <div className="tablet-player-stat-strip mt-1.5 pt-1 border-t border-white/15 grid grid-cols-4 gap-1 text-center">
+          <div
+            className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
+            title="Cartas de Recurso en Mano"
+          >
+            <span className="tablet-player-stat-label text-[8px] font-bold uppercase text-stone-400">Mano</span>
+            <span className="tablet-player-stat-value text-[11px] font-black text-white">{totalRes}</span>
+          </div>
+
+          <div
+            className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
+            title="Cartas de Desarrollo sin jugar"
+          >
+            <Layers className="tablet-player-stat-icon w-2.5 h-2.5 text-purple-300 shrink-0" />
+            <span className="tablet-player-stat-value text-[11px] font-black text-purple-300">{unplayedDevs}</span>
+          </div>
+
+          <div
+            className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
+              hasLongestRoad
+                ? 'bg-amber-950/60 border-amber-400'
+                : 'bg-[#090604] border-stone-800/80'
+            }`}
+            title="Longitud de Carretera"
+          >
+            <Route className="tablet-player-stat-icon w-2.5 h-2.5 text-amber-300 shrink-0" />
+            <span className="tablet-player-stat-value text-[11px] font-black text-amber-300">
+              {player.longestRoadLength}
+            </span>
+          </div>
+
+          <div
+            className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
+              hasLargestArmy
+                ? 'bg-red-950/60 border-red-400'
+                : 'bg-[#090604] border-stone-800/80'
+            }`}
+            title="Caballeros jugados"
+          >
+            <Swords className="tablet-player-stat-icon w-2.5 h-2.5 text-red-300 shrink-0" />
+            <span className="tablet-player-stat-value text-[11px] font-black text-red-300">
+              {player.knightsPlayed}
+            </span>
+          </div>
         </div>
 
-        <div
-          className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
-            hasLongestRoad
-              ? 'bg-amber-950/60 border-amber-400'
-              : 'bg-[#090604] border-stone-800/80'
-          }`}
-          title="Longitud de Carretera"
-        >
-          <Route className="tablet-player-stat-icon w-2.5 h-2.5 text-amber-300 shrink-0" />
-          <span className="tablet-player-stat-value text-[11px] font-black text-amber-300">
-            {player.longestRoadLength}
-          </span>
-        </div>
-
-        <div
-          className={`tablet-player-stat-box rounded-md py-0.5 px-1 border flex items-center justify-between ${
-            hasLargestArmy
-              ? 'bg-red-950/60 border-red-400'
-              : 'bg-[#090604] border-stone-800/80'
-          }`}
-          title="Caballeros jugados"
-        >
-          <Swords className="tablet-player-stat-icon w-2.5 h-2.5 text-red-300 shrink-0" />
-          <span className="tablet-player-stat-value text-[11px] font-black text-red-300">
-            {player.knightsPlayed}
-          </span>
-        </div>
+        {/* Special Achievement Badges */}
+        {(hasLongestRoad || hasLargestArmy) && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {hasLongestRoad && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 text-[8px] font-black">
+                <Award className="w-2.5 h-2.5 text-amber-300" /> Gran Ruta (+2 PV)
+              </span>
+            )}
+            {hasLargestArmy && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-500/20 border border-red-400/60 text-red-200 text-[8px] font-black">
+                <Swords className="w-2.5 h-2.5 text-red-300" /> Gran Ejército (+2 PV)
+              </span>
+            )}
+          </div>
+        )}
       </div>
-
-      {/* Special Achievement Badges */}
-      {(hasLongestRoad || hasLargestArmy) && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {hasLongestRoad && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 text-[8px] font-black">
-              <Award className="w-2.5 h-2.5 text-amber-300" /> Gran Ruta (+2 PV)
-            </span>
-          )}
-          {hasLargestArmy && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-red-500/20 border border-red-400/60 text-red-200 text-[8px] font-black">
-              <Swords className="w-2.5 h-2.5 text-red-300" /> Gran Ejército (+2 PV)
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 };

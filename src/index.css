@@ -22,6 +22,14 @@
   }
 }
 
+/* Desktop PC / Mac defaults: single-row tablet view is hidden, desktop multi-row card is displayed */
+.tablet-player-single-row {
+  display: none !important;
+}
+.desktop-player-card-content {
+  display: block !important;
+}
+
 /* Tablet Touchscreen Optimizations (pointer: coarse keeps desktop PC/Mac 100% untouched) */
 @media (pointer: coarse) {
   button, [role="button"], a {
@@ -70,92 +78,85 @@
     }
   }
 
-  /* Player Casillero / Profile Card */
-  .tablet-player-card {
-    padding: 0.85rem !important;
-    border-radius: 1.25rem !important;
+  /* Physical Development Deck on Tablet (Immediate upper-left of player profiles) */
+  .tablet-dev-deck-container {
+    top: 10px !important;
+    right: 342px !important;
   }
-  .tablet-player-avatar {
-    width: 2.6rem !important;
-    height: 2.6rem !important;
-  }
-  .tablet-player-avatar svg, .tablet-player-avatar img {
-    width: 1.75rem !important;
-    height: 1.75rem !important;
-  }
-  .tablet-player-name {
-    font-size: 0.95rem !important;
-    max-width: 160px !important;
-  }
-  .tablet-player-status {
-    font-size: 0.75rem !important;
-  }
-  .tablet-player-vp {
-    font-size: 0.95rem !important;
-    padding: 0.35rem 0.75rem !important;
-  }
-  .tablet-player-stat-strip {
-    margin-top: 0.65rem !important;
-    padding-top: 0.5rem !important;
-    gap: 0.4rem !important;
-  }
-  .tablet-player-stat-box {
-    padding: 0.4rem 0.5rem !important;
-    min-height: 34px !important;
-  }
-  .tablet-player-stat-label {
-    font-size: 0.675rem !important;
-  }
-  .tablet-player-stat-value {
-    font-size: 0.925rem !important;
-  }
-  .tablet-player-stat-icon {
-    width: 0.85rem !important;
-    height: 0.85rem !important;
+  @media (min-width: 768px) {
+    .tablet-dev-deck-container {
+      right: 362px !important;
+    }
   }
 
-  /* Bank Resources Box */
+  /* Player Casillero List (Holds up to 6 compact single-line profiles) */
+  .tablet-player-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.3rem !important;
+    overflow-y: auto !important;
+  }
+
+  /* Player Casillero / Profile Card (Single Line on Tablet) */
+  .tablet-player-single-row {
+    display: flex !important;
+  }
+  .desktop-player-card-content {
+    display: none !important;
+  }
+  .profile-card-fan {
+    display: none !important;
+  }
+  .tablet-player-card {
+    padding: 0.35rem 0.6rem !important;
+    border-radius: 0.85rem !important;
+    border-width: 1.5px !important;
+    min-height: 40px !important;
+  }
+
+  /* Compact Bank Resources Box (Reduced size to give vertical room for 6 profiles) */
   .tablet-bank-box {
-    border-radius: 1.25rem !important;
+    border-radius: 0.95rem !important;
+    margin-top: 0.35rem !important;
   }
   .tablet-bank-header {
-    font-size: 0.85rem !important;
-    margin-bottom: 0.5rem !important;
-    padding: 0.45rem 0.6rem !important;
+    font-size: 0.725rem !important;
+    margin-bottom: 0.25rem !important;
+    padding: 0.2rem 0.35rem !important;
   }
   .tablet-bank-slot {
-    padding: 0.6rem 0.3rem !important;
-    border-radius: 0.85rem !important;
+    padding: 0.25rem 0.2rem !important;
+    border-radius: 0.5rem !important;
   }
   .tablet-bank-slot img, .tablet-bank-slot svg {
-    width: 1.4rem !important;
-    height: 1.4rem !important;
+    width: 1.05rem !important;
+    height: 1.05rem !important;
   }
   .tablet-bank-num {
-    font-size: 1rem !important;
+    font-size: 0.85rem !important;
   }
   .tablet-bank-name {
-    font-size: 0.725rem !important;
-    margin-top: 0.3rem !important;
+    font-size: 0.625rem !important;
+    margin-top: 0.1rem !important;
   }
 
-  /* Chronicles of the Island */
+  /* Slim Island Chronicles Trigger */
   .tablet-chronicle-btn {
-    padding: 0.75rem 1rem !important;
-    font-size: 0.925rem !important;
-    min-height: 46px !important;
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.775rem !important;
+    min-height: 32px !important;
   }
   .tablet-chronicle-btn svg {
-    width: 1.2rem !important;
-    height: 1.2rem !important;
+    width: 0.95rem !important;
+    height: 0.95rem !important;
   }
   .tablet-chronicle-badge {
-    font-size: 0.775rem !important;
+    font-size: 0.7rem !important;
   }
   .tablet-chronicle-log {
-    font-size: 0.85rem !important;
-    padding: 0.55rem 0.8rem !important;
-    line-height: 1.4 !important;
+    font-size: 0.75rem !important;
+    padding: 0.35rem 0.5rem !important;
+    line-height: 1.3 !important;
   }
 
   /* 3. Bottom-Left Floating Action Buttons */
@@ -178,6 +179,18 @@
   .tablet-action-btn svg {
     width: 1.25rem !important;
     height: 1.25rem !important;
+  }
+
+  /* Camera Zoom Controls (Positioned immediately to the right of the action box) */
+  .tablet-zoom-controls {
+    left: 260px !important;
+    bottom: 12px !important;
+  }
+  @media (min-width: 640px) {
+    .tablet-zoom-controls {
+      left: 280px !important;
+      bottom: 12px !important;
+    }
   }
 
   /* 4. Bottom Footer Bar & Pass Turn */
@@ -217,6 +230,13 @@
     min-height: 58px !important;
     padding: 0.85rem 1rem !important;
     font-size: 0.95rem !important;
+  }
+
+  /* 6. Material Flight Animations Target Glow on Tablet */
+  .tablet-flight-glow {
+    width: 300px !important;
+    height: 42px !important;
+    border-radius: 0.75rem !important;
   }
 }
 
