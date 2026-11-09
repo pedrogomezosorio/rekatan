@@ -65,17 +65,27 @@ export const RoomLobby: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleToggleExpansion = (expId: ExpansionModule) => {
-    if (!isHost || expId === 'BASE') return;
-    const exists = enabledExpansions.includes(expId);
-    const updated: ExpansionModule[] = exists
-      ? enabledExpansions.filter((e) => e !== expId)
-      : [...enabledExpansions, expId];
+  const handleSelectExpansion = (expId: ExpansionModule) => {
+    if (!isHost) return;
+    const currentActive = enabledExpansions.find((e) => e !== 'BASE') || 'BASE';
+    let nextExpansions: ExpansionModule[];
+    let nextModule: ExpansionModule;
+
+    if (expId === 'BASE' || currentActive === expId) {
+      // Return to pure Base Game (0 expansions)
+      nextExpansions = ['BASE'];
+      nextModule = 'BASE';
+    } else {
+      // Exclusively select exactly 1 expansion alongside BASE
+      nextExpansions = ['BASE', expId];
+      nextModule = expId;
+    }
+
     dispatchAction({
       type: 'UPDATE_CONFIG',
       config: {
-        enabledExpansions: updated,
-        expansionModule: updated[updated.length - 1] || 'BASE',
+        enabledExpansions: nextExpansions,
+        expansionModule: nextModule,
       },
     });
   };
@@ -331,29 +341,33 @@ export const RoomLobby: React.FC = () => {
             </div>
           </section>
 
-          {/* 2. Selector de Juego y Expansiones (Casillas activables) */}
+          {/* 2. Selector de Juego y Expansiones (Exclusivo: 1 expansión o Juego Base) */}
           <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                 <Layers className="w-4 h-4" />
-                <span>Selector de Juego / Expansiones</span>
+                <span>Selector de Juego / Expansión</span>
               </h3>
+              <span className="text-[10px] text-slate-400 font-medium">
+                (Máx. 1 expansión o Juego Base)
+              </span>
             </div>
 
             <div className="space-y-2">
               {EXPANSION_CATALOG.map((exp) => {
-                const checked = enabledExpansions.includes(exp.id);
+                const activeExpansion = enabledExpansions.find((e) => e !== 'BASE') || 'BASE';
+                const checked = exp.id === activeExpansion;
                 return (
                   <button
                     key={exp.id}
                     type="button"
-                    disabled={!isHost || exp.lockedBase}
-                    onClick={() => handleToggleExpansion(exp.id)}
+                    disabled={!isHost}
+                    onClick={() => handleSelectExpansion(exp.id)}
                     className={`w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition ${
                       checked
-                        ? 'bg-amber-500/15 border-amber-400/60 text-slate-100'
+                        ? 'bg-amber-500/15 border-amber-400/60 text-slate-100 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
                         : 'bg-slate-900/75 border-slate-800 text-slate-400 hover:border-slate-700'
-                    } ${!isHost || exp.lockedBase ? 'cursor-default' : 'cursor-pointer'}`}
+                    } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
                   >
                     <div className="flex items-start gap-2.5">
                       <span className="text-xl mt-0.5">{exp.icon}</span>
@@ -373,13 +387,13 @@ export const RoomLobby: React.FC = () => {
                     </div>
 
                     <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-1 ${
+                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-1 transition ${
                         checked
-                          ? 'bg-amber-500 border-amber-300 text-slate-950'
+                          ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
                           : 'bg-slate-950 border-slate-700'
                       }`}
                     >
-                      {checked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      {checked && <div className="w-2 h-2 rounded-full bg-slate-950" />}
                     </div>
                   </button>
                 );

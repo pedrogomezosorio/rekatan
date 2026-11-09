@@ -85,7 +85,8 @@ export type ExpansionModule =
   | 'BASE'
   | 'SEAFARERS'
   | 'CITIES_AND_KNIGHTS'
-  | 'BARBARIANS';
+  | 'BARBARIANS'
+  | 'EXPLORERS_AND_PIRATES';
 
 export type TurnActionRestrictionLevel =
   | 'LEVEL_1_FREE'

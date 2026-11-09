@@ -82,10 +82,9 @@ export const EXPANSION_CATALOG: Array<{
   {
     id: 'BASE',
     title: 'Juego Base (Colonos de Catan)',
-    subtitle: 'Comercio, construcción, Gran Ruta y Gran Ejército.',
+    subtitle: 'Comercio, construcción, Gran Ruta y Gran Ejército (sin expansiones).',
     badge: 'Núcleo Oficial',
     icon: 'BASE',
-    lockedBase: true,
   },
   {
     id: 'SEAFARERS',
@@ -107,6 +106,13 @@ export const EXPANSION_CATALOG: Array<{
     subtitle: 'Incursiones bárbaras, Pescadores de Catan, Ríos, Caravanas y Eventos.',
     badge: 'Módulos y Escenarios',
     icon: 'MYB',
+  },
+  {
+    id: 'EXPLORERS_AND_PIRATES',
+    title: 'Piratas y Exploradores',
+    subtitle: 'Barcos con bodega de carga, Niebla de Guerra, bancos de peces y especias.',
+    badge: 'Expansión de Aventura',
+    icon: 'PYE',
   },
 ];
 
