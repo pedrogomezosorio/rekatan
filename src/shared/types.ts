@@ -1,6 +1,6 @@
 export type ResourceType = 'WOOD' | 'BRICK' | 'SHEEP' | 'WHEAT' | 'ORE';
 
-export type TerrainType = ResourceType | 'DESERT' | 'SEA' | 'GOLD';
+export type TerrainType = ResourceType | 'DESERT' | 'SEA' | 'GOLD' | 'FOG';
 
 export type PortType = 'GENERIC' | ResourceType;
 
@@ -63,6 +63,7 @@ export interface Edge {
   playerId: string | null;
   isLand: boolean;
   isCoastal: boolean;
+  isWarship?: boolean; // Navegantes Escenario 7: Barco de Guerra
 }
 
 export type BoardMode =
@@ -70,6 +71,13 @@ export type BoardMode =
   | 'CUSTOM'
   | 'EXPANSION_5_6'
   | 'MEGA_RADIUS_3';
+
+export type WonderId =
+  | 'GREAT_BRIDGE'
+  | 'GREAT_WALL'
+  | 'CATHEDRAL'
+  | 'GREAT_THEATRE'
+  | 'COLOSSUS';
 
 export interface BoardState {
   mode: BoardMode;
@@ -80,6 +88,33 @@ export interface BoardState {
   ports: PortInfo[];
   robberHexId: string;
   pirateHexId?: string;
+  // Navegantes Official Scenarios State:
+  fogDeck?: Array<{ terrain: TerrainType; numberToken: number | null }>;
+  revealedHexIds?: string[];
+  nativeVillages?: Record<
+    string,
+    { id: string; hexId: string; vertexId: string; numberToken: number; clothRemaining: number }
+  >;
+  forgottenGifts?: Record<
+    string,
+    {
+      id: string;
+      vertexId: string;
+      type: 'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT';
+      claimed: boolean;
+      claimedByPlayerId?: string;
+    }
+  >;
+  pirateFleetHexId?: string;
+  pirateFleetRouteHexIds?: string[];
+  pirateFortresses?: Record<
+    string,
+    { id: string; hexId: string; vertexId: string; targetPlayerColor: PlayerColor; chitsRemaining: number }
+  >;
+  wondersState?: Record<
+    string,
+    { wonderId: WonderId; claimedByPlayerId: string; stage: number }
+  >;
 }
 
 export type ExpansionModule =
@@ -90,9 +125,16 @@ export type ExpansionModule =
   | 'EXPLORERS_AND_PIRATES';
 
 export type SeafarersScenario =
-  | 'HEADING_FOR_NEW_SHORES'
-  | 'THE_FOUR_ISLANDS'
-  | 'PROCEDURAL_ARCHIPELAGO';
+  | 'HEADING_FOR_NEW_SHORES' // Escenario 1: Rumbo a nuevas orillas (14 PV)
+  | 'THE_FOUR_ISLANDS' // Escenario 2: Las cuatro islas (13 PV)
+  | 'OCEANIA' // Escenario 3: Oceanía / Tierra ignota (12 PV)
+  | 'THROUGH_THE_DESERT' // Escenario 4: A través del desierto (14 PV)
+  | 'THE_FORGOTTEN_TRIBE' // Escenario 5: El pueblo perdido (13 PV)
+  | 'CLOTH_FOR_CATAN' // Escenario 6: Telas para Catán (14 PV)
+  | 'THE_PIRATE_ISLANDS' // Escenario 7: Las islas de los piratas (10 PV)
+  | 'WONDERS_OF_CATAN' // Escenario 8: Las maravillas catanas (10 PV / Nivel 4)
+  | 'NEW_WORLD' // Escenario 9: Un nuevo mundo (12 PV)
+  | 'PROCEDURAL_ARCHIPELAGO'; // Archipiélago libre procedural
 
 export type TurnActionRestrictionLevel =
   | 'LEVEL_1_FREE'
@@ -181,6 +223,11 @@ export interface PlayerState {
   shipsLeft?: number;
   hasMovedShipThisTurn?: boolean;
   discoveryVictoryPoints?: number;
+  clothBales?: number; // Navegantes Escenario 6: Telas (2 fardos = 1 PV)
+  warshipsCount?: number; // Navegantes Escenario 7: Barcos de Guerra
+  conqueredPirateFortress?: boolean; // Navegantes Escenario 7: Fortaleza Conquistada
+  activeWonderId?: WonderId | null; // Navegantes Escenario 8: Maravilla
+  wonderStage?: number; // Navegantes Escenario 8: Nivel 0..4
   publicVictoryPoints: number;
   totalVictoryPoints: number;
   mustDiscardCount: number;
@@ -426,5 +473,11 @@ export type GameAction =
   | { type: 'RESUME_GAME' }
   | { type: 'TOGGLE_HOST_PAUSE' }
   | { type: 'ABANDON_GAME' }
-  | { type: 'FINISH_ROAD_BUILDING' };
+  | { type: 'FINISH_ROAD_BUILDING' }
+  // Acciones Oficiales Navegantes (Escenarios 3, 5, 7, 8):
+  | { type: 'CLAIM_FORGOTTEN_GIFT'; giftId: string }
+  | { type: 'CONVERT_SHIP_TO_WARSHIP'; edgeId: string }
+  | { type: 'ATTACK_PIRATE_FORTRESS'; fortressId: string }
+  | { type: 'START_WONDER'; wonderId: WonderId }
+  | { type: 'BUILD_WONDER_STAGE' };
 

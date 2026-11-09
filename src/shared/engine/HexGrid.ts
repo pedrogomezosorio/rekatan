@@ -4,6 +4,7 @@ import {
   CubicCoord,
   Edge,
   Hex,
+  PlayerColor,
   PortInfo,
   PortType,
   SeafarersScenario,
@@ -473,6 +474,13 @@ export function generateSeafarersBoard(
     };
   }
 
+  let fogDeck: Array<{ terrain: TerrainType; numberToken: number | null }> | undefined;
+  let nativeVillages: Record<string, { id: string; hexId: string; vertexId: string; numberToken: number; clothRemaining: number }> | undefined;
+  let forgottenGifts: Record<string, { id: string; vertexId: string; type: 'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT'; claimed: boolean; claimedByPlayerId?: string }> | undefined;
+  let pirateFleetHexId: string | undefined;
+  let pirateFleetRouteHexIds: string[] | undefined;
+  let pirateFortresses: Record<string, { id: string; hexId: string; vertexId: string; targetPlayerColor: PlayerColor; chitsRemaining: number }> | undefined;
+
   if (scenario === 'HEADING_FOR_NEW_SHORES') {
     // 1. Main Island (14 hexes: 1 Desert, 3 Wood, 2 Brick, 3 Sheep, 3 Wheat, 2 Ore)
     const mainIslandConfigs: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
@@ -559,8 +567,283 @@ export function generateSeafarersBoard(
     robberHexId = '-2,0,2';
     if (hexes[robberHexId]) hexes[robberHexId].hasRobber = true;
     pirateHexId = '0,0,0'; // Central maritime intersection
+  } else if (scenario === 'OCEANIA') {
+    // Escenario 3: Oceanía (Tierra ignota)
+    // Isla Oeste (colonizada)
+    const westIsland: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -3, r: 0, terrain: 'WOOD', num: 6 },
+      { q: -3, r: 1, terrain: 'BRICK', num: 5 },
+      { q: -2, r: 0, terrain: 'SHEEP', num: 9 },
+      { q: -2, r: -1, terrain: 'WHEAT', num: 4 },
+      { q: -3, r: 2, terrain: 'ORE', num: 10 },
+    ];
+
+    // Isla Este (colonizada)
+    const eastIsland: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 2, r: -1, terrain: 'WOOD', num: 8 },
+      { q: 3, r: -1, terrain: 'SHEEP', num: 10 },
+      { q: 2, r: 0, terrain: 'BRICK', num: 4 },
+      { q: 3, r: -2, terrain: 'WHEAT', num: 9 },
+      { q: 2, r: 1, terrain: 'ORE', num: 5 },
+    ];
+
+    // Niebla Marina Central (Tierra Ignota)
+    const fogCoords = [
+      { q: -1, r: -1 },
+      { q: -1, r: 0 },
+      { q: -1, r: 1 },
+      { q: 0, r: -1 },
+      { q: 0, r: 0 },
+      { q: 0, r: 1 },
+      { q: 1, r: -1 },
+      { q: 1, r: 0 },
+    ];
+
+    for (const item of [...westIsland, ...eastIsland]) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+      }
+    }
+
+    for (const item of fogCoords) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = 'FOG';
+        hexes[id].numberToken = null;
+      }
+    }
+
+    fogDeck = [
+      { terrain: 'GOLD', numberToken: 6 },
+      { terrain: 'GOLD', numberToken: 8 },
+      { terrain: 'WOOD', numberToken: 3 },
+      { terrain: 'BRICK', numberToken: 11 },
+      { terrain: 'SHEEP', numberToken: 4 },
+      { terrain: 'WHEAT', numberToken: 9 },
+      { terrain: 'ORE', numberToken: 10 },
+      { terrain: 'SEA', numberToken: null },
+    ];
+
+    robberHexId = '-3,2,1';
+    if (hexes[robberHexId]) hexes[robberHexId].hasRobber = true;
+    pirateHexId = '0,-2,2';
+  } else if (scenario === 'THROUGH_THE_DESERT') {
+    // Escenario 4: A través del desierto
+    // Cinturón de desierto diagonal
+    const desertBelt: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -1, r: -1, terrain: 'DESERT', num: null },
+      { q: 0, r: 0, terrain: 'DESERT', num: null },
+      { q: 1, r: 1, terrain: 'DESERT', num: null },
+    ];
+
+    // Franja noroeste fértil (al otro lado del desierto)
+    const nwStrip: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -2, r: -1, terrain: 'WOOD', num: 8 },
+      { q: -1, r: -2, terrain: 'BRICK', num: 5 },
+      { q: -2, r: 0, terrain: 'ORE', num: 4 },
+      { q: -3, r: 1, terrain: 'WHEAT', num: 11 },
+    ];
+
+    // Área sureste fértil principal (asentamientos iniciales)
+    const seArea: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 0, r: 1, terrain: 'WHEAT', num: 6 },
+      { q: 0, r: 2, terrain: 'SHEEP', num: 9 },
+      { q: 1, r: 0, terrain: 'WOOD', num: 3 },
+      { q: 1, r: 2, terrain: 'BRICK', num: 10 },
+      { q: 2, r: 0, terrain: 'SHEEP', num: 4 },
+      { q: 2, r: 1, terrain: 'ORE', num: 5 },
+      { q: -1, r: 2, terrain: 'WOOD', num: 4 },
+      { q: -1, r: 3, terrain: 'BRICK', num: 9 },
+    ];
+
+    // Islas orientales con Oro
+    const eastGoldIslands: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 3, r: -2, terrain: 'GOLD', num: 8 },
+      { q: 3, r: -1, terrain: 'WOOD', num: 9 },
+      { q: 2, r: -3, terrain: 'GOLD', num: 6 },
+      { q: 3, r: -3, terrain: 'SHEEP', num: 2 },
+    ];
+
+    for (const item of [...desertBelt, ...nwStrip, ...seArea, ...eastGoldIslands]) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+        if (item.terrain === 'DESERT' && !robberHexId) {
+          hexes[id].hasRobber = true;
+          robberHexId = id;
+        }
+      }
+    }
+    pirateHexId = '2,-1,-1';
+  } else if (scenario === 'THE_FORGOTTEN_TRIBE') {
+    // Escenario 5: El pueblo perdido
+    // Gran isla central habitada
+    const centralLand: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 0, r: 0, terrain: 'DESERT', num: null },
+      { q: -1, r: 0, terrain: 'WOOD', num: 5 },
+      { q: -1, r: 1, terrain: 'BRICK', num: 4 },
+      { q: 0, r: -1, terrain: 'SHEEP', num: 8 },
+      { q: 0, r: 1, terrain: 'WHEAT', num: 9 },
+      { q: 1, r: -1, terrain: 'ORE', num: 10 },
+      { q: 1, r: 0, terrain: 'WOOD', num: 3 },
+      { q: -2, r: 1, terrain: 'SHEEP', num: 10 },
+      { q: -1, r: 2, terrain: 'WHEAT', num: 6 },
+      { q: 1, r: 1, terrain: 'BRICK', num: 11 },
+      { q: 2, r: -1, terrain: 'ORE', num: 3 },
+      { q: 0, r: -2, terrain: 'WHEAT', num: 4 },
+    ];
+
+    // 4 Islotes periféricos donde NO se puede construir poblados
+    const peripheralIslets: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -3, r: 0, terrain: 'GOLD', num: 6 },
+      { q: 0, r: -3, terrain: 'GOLD', num: 8 },
+      { q: -1, r: 3, terrain: 'SHEEP', num: 2 },
+      { q: 3, r: 0, terrain: 'WOOD', num: 9 },
+    ];
+
+    for (const item of [...centralLand, ...peripheralIslets]) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+        if (item.terrain === 'DESERT') {
+          hexes[id].hasRobber = true;
+          robberHexId = id;
+        }
+      }
+    }
+    pirateHexId = '1,-2,1';
+  } else if (scenario === 'CLOTH_FOR_CATAN') {
+    // Escenario 6: Telas para Catán
+    // Isla Norte (6 hexes)
+    const northIsland: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -2, r: -1, terrain: 'WOOD', num: 6 },
+      { q: -1, r: -2, terrain: 'BRICK', num: 5 },
+      { q: 0, r: -2, terrain: 'SHEEP', num: 9 },
+      { q: 1, r: -3, terrain: 'WHEAT', num: 4 },
+      { q: 2, r: -3, terrain: 'ORE', num: 10 },
+      { q: 0, r: -3, terrain: 'WOOD', num: 3 },
+    ];
+
+    // Isla Sur (6 hexes)
+    const southIsland: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -2, r: 3, terrain: 'WOOD', num: 8 },
+      { q: -1, r: 3, terrain: 'BRICK', num: 4 },
+      { q: 0, r: 2, terrain: 'SHEEP', num: 10 },
+      { q: 1, r: 1, terrain: 'WHEAT', num: 9 },
+      { q: 2, r: 1, terrain: 'ORE', num: 5 },
+      { q: 0, r: 3, terrain: 'WHEAT', num: 2 },
+    ];
+
+    // 4 Islotes centrales con Poblados Indígenas
+    const nativeIslands: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -2, r: 1, terrain: 'GOLD', num: 4 },
+      { q: -1, r: 0, terrain: 'GOLD', num: 6 },
+      { q: 1, r: -1, terrain: 'GOLD', num: 8 },
+      { q: 2, r: -1, terrain: 'GOLD', num: 10 },
+    ];
+
+    for (const item of [...northIsland, ...southIsland, ...nativeIslands]) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+      }
+    }
+    robberHexId = '0,-3,3';
+    if (hexes[robberHexId]) hexes[robberHexId].hasRobber = true;
+    pirateHexId = '0,0,0';
+  } else if (scenario === 'THE_PIRATE_ISLANDS') {
+    // Escenario 7: Las islas de los piratas
+    // Isla Este de los colonos (10 hexes)
+    const eastColony: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 1, r: -1, terrain: 'WOOD', num: 5 },
+      { q: 2, r: -1, terrain: 'BRICK', num: 8 },
+      { q: 3, r: -1, terrain: 'SHEEP', num: 9 },
+      { q: 1, r: 0, terrain: 'WHEAT', num: 6 },
+      { q: 2, r: 0, terrain: 'ORE', num: 10 },
+      { q: 3, r: -2, terrain: 'WOOD', num: 4 },
+      { q: 2, r: 1, terrain: 'SHEEP', num: 3 },
+      { q: 1, r: 2, terrain: 'WHEAT', num: 11 },
+      { q: 2, r: -2, terrain: 'BRICK', num: 4 },
+      { q: 3, r: -3, terrain: 'ORE', num: 5 },
+    ];
+
+    // Desierto central (islas piratas)
+    const pirateDeserts: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 0, r: -1, terrain: 'DESERT', num: null },
+      { q: 0, r: 0, terrain: 'DESERT', num: null },
+      { q: 0, r: 1, terrain: 'DESERT', num: null },
+    ];
+
+    // Fortalezas piratas en el oeste
+    const fortressIslands: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -3, r: 1, terrain: 'DESERT', num: null },
+      { q: -3, r: 2, terrain: 'DESERT', num: null },
+      { q: -2, r: -1, terrain: 'DESERT', num: null },
+      { q: -2, r: 2, terrain: 'DESERT', num: null },
+    ];
+
+    for (const item of [...eastColony, ...pirateDeserts, ...fortressIslands]) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+      }
+    }
+
+    pirateFleetRouteHexIds = [
+      '-1,-1,2',
+      '-1,0,1',
+      '-1,1,0',
+      '0,2,-2',
+      '1,1,-2',
+      '1,0,-1',
+      '0,-2,2',
+    ];
+    pirateFleetHexId = '-1,0,1';
+    robberHexId = ''; // En Las Islas de los Piratas no hay ladrón oficial
+  } else if (scenario === 'WONDERS_OF_CATAN') {
+    // Escenario 8: Las maravillas catanas
+    // Archipiélago con estrecho marítimo, desierto erial y abundancia de materias primas
+    const wondersLand: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 0, r: 0, terrain: 'DESERT', num: null }, // Gran Muralla
+      { q: -2, r: 0, terrain: 'WOOD', num: 5 },
+      { q: -2, r: 1, terrain: 'BRICK', num: 6 },
+      { q: -1, r: -1, terrain: 'SHEEP', num: 8 },
+      { q: -1, r: 1, terrain: 'WHEAT', num: 9 },
+      { q: -1, r: 2, terrain: 'ORE', num: 10 },
+      // Estrecho canal al norte
+      { q: 0, r: -2, terrain: 'WOOD', num: 4 }, // Gran Puente
+      { q: 1, r: -3, terrain: 'BRICK', num: 3 },
+      { q: 2, r: -3, terrain: 'SHEEP', num: 11 },
+      // Isla sur-este (Catedral, Teatro y Coloso portuario)
+      { q: 1, r: 0, terrain: 'WHEAT', num: 8 },
+      { q: 1, r: 1, terrain: 'ORE', num: 4 },
+      { q: 2, r: 0, terrain: 'GOLD', num: 6 },
+      { q: 2, r: -1, terrain: 'WOOD', num: 9 },
+      { q: 3, r: -1, terrain: 'SHEEP', num: 10 },
+      { q: 2, r: -2, terrain: 'BRICK', num: 5 },
+    ];
+
+    for (const item of wondersLand) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+        if (item.terrain === 'DESERT') {
+          hexes[id].hasRobber = true;
+          robberHexId = id;
+        }
+      }
+    }
+    pirateHexId = '1,-2,1';
   } else {
-    // PROCEDURAL_ARCHIPELAGO: 4 distinct island clusters with sea channels and gold
+    // Escenario 9: Un nuevo mundo / PROCEDURAL_ARCHIPELAGO
+    // Generación procedural de archipiélago con 4 cúmulos de islas y canales navegables
     const proceduralLandCoords: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
       // Cluster 1 (West, 6 hexes with Desert)
       { q: -3, r: 1, terrain: 'WOOD', num: 5 },
@@ -601,8 +884,8 @@ export function generateSeafarersBoard(
     pirateHexId = '0,0,0';
   }
 
-  // Fallback robber if needed
-  if (!robberHexId) {
+  // Fallback robber if needed (except in Pirate Islands where there is officially no robber)
+  if (!robberHexId && scenario !== 'THE_PIRATE_ISLANDS') {
     const firstLand = Object.values(hexes).find((h) => h.terrain !== 'SEA');
     if (firstLand) {
       robberHexId = firstLand.id;
@@ -663,6 +946,69 @@ export function generateSeafarersBoard(
     }
   }
 
+  // Populate scenario-specific interactive entities
+  if (scenario === 'CLOTH_FOR_CATAN') {
+    nativeVillages = {};
+    const nativeHexes = [
+      { hexId: '-2,1,1', num: 4 },
+      { hexId: '-1,0,1', num: 6 },
+      { hexId: '1,-1,0', num: 8 },
+      { hexId: '2,-1,-1', num: 10 },
+    ];
+    for (const [idx, item] of nativeHexes.entries()) {
+      const v = Object.values(vertices).find((vertex) => vertex.hexIds.includes(item.hexId));
+      if (v) {
+        nativeVillages[`VILLAGE_${idx}`] = {
+          id: `VILLAGE_${idx}`,
+          hexId: item.hexId,
+          vertexId: v.id,
+          numberToken: item.num,
+          clothRemaining: 5,
+        };
+      }
+    }
+  } else if (scenario === 'THE_FORGOTTEN_TRIBE') {
+    forgottenGifts = {};
+    const giftTypes: Array<'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT'> = [
+      'CATAN_CHIT_1VP',
+      'DEV_CARD',
+      'PORT',
+      'CATAN_CHIT_1VP',
+    ];
+    const isletHexIds = ['-3,0,3', '0,-3,3', '-1,3,-2', '3,0,-3'];
+    for (let i = 0; i < isletHexIds.length; i++) {
+      const v = Object.values(vertices).find((vertex) => vertex.hexIds.includes(isletHexIds[i]));
+      if (v) {
+        forgottenGifts[`GIFT_${i}`] = {
+          id: `GIFT_${i}`,
+          vertexId: v.id,
+          type: giftTypes[i],
+          claimed: false,
+        };
+      }
+    }
+  } else if (scenario === 'THE_PIRATE_ISLANDS') {
+    pirateFortresses = {};
+    const fortressConfigs: Array<{ hexId: string; color: PlayerColor }> = [
+      { hexId: '-3,1,2', color: 'RED' },
+      { hexId: '-3,2,1', color: 'BLUE' },
+      { hexId: '-2,-1,3', color: 'ORANGE' },
+      { hexId: '-2,2,0', color: 'WHITE' },
+    ];
+    for (const fc of fortressConfigs) {
+      const v = Object.values(vertices).find((vertex) => vertex.hexIds.includes(fc.hexId));
+      if (v) {
+        pirateFortresses[`FORTRESS_${fc.color}`] = {
+          id: `FORTRESS_${fc.color}`,
+          hexId: fc.hexId,
+          vertexId: v.id,
+          targetPlayerColor: fc.color,
+          chitsRemaining: 3,
+        };
+      }
+    }
+  }
+
   return {
     mode: 'STANDARD_3_4',
     hexSize,
@@ -672,6 +1018,14 @@ export function generateSeafarersBoard(
     ports,
     robberHexId,
     pirateHexId,
+    fogDeck,
+    revealedHexIds: [],
+    nativeVillages,
+    forgottenGifts,
+    pirateFleetHexId,
+    pirateFleetRouteHexIds,
+    pirateFortresses,
+    wondersState: {},
   };
 }
 

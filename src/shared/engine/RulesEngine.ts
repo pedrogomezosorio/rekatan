@@ -8,12 +8,16 @@ import {
   DEFAULT_GAME_CONFIG,
   PLAYER_COLORS,
   RESOURCE_META,
+  TERRAIN_META,
+  WONDER_STAGE_COST,
+  WONDERS_CATALOG,
 } from '../constants';
 import {
   BoardState,
   DevCard,
   DevCardType,
   DiscardAnimationEvent,
+  Edge,
   GameAction,
   GameConfig,
   GameLogEntry,
@@ -28,6 +32,7 @@ import {
   ResourceType,
   TerrainType,
   TradeOffer,
+  WonderId,
 } from '../types';
 import {
   buildTopologyFromHexes,
@@ -230,6 +235,10 @@ export function recalculateVictoryPoints(state: GameState): void {
     if (p.discoveryVictoryPoints) {
       publicVP += p.discoveryVictoryPoints;
     }
+    if (p.clothBales) {
+      // Navegantes Escenario 6: Telas para Catán (2 fardos de tela = 1 Punto de Victoria)
+      publicVP += Math.floor(p.clothBales / 2);
+    }
 
     const hiddenVP = p.devCards.filter((c) => c.type === 'VICTORY_POINT').length;
 
@@ -237,10 +246,44 @@ export function recalculateVictoryPoints(state: GameState): void {
     p.totalVictoryPoints = publicVP + hiddenVP;
   }
 
-  // Official Catan Rule: A player wins immediately during their turn if totalVictoryPoints >= victoryPointsTarget
+  // Official Victory Conditions (adapted per Navegantes scenario)
   if (state.phase !== 'LOBBY' && state.phase !== 'GAME_OVER') {
     const activePlayer = state.players.find((p) => p.id === state.turn.activePlayerId);
-    if (
+
+    // Escenario 8: Las maravillas catanas — Victoria instantánea al completar Fase 4
+    if (state.config.seafarersScenario === 'WONDERS_OF_CATAN' && activePlayer) {
+      if ((activePlayer.wonderStage || 0) >= 4) {
+        state.winnerId = activePlayer.id;
+        state.phase = 'GAME_OVER';
+        state.turn.turnDeadlineMs = null;
+        addLog(
+          state,
+          `¡MARAVILLA COMPLETADA! ${activePlayer.name} ha terminado las 4 fases de su Maravilla legendaria y se alza con la victoria.`,
+          'AWARD',
+          activePlayer.id
+        );
+        return;
+      }
+    }
+
+    // Escenario 7: Las islas de los piratas — Requiere 10 PV Y conquistar la fortaleza pirata
+    if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && activePlayer) {
+      if (
+        activePlayer.totalVictoryPoints >= state.config.victoryPointsTarget &&
+        activePlayer.conqueredPirateFortress
+      ) {
+        state.winnerId = activePlayer.id;
+        state.phase = 'GAME_OVER';
+        state.turn.turnDeadlineMs = null;
+        addLog(
+          state,
+          `¡VICTORIA CORSARIA! ${activePlayer.name} alcanzó ${activePlayer.totalVictoryPoints} PV y liberó su fortaleza pirata.`,
+          'AWARD',
+          activePlayer.id
+        );
+        return;
+      }
+    } else if (
       activePlayer &&
       activePlayer.totalVictoryPoints >= state.config.victoryPointsTarget
     ) {
@@ -253,6 +296,27 @@ export function recalculateVictoryPoints(state: GameState): void {
         'AWARD',
         activePlayer.id
       );
+      return;
+    }
+
+    // Escenario 6: Telas para Catán — Si se agota la tela en 3 poblados indígenas, gana quien tenga más PV
+    if (state.config.seafarersScenario === 'CLOTH_FOR_CATAN' && state.board.nativeVillages) {
+      const depletedCount = Object.values(state.board.nativeVillages).filter(
+        (v) => v.clothRemaining <= 0
+      ).length;
+      if (depletedCount >= 3) {
+        const sorted = [...state.players].sort((a, b) => b.totalVictoryPoints - a.totalVictoryPoints);
+        const topWinner = sorted[0];
+        state.winnerId = topWinner.id;
+        state.phase = 'GAME_OVER';
+        state.turn.turnDeadlineMs = null;
+        addLog(
+          state,
+          `¡Comercio concluido! Las telas de 3 poblados indígenas se han agotado. ¡${topWinner.name} gana con ${topWinner.totalVictoryPoints} PV!`,
+          'AWARD',
+          topWinner.id
+        );
+      }
     }
   }
 }
@@ -449,6 +513,40 @@ export function canBuildSettlement(
   const v = state.board.vertices[vertexId];
   if (!v || !v.isLand || v.building !== null) {
     return { allowed: false, reason: 'Intersección inválida u ocupada.' };
+  }
+
+  // Restricciones geográficas oficiales de Navegantes
+  if (state.config.seafarersScenario === 'THE_FORGOTTEN_TRIBE') {
+    const isletHexIds = new Set(['-3,0,3', '0,-3,3', '-1,3,-2', '3,0,-3']);
+    if (v.hexIds.some((hId) => isletHexIds.has(hId))) {
+      return {
+        allowed: false,
+        reason: 'En El pueblo perdido no se permite fundar poblados en los islotes de la tribu.',
+      };
+    }
+  }
+
+  if (state.config.seafarersScenario === 'THROUGH_THE_DESERT' && isSetup) {
+    const nwAndIslandsHexIds = new Set([
+      '-2,-1,3', '-1,-2,3', '-2,0,2', '-3,1,2',
+      '3,-2,-1', '3,-1,-2', '2,-3,1', '3,-3,0',
+    ]);
+    if (v.hexIds.some((hId) => nwAndIslandsHexIds.has(hId))) {
+      return {
+        allowed: false,
+        reason: 'En A través del desierto, los poblados iniciales deben fundarse al sureste del desierto.',
+      };
+    }
+  }
+
+  if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && isSetup) {
+    const pirateHexes = new Set(['-3,1,2', '-3,2,1', '-2,-1,3', '-2,2,0', '0,-1,1', '0,0,0', '0,1,-1']);
+    if (v.hexIds.some((hId) => pirateHexes.has(hId))) {
+      return {
+        allowed: false,
+        reason: 'Debes colocar tus poblados iniciales en la gran isla de los colonos al este.',
+      };
+    }
   }
 
   if (isMain && !ignoreResources) {
@@ -957,6 +1055,9 @@ function sortPlayersByOrderRolls(state: GameState): void {
 
 function advanceToNextTurn(state: GameState): void {
   state.activeTradeOffers = [];
+  recalculateVictoryPoints(state);
+  if (state.phase === 'GAME_OVER') return;
+
   const activeIdx = state.players.findIndex((p) => p.id === state.turn.activePlayerId);
   const count = state.players.length;
 
@@ -990,6 +1091,114 @@ function advanceToNextTurn(state: GameState): void {
   refreshTurnDeadline(state);
 
   addLog(state, `Turno #${state.turn.turnNumber}: Es el turno de ${nextPlayer.name}. Debe lanzar los dados.`, 'INFO', nextPlayer.id);
+}
+
+function uncoverFogHexesAdjacentToEdge(state: GameState, edge: Edge, actor: PlayerState): void {
+  if (!state.board.fogDeck || state.board.fogDeck.length === 0) return;
+  for (const hId of edge.hexIds) {
+    const hex = state.board.hexes[hId];
+    if (hex && hex.terrain === 'FOG') {
+      const topDeck: { terrain: TerrainType; numberToken: number | null } | undefined =
+        state.board.fogDeck.shift();
+      if (!topDeck) continue;
+      hex.terrain = topDeck.terrain;
+      hex.numberToken = topDeck.numberToken;
+      if (!state.board.revealedHexIds) state.board.revealedHexIds = [];
+      state.board.revealedHexIds.push(hex.id);
+
+      if (topDeck.terrain !== 'SEA' && topDeck.terrain !== 'DESERT') {
+        const res: ResourceType =
+          topDeck.terrain === 'GOLD'
+            ? (['ORE', 'WHEAT', 'SHEEP', 'WOOD', 'BRICK'] as ResourceType[]).find(
+                (r) => state.bank[r] > 0
+              ) || 'WOOD'
+            : (topDeck.terrain as ResourceType);
+        if (state.bank[res] > 0) {
+          state.bank[res]--;
+          actor.resources[res]++;
+          addLog(
+            state,
+            `¡Tierra descubierta! ${actor.name} despejó la niebla marina en ${hex.id} hallando ${TERRAIN_META[topDeck.terrain].name} y recibió 1 ${RESOURCE_META[res].name} gratis.`,
+            'BUILD',
+            actor.id
+          );
+        }
+      } else {
+        addLog(
+          state,
+          `¡Niebla despejada! ${actor.name} exploró ${hex.id} revelando ${TERRAIN_META[topDeck.terrain].name}.`,
+          'BUILD',
+          actor.id
+        );
+      }
+    }
+  }
+}
+
+function claimForgottenGiftsAdjacentToEdge(state: GameState, edge: Edge, actor: PlayerState): void {
+  if (!state.board.forgottenGifts) return;
+  for (const vId of edge.vertexIds) {
+    const giftEntry = Object.values(state.board.forgottenGifts).find(
+      (g) => g.vertexId === vId && !g.claimed
+    );
+    if (giftEntry) {
+      giftEntry.claimed = true;
+      giftEntry.claimedByPlayerId = actor.id;
+      if (giftEntry.type === 'CATAN_CHIT_1VP') {
+        actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 1;
+        addLog(
+          state,
+          `¡Hallazgo tribal! ${actor.name} descubrió una Ficha Catán (+1 Punto de Victoria) de la tribu perdida.`,
+          'AWARD',
+          actor.id
+        );
+      } else if (giftEntry.type === 'DEV_CARD') {
+        if (state.devDeck.length > 0) {
+          const card = state.devDeck.pop()!;
+          actor.devCards.push(card);
+          addLog(
+            state,
+            `¡Hallazgo tribal! ${actor.name} recibió una Carta de Desarrollo de la tribu perdida.`,
+            'DEV',
+            actor.id
+          );
+        }
+      } else if (giftEntry.type === 'PORT') {
+        actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 1;
+        addLog(
+          state,
+          `¡Hallazgo tribal! ${actor.name} obtuvo favores comerciales portuarios de la tribu perdida (+1 PV).`,
+          'AWARD',
+          actor.id
+        );
+      }
+    }
+  }
+}
+
+function checkNativeVillageConnection(state: GameState, edge: Edge, actor: PlayerState): void {
+  if (!state.board.nativeVillages) return;
+  for (const vId of edge.vertexIds) {
+    const village = Object.values(state.board.nativeVillages).find((nv) => nv.vertexId === vId);
+    if (village && village.clothRemaining > 0) {
+      const hadPriorEdge = Object.values(state.board.edges).some(
+        (e) =>
+          e.id !== edge.id &&
+          e.playerId === actor.id &&
+          (e.vertexIds[0] === vId || e.vertexIds[1] === vId)
+      );
+      if (!hadPriorEdge) {
+        village.clothRemaining--;
+        actor.clothBales = (actor.clothBales || 0) + 1;
+        addLog(
+          state,
+          `¡Ruta comercial establecida! ${actor.name} conectó con el poblado indígena y obtuvo 1 fardo de tela inicial.`,
+          'AWARD',
+          actor.id
+        );
+      }
+    }
+  }
 }
 
 /**
@@ -1756,6 +1965,10 @@ export function applyGameAction(
       edge.playerId = playerId;
       actor.roadsLeft -= 1;
 
+      uncoverFogHexesAdjacentToEdge(state, edge, actor);
+      claimForgottenGiftsAdjacentToEdge(state, edge, actor);
+      checkNativeVillageConnection(state, edge, actor);
+
       const prevLongestId = state.longestRoadPlayerId;
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
@@ -1879,6 +2092,10 @@ export function applyGameAction(
       edge.playerId = playerId;
       actor.shipsLeft = Math.max(0, (actor.shipsLeft ?? 15) - 1);
 
+      uncoverFogHexesAdjacentToEdge(state, edge, actor);
+      claimForgottenGiftsAdjacentToEdge(state, edge, actor);
+      checkNativeVillageConnection(state, edge, actor);
+
       const prevLongestId = state.longestRoadPlayerId;
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
@@ -1996,6 +2213,10 @@ export function applyGameAction(
 
       toEdge.building = 'SHIP';
       toEdge.playerId = playerId;
+
+      uncoverFogHexesAdjacentToEdge(state, toEdge, actor);
+      claimForgottenGiftsAdjacentToEdge(state, toEdge, actor);
+      checkNativeVillageConnection(state, toEdge, actor);
 
       actor.hasMovedShipThisTurn = true;
       state.longestRoadPlayerId = updateLongestRoadAward(
@@ -2253,6 +2474,48 @@ export function applyGameAction(
           'DICE',
           actor.id
         );
+
+        // Navegantes Escenario 6: Telas para Catán (Producción de tela en poblados indígenas)
+        if (state.config.seafarersScenario === 'CLOTH_FOR_CATAN' && state.board.nativeVillages) {
+          for (const village of Object.values(state.board.nativeVillages)) {
+            if (village.numberToken === sum && village.clothRemaining > 0) {
+              for (const p of state.players) {
+                const isConnected = Object.values(state.board.edges).some(
+                  (e) =>
+                    e.playerId === p.id &&
+                    (e.building === 'SHIP' || e.building === 'ROAD') &&
+                    (e.vertexIds[0] === village.vertexId || e.vertexIds[1] === village.vertexId)
+                );
+                if (isConnected && village.clothRemaining > 0) {
+                  village.clothRemaining--;
+                  p.clothBales = (p.clothBales || 0) + 1;
+                  addLog(
+                    state,
+                    `¡Comercio de tela! ${p.name} recibió 1 fardo de tela del poblado indígena (Tirada: ${sum}).`,
+                    'AWARD',
+                    p.id
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        // Navegantes Escenario 7: Las islas de los piratas (Movimiento de la Flota Pirata)
+        if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && state.board.pirateFleetRouteHexIds) {
+          const steps = Math.min(d1, d2);
+          const route = state.board.pirateFleetRouteHexIds;
+          const currentIndex = route.indexOf(state.board.pirateFleetHexId || route[0]);
+          const nextIndex = (currentIndex + steps) % route.length;
+          state.board.pirateFleetHexId = route[nextIndex];
+          addLog(
+            state,
+            `La Flota Pirata avanzó ${steps} sectores marítimos (dado menor: ${steps}) y ahora patrulla en ${state.board.pirateFleetHexId}.`,
+            'ROBBER'
+          );
+        }
+
+        recalculateVictoryPoints(state);
 
         state.phase = 'MAIN_PHASE';
         state.lastEvent = {
@@ -3178,6 +3441,202 @@ export function applyGameAction(
         'BUILD',
         actor.id
       );
+      return { state };
+    }
+
+    case 'CLAIM_FORGOTTEN_GIFT': {
+      if (state.config.seafarersScenario !== 'THE_FORGOTTEN_TRIBE') {
+        return { state: prevState, error: 'Acción no permitida fuera del Escenario 5.' };
+      }
+      const gift = state.board.forgottenGifts?.[action.giftId];
+      if (!gift || gift.claimed) {
+        return { state: prevState, error: 'Regalo tribal no disponible o ya reclamado.' };
+      }
+      gift.claimed = true;
+      gift.claimedByPlayerId = actor.id;
+      if (gift.type === 'CATAN_CHIT_1VP') {
+        actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 1;
+        addLog(
+          state,
+          `¡Regalo tribal! ${actor.name} reclamó una Ficha Catán (+1 Punto de Victoria).`,
+          'AWARD',
+          actor.id
+        );
+      } else if (gift.type === 'DEV_CARD') {
+        if (state.devDeck.length > 0) {
+          const card = state.devDeck.pop()!;
+          actor.devCards.push(card);
+          addLog(
+            state,
+            `¡Regalo tribal! ${actor.name} recibió una Carta de Desarrollo de regalo.`,
+            'DEV',
+            actor.id
+          );
+        }
+      } else if (gift.type === 'PORT') {
+        actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 1;
+        addLog(
+          state,
+          `¡Regalo tribal! ${actor.name} obtuvo favores comerciales portuarios (+1 PV).`,
+          'AWARD',
+          actor.id
+        );
+      }
+      recalculateVictoryPoints(state);
+      return { state };
+    }
+
+    case 'CONVERT_SHIP_TO_WARSHIP': {
+      if (state.config.seafarersScenario !== 'THE_PIRATE_ISLANDS') {
+        return { state: prevState, error: 'Los barcos de guerra solo están disponibles en el Escenario 7.' };
+      }
+      const edge = state.board.edges[action.edgeId];
+      if (!edge || edge.playerId !== playerId || edge.building !== 'SHIP') {
+        return { state: prevState, error: 'Debes seleccionar uno de tus barcos.' };
+      }
+      if (edge.isWarship) {
+        return { state: prevState, error: 'Este barco ya es un barco de guerra.' };
+      }
+      const knightIdx = actor.devCards.findIndex((c) => c.type === 'KNIGHT' && !c.played);
+      if (knightIdx === -1) {
+        return { state: prevState, error: 'Necesitas una carta de Caballero para convertir tu barco en barco de guerra.' };
+      }
+      actor.devCards[knightIdx].played = true;
+      edge.isWarship = true;
+      actor.warshipsCount = (actor.warshipsCount || 0) + 1;
+      addLog(
+        state,
+        `${actor.name} equipó a sus marineros con una carta de Caballero y convirtió un barco en Barco de Guerra.`,
+        'DEV',
+        actor.id
+      );
+      return { state };
+    }
+
+    case 'ATTACK_PIRATE_FORTRESS': {
+      if (state.config.seafarersScenario !== 'THE_PIRATE_ISLANDS') {
+        return { state: prevState, error: 'Acción no permitida fuera del Escenario 7.' };
+      }
+      const fortress = state.board.pirateFortresses?.[action.fortressId];
+      if (!fortress || fortress.chitsRemaining <= 0) {
+        return { state: prevState, error: 'Fortaleza pirata no disponible o ya conquistada.' };
+      }
+
+      const fVertex = state.board.vertices[fortress.vertexId];
+      const hasAdjacentShip = fVertex?.adjacentEdgeIds.some((eId) => {
+        const edge = state.board.edges[eId];
+        return edge && edge.playerId === playerId && edge.building === 'SHIP';
+      });
+
+      if (!hasAdjacentShip) {
+        return { state: prevState, error: 'Debes tener una ruta marítima adyacente a la fortaleza para atacarla.' };
+      }
+
+      fortress.chitsRemaining -= 1;
+      if (fortress.chitsRemaining <= 0) {
+        actor.conqueredPirateFortress = true;
+        addLog(
+          state,
+          `¡FORTALEZA PIRATA CONQUISTADA! ${actor.name} ha derrotado a los piratas y liberado su fortaleza.`,
+          'AWARD',
+          actor.id
+        );
+      } else {
+        addLog(
+          state,
+          `¡Ataque a la Fortaleza Pirata! ${actor.name} destruyó una defensa (quedan ${fortress.chitsRemaining} defensas).`,
+          'BUILD',
+          actor.id
+        );
+      }
+      recalculateVictoryPoints(state);
+      return { state };
+    }
+
+    case 'START_WONDER': {
+      if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') {
+        return { state: prevState, error: 'Las maravillas solo están disponibles en el Escenario 8.' };
+      }
+      if (actor.activeWonderId) {
+        return { state: prevState, error: 'Ya has elegido una maravilla.' };
+      }
+      state.board.wondersState = state.board.wondersState || {};
+      if (state.board.wondersState[action.wonderId]) {
+        return { state: prevState, error: 'Esa maravilla ya ha sido reclamada por otro jugador.' };
+      }
+
+      // Check prerequisites
+      if (action.wonderId === 'CATHEDRAL') {
+        const hasCity = Object.values(state.board.vertices).some(
+          (v) => v.playerId === playerId && v.building === 'CITY'
+        );
+        if (!hasCity || actor.totalVictoryPoints < 6) {
+          return { state: prevState, error: 'La Catedral requiere al menos 1 Ciudad y 6 Puntos de Victoria.' };
+        }
+      } else if (action.wonderId === 'GREAT_THEATRE') {
+        const citiesCount = Object.values(state.board.vertices).filter(
+          (v) => v.playerId === playerId && v.building === 'CITY'
+        ).length;
+        if (citiesCount < 2) {
+          return { state: prevState, error: 'El Gran Teatro requiere al menos 2 Ciudades construidas.' };
+        }
+      } else if (action.wonderId === 'GREAT_WALL') {
+        const touchesDesert = Object.values(state.board.vertices).some(
+          (v) =>
+            v.playerId === playerId &&
+            v.building !== null &&
+            v.hexIds.some((hId) => state.board.hexes[hId]?.terrain === 'DESERT')
+        );
+        if (!touchesDesert) {
+          return { state: prevState, error: 'La Gran Muralla requiere un poblado o ciudad junto al desierto.' };
+        }
+      }
+
+      actor.activeWonderId = action.wonderId;
+      actor.wonderStage = 0;
+      state.board.wondersState[action.wonderId] = {
+        wonderId: action.wonderId,
+        claimedByPlayerId: playerId,
+        stage: 0,
+      };
+      addLog(
+        state,
+        `${actor.name} ha iniciado la construcción de ${WONDERS_CATALOG[action.wonderId].name}.`,
+        'BUILD',
+        actor.id
+      );
+      return { state };
+    }
+
+    case 'BUILD_WONDER_STAGE': {
+      if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') {
+        return { state: prevState, error: 'Acción no permitida fuera del Escenario 8.' };
+      }
+      if (!actor.activeWonderId) {
+        return { state: prevState, error: 'Debes iniciar una maravilla antes de construir sus fases.' };
+      }
+      if ((actor.wonderStage || 0) >= 4) {
+        return { state: prevState, error: 'Tu maravilla ya está completada al máximo.' };
+      }
+      if (!hasResources(actor.resources, WONDER_STAGE_COST)) {
+        return {
+          state: prevState,
+          error: 'Construir una fase de maravilla cuesta 1 de cada recurso (Madera, Arcilla, Oveja, Trigo, Piedra).',
+        };
+      }
+
+      deductResources(actor.resources, state.bank, WONDER_STAGE_COST);
+      actor.wonderStage = (actor.wonderStage || 0) + 1;
+      if (state.board.wondersState && state.board.wondersState[actor.activeWonderId]) {
+        state.board.wondersState[actor.activeWonderId].stage = actor.wonderStage;
+      }
+      addLog(
+        state,
+        `¡Avance colosal! ${actor.name} completó la Fase ${actor.wonderStage} de ${WONDERS_CATALOG[actor.activeWonderId].name}.`,
+        'BUILD',
+        actor.id
+      );
+      recalculateVictoryPoints(state);
       return { state };
     }
   }

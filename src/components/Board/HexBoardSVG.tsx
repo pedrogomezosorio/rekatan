@@ -469,7 +469,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const edgeList = Object.values(board.edges);
   const vertexList = Object.values(board.vertices);
   const robberHex = board.hexes[board.robberHexId];
-  const pirateHex = board.pirateHexId ? board.hexes[board.pirateHexId] : undefined;
+  const pirateHex = (board.pirateFleetHexId ? board.hexes[board.pirateFleetHexId] : undefined) || (board.pirateHexId ? board.hexes[board.pirateHexId] : undefined);
 
   return (
     <motion.div

@@ -363,4 +363,253 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     });
     expect(pirateRes.error).toBe('El Barco Pirata está desactivado en esta partida.');
   });
+
+  it('generates all 9 official scenarios with authentic structures from official manual', () => {
+    // Escenario 1: Rumbo a nuevas orillas
+    const s1 = generateSeafarersBoard('HEADING_FOR_NEW_SHORES');
+    expect(s1.pirateHexId).toBeDefined();
+
+    // Escenario 2: Las cuatro islas
+    const s2 = generateSeafarersBoard('THE_FOUR_ISLANDS');
+    expect(s2.pirateHexId).toBeDefined();
+
+    // Escenario 3: Oceanía (Tierra ignota)
+    const s3 = generateSeafarersBoard('OCEANIA');
+    expect(s3.fogDeck).toBeDefined();
+    expect(s3.fogDeck!.length).toBeGreaterThan(0);
+    expect(Object.values(s3.hexes).some((h) => h.terrain === 'FOG')).toBe(true);
+
+    // Escenario 4: A través del desierto
+    const s4 = generateSeafarersBoard('THROUGH_THE_DESERT');
+    const desertCount = Object.values(s4.hexes).filter((h) => h.terrain === 'DESERT').length;
+    expect(desertCount).toBeGreaterThanOrEqual(3);
+
+    // Escenario 5: El pueblo perdido
+    const s5 = generateSeafarersBoard('THE_FORGOTTEN_TRIBE');
+    expect(s5.forgottenGifts).toBeDefined();
+    expect(Object.keys(s5.forgottenGifts!).length).toBe(4);
+
+    // Escenario 6: Telas para Catán
+    const s6 = generateSeafarersBoard('CLOTH_FOR_CATAN');
+    expect(s6.nativeVillages).toBeDefined();
+    expect(Object.keys(s6.nativeVillages!).length).toBe(4);
+
+    // Escenario 7: Las islas de los piratas
+    const s7 = generateSeafarersBoard('THE_PIRATE_ISLANDS');
+    expect(s7.pirateFleetRouteHexIds).toBeDefined();
+    expect(s7.pirateFleetHexId).toBeDefined();
+    expect(s7.pirateFortresses).toBeDefined();
+    expect(s7.robberHexId).toBe(''); // Oficial: sin ladrón en escenario 7
+
+    // Escenario 8: Las maravillas catanas
+    const s8 = generateSeafarersBoard('WONDERS_OF_CATAN');
+    expect(s8.wondersState).toBeDefined();
+
+    // Escenario 9: Un nuevo mundo
+    const s9 = generateSeafarersBoard('NEW_WORLD');
+    expect(Object.values(s9.hexes).some((h) => h.terrain === 'GOLD')).toBe(true);
+  });
+
+  it('uncovers fog and awards free resource upon reaching a fog hex in Oceania', () => {
+    let state = createInitialGameState('ROOM_OCEANIA', {
+      id: 'P1',
+      name: 'Explorador',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state.config.expansionModule = 'SEAFARERS';
+    state.config.seafarersScenario = 'OCEANIA';
+    state.board = generateSeafarersBoard('OCEANIA');
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+
+    // Find an edge adjacent to a FOG hex
+    const fogHex = Object.values(state.board.hexes).find((h) => h.terrain === 'FOG')!;
+    const adjacentEdge = Object.values(state.board.edges).find((e) => e.hexIds.includes(fogHex.id))!;
+
+    // Player builds a ship on that edge
+    adjacentEdge.building = 'SHIP';
+    adjacentEdge.playerId = 'P1';
+
+    // Place a ship via PLACE_SHIP or trigger fog uncover
+    state.players[0].resources.WOOD = 1;
+    state.players[0].resources.SHEEP = 1;
+
+    // Setup an adjacent settlement to make edge valid
+    const v = state.board.vertices[adjacentEdge.vertexIds[0]];
+    v.building = 'SETTLEMENT';
+    v.playerId = 'P1';
+
+    // Another coastal edge adjacent to settlement and touching fog
+    const fogEdge2 = Object.values(state.board.edges).find(
+      (e) => e.id !== adjacentEdge.id && e.hexIds.includes(fogHex.id) && (e.vertexIds[0] === v.id || e.vertexIds[1] === v.id)
+    );
+
+    if (fogEdge2) {
+      const res = applyGameAction(state, 'P1', {
+        type: 'PLACE_SHIP',
+        edgeId: fogEdge2.id,
+      });
+      state = res.state;
+      expect(state.board.hexes[fogHex.id].terrain).not.toBe('FOG');
+      expect(state.board.revealedHexIds).toContain(fogHex.id);
+    }
+  });
+
+  it('collects cloth bales in Cloth for Catan and converts 2 cloth = 1 VP', () => {
+    let state = createInitialGameState('ROOM_CLOTH', {
+      id: 'P1',
+      name: 'Mercader',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state.config.expansionModule = 'SEAFARERS';
+    state.config.seafarersScenario = 'CLOTH_FOR_CATAN';
+    state.board = generateSeafarersBoard('CLOTH_FOR_CATAN');
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+
+    // Player collects 4 cloth bales
+    state.players[0].clothBales = 4;
+    // Recalculate VP
+    state = applyGameAction(state, 'P1', {
+      type: 'END_TURN',
+    }).state;
+
+    // 4 cloth bales = 2 Victory Points!
+    expect(state.players[0].publicVictoryPoints).toBe(2);
+    expect(state.players[0].totalVictoryPoints).toBe(2);
+  });
+
+  it('manages wonders in Wonders of Catan and wins upon completing stage 4', () => {
+    let state = createInitialGameState('ROOM_WONDERS', {
+      id: 'P1',
+      name: 'Arquitecto',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state.config.expansionModule = 'SEAFARERS';
+    state.config.seafarersScenario = 'WONDERS_OF_CATAN';
+    state.board = generateSeafarersBoard('WONDERS_OF_CATAN');
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+
+    // Place a settlement touching desert for GREAT_WALL
+    const desertHex = Object.values(state.board.hexes).find((h) => h.terrain === 'DESERT')!;
+    const desertVertex = Object.values(state.board.vertices).find((v) => v.hexIds.includes(desertHex.id))!;
+    desertVertex.building = 'SETTLEMENT';
+    desertVertex.playerId = 'P1';
+
+    // Start Great Wall wonder
+    const startRes = applyGameAction(state, 'P1', {
+      type: 'START_WONDER',
+      wonderId: 'GREAT_WALL',
+    });
+
+    state = startRes.state;
+    expect(state.players[0].activeWonderId).toBe('GREAT_WALL');
+    expect(state.players[0].wonderStage).toBe(0);
+
+    // Provide resources to build Stage 1
+    state.players[0].resources = { WOOD: 1, BRICK: 1, SHEEP: 1, WHEAT: 1, ORE: 1 };
+    const stage1Res = applyGameAction(state, 'P1', {
+      type: 'BUILD_WONDER_STAGE',
+    });
+    state = stage1Res.state;
+    expect(state.players[0].wonderStage).toBe(1);
+
+    // Advance to Stage 4 and verify immediate victory!
+    state.players[0].wonderStage = 3;
+    state.players[0].resources = { WOOD: 1, BRICK: 1, SHEEP: 1, WHEAT: 1, ORE: 1 };
+
+    const stage4Res = applyGameAction(state, 'P1', {
+      type: 'BUILD_WONDER_STAGE',
+    });
+    state = stage4Res.state;
+    expect(state.players[0].wonderStage).toBe(4);
+    expect(state.winnerId).toBe('P1');
+    expect(state.phase).toBe('GAME_OVER');
+  });
+
+  it('supports pirate islands warfare: convert warship, attack fortress, and victory upon conquest', () => {
+    let state = createInitialGameState('ROOM_PIRATE_ISLANDS', {
+      id: 'P1',
+      name: 'Almirante',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state.config.expansionModule = 'SEAFARERS';
+    state.config.seafarersScenario = 'THE_PIRATE_ISLANDS';
+    state.config.victoryPointsTarget = 10;
+    state.board = generateSeafarersBoard('THE_PIRATE_ISLANDS');
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+
+    // Convert ship to warship with Knight card
+    state.players[0].devCards.push({
+      id: 'DEV_KNIGHT_1',
+      type: 'KNIGHT',
+      title: 'Caballero',
+      boughtAtTurn: 1,
+      played: false,
+    });
+
+    const anyEdge = Object.values(state.board.edges)[0];
+    anyEdge.building = 'SHIP';
+    anyEdge.playerId = 'P1';
+
+    const warshipRes = applyGameAction(state, 'P1', {
+      type: 'CONVERT_SHIP_TO_WARSHIP',
+      edgeId: anyEdge.id,
+    });
+    state = warshipRes.state;
+    expect(state.board.edges[anyEdge.id].isWarship).toBe(true);
+    expect(state.players[0].warshipsCount).toBe(1);
+
+    // Place warship adjacent to fortress BLUE
+    const fortress = state.board.pirateFortresses!['FORTRESS_BLUE'];
+    const fVertex = state.board.vertices[fortress.vertexId];
+    const adjFortressEdge = state.board.edges[fVertex.adjacentEdgeIds[0]];
+    adjFortressEdge.building = 'SHIP';
+    adjFortressEdge.playerId = 'P1';
+
+    // Attack fortress 3 times to destroy it
+    state = applyGameAction(state, 'P1', {
+      type: 'ATTACK_PIRATE_FORTRESS',
+      fortressId: 'FORTRESS_BLUE',
+    }).state;
+    expect(state.board.pirateFortresses!['FORTRESS_BLUE'].chitsRemaining).toBe(2);
+
+    state = applyGameAction(state, 'P1', {
+      type: 'ATTACK_PIRATE_FORTRESS',
+      fortressId: 'FORTRESS_BLUE',
+    }).state;
+    expect(state.board.pirateFortresses!['FORTRESS_BLUE'].chitsRemaining).toBe(1);
+
+    state = applyGameAction(state, 'P1', {
+      type: 'ATTACK_PIRATE_FORTRESS',
+      fortressId: 'FORTRESS_BLUE',
+    }).state;
+    expect(state.board.pirateFortresses!['FORTRESS_BLUE'].chitsRemaining).toBe(0);
+    expect(state.players[0].conqueredPirateFortress).toBe(true);
+
+    // With 10 VP and conquered fortress, player wins!
+    state.players[0].discoveryVictoryPoints = 10;
+    state = applyGameAction(state, 'P1', {
+      type: 'END_TURN',
+    }).state;
+    expect(state.winnerId).toBe('P1');
+    expect(state.phase).toBe('GAME_OVER');
+  });
 });

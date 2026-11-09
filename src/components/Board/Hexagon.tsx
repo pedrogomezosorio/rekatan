@@ -35,6 +35,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
     onSelect,
   }) => {
     const isSea = hex.terrain === 'SEA';
+    const isFog = hex.terrain === 'FOG';
     const isRedNumber = hex.numberToken === 6 || hex.numberToken === 8;
     const pips = hex.numberToken ? PROBABILITY_PIPS[hex.numberToken] || 0 : 0;
 
@@ -59,7 +60,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
         className={isInteractive ? 'cursor-pointer group' : undefined}
       >
         {/* 1. 3D EXTRUDED CARDBOARD BASE WITH TABLETOP DROP SHADOW */}
-        {!isSea && (
+        {!isSea && !isFog && (
           <polygon
             points={extrudedPoints}
             fill="#261409"
@@ -72,11 +73,41 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
         {/* 2. CLASSIC CATAN CARDBOARD BASE RIM */}
         <polygon
           points={outerPoints}
-          fill={isSea ? 'url(#sea-depth-grad)' : '#dac6a0'}
+          fill={isFog ? '#1e293b' : isSea ? 'url(#sea-depth-grad)' : '#dac6a0'}
         />
 
-        {/* 3. HIGH-RES AUTHENTIC ORIGINAL CATAN TERRAIN ILLUSTRATION */}
-        {!isSea ? (
+        {/* 3. HIGH-RES AUTHENTIC ORIGINAL CATAN TERRAIN ILLUSTRATION OR FOG */}
+        {isFog ? (
+          <g clipPath="url(#hex-outer-surface-clip)">
+            <rect
+              x={-hexSize}
+              y={-hexSize}
+              width={hexSize * 2}
+              height={hexSize * 2}
+              fill="#0f172a"
+            />
+            {/* Ambient mist circles */}
+            <circle cx={-14} cy={-10} r={28} fill="rgba(100, 116, 139, 0.35)" />
+            <circle cx={14} cy={12} r={32} fill="rgba(148, 163, 184, 0.28)" />
+            <circle cx={0} cy={0} r={20} fill="rgba(203, 213, 225, 0.22)" />
+            {/* Mystery Emblem */}
+            <g transform="translate(0, 0)">
+              <circle cx={0} cy={0} r={17} fill="rgba(15, 23, 42, 0.85)" stroke="#64748b" strokeWidth={1.8} />
+              <text
+                x={0}
+                y={6}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill="#cbd5e1"
+                fontSize="18"
+                fontWeight="900"
+                fontFamily="Cinzel, Georgia, serif"
+              >
+                ?
+              </text>
+            </g>
+          </g>
+        ) : !isSea ? (
           <g clipPath="url(#hex-outer-surface-clip)">
             {/* Solid Fallback Base */}
             <rect
@@ -161,6 +192,8 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               ? '#38bdf8'
               : isRedConflict
               ? '#ef4444'
+              : isFog
+              ? '#475569'
               : isSea
               ? 'rgba(56, 189, 248, 0.16)'
               : '#5c3a18'
@@ -170,7 +203,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
         />
 
         {/* Inner Bevel Rim Line between Cardboard Border and Illustration */}
-        {!isSea && (
+        {!isSea && !isFog && (
           <polygon
             points={innerPoints}
             fill="none"
@@ -235,7 +268,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
         )}
 
         {/* 6. 3D PARCHMENT NUMBER TOKEN WITH CAST SHADOW */}
-        {!isSea && hex.numberToken !== null && (
+        {!isSea && !isFog && hex.numberToken !== null && (
           <g
             transform="translate(0, 12)"
             className="pointer-events-none"

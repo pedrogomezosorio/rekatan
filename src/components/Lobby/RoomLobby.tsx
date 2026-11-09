@@ -423,65 +423,84 @@ export const RoomLobby: React.FC = () => {
                       </div>
                     </button>
 
-                    {/* Selector interactivo de las 3 modalidades de Navegantes */}
+                    {/* Selector interactivo de los 9 escenarios oficiales de Navegantes */}
                     {checked && exp.id === 'SEAFARERS' && (
-                      <div className="p-3 pt-1 space-y-2 border-t border-sky-500/30 bg-sky-950/30">
+                      <div className="p-3 pt-1 space-y-3 border-t border-sky-500/30 bg-sky-950/30">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
                             <span>⛵</span>
-                            <span>3 Modalidades de Escenario Oficiales:</span>
+                            <span>Campaña Oficial de Navegantes (9 Escenarios):</span>
                           </span>
                           <span className="text-[10px] text-sky-300 font-bold bg-sky-900/70 px-2 py-0.5 rounded border border-sky-500/40">
-                            Meta Oficial: {config.victoryPointsTarget || 13} PV
+                            Meta Oficial: {config.victoryPointsTarget || 14} PV
                           </span>
                         </div>
 
-                        <div className="space-y-1.5">
-                          {SEAFARERS_SCENARIOS.map((scen) => {
-                            const isScenActive =
-                              (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
-                            return (
-                              <button
-                                key={scen.id}
-                                type="button"
-                                disabled={!isHost}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSelectScenario(scen.id, scen.recommendedVP);
-                                }}
-                                className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-2.5 ${
-                                  isScenActive
-                                    ? 'bg-sky-500/25 border-sky-400 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400'
-                                    : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black text-slate-100">
-                                      {scen.title}
-                                    </span>
-                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 font-bold border border-sky-500/30">
-                                      {scen.badge}
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
-                                    {scen.subtitle}
-                                  </p>
-                                </div>
+                        {(['BÁSICO', 'AVANZADO', 'MUNDO LIBRE'] as const).map((cat) => {
+                          const catScenarios = SEAFARERS_SCENARIOS.filter((s) => s.category === cat);
+                          const catLabel =
+                            cat === 'BÁSICO'
+                              ? 'Escenarios 1 al 4 (Iniciación y Clásicos de Campaña)'
+                              : cat === 'AVANZADO'
+                              ? 'Escenarios 5 al 8 (Mecánicas Avanzadas: Telas, Piratas y Maravillas)'
+                              : 'Escenario 9 y Procedural (Exploración Libre)';
+                          return (
+                            <div key={cat} className="space-y-1.5">
+                              <div className="text-[9.5px] font-bold uppercase tracking-wider text-sky-400/80 px-1">
+                                {catLabel}
+                              </div>
+                              <div className="space-y-1">
+                                {catScenarios.map((scen) => {
+                                  const isScenActive =
+                                    (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
+                                  return (
+                                    <button
+                                      key={scen.id}
+                                      type="button"
+                                      disabled={!isHost}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSelectScenario(scen.id, scen.recommendedVP);
+                                      }}
+                                      className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-2.5 ${
+                                        isScenActive
+                                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400'
+                                          : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                      } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-black text-slate-100">
+                                            {scen.title}
+                                          </span>
+                                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 font-bold border border-sky-500/30">
+                                            {scen.badge}
+                                          </span>
+                                          <span className="text-[9px] text-amber-300 font-bold ml-auto">
+                                            {scen.recommendedVP} PV
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                          {scen.subtitle}
+                                        </p>
+                                      </div>
 
-                                <div
-                                  className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition ${
-                                    isScenActive
-                                      ? 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.6)]'
-                                      : 'bg-slate-950 border-slate-700'
-                                  }`}
-                                >
-                                  {isScenActive && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                                      <div
+                                        className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                                          isScenActive
+                                            ? 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.6)]'
+                                            : 'bg-slate-950 border-slate-700'
+                                        }`}
+                                      >
+                                        {isScenActive && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -509,10 +528,14 @@ export const RoomLobby: React.FC = () => {
                   <span>Geografía Insular de Navegantes (37 Hexágonos)</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-snug">
-                  El mapa marítimo está gobernado por la modalidad activa: <strong>{config.seafarersScenario === 'THE_FOUR_ISLANDS' ? 'Las Cuatro Islas' : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO' ? 'Archipiélago Libre' : 'Hacia Nuevas Riberas'}</strong>.
+                  El mapa marítimo está gobernado por el escenario activo:{' '}
+                  <strong>
+                    {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.title || 'Rumbo a nuevas orillas'}
+                  </strong>.
                 </p>
                 <div className="text-[10px] text-sky-400/90 bg-sky-950/60 p-2 rounded-lg border border-sky-500/20">
-                  Incluye canales marítimos navegables, Barco Pirata, Islas con Ríos de Oro y +2 PV por Descubrimiento insular.
+                  {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.subtitle ||
+                    'Incluye canales marítimos navegables, Barco Pirata, Islas con Ríos de Oro y +2 PV por Descubrimiento insular.'}
                 </div>
               </div>
             ) : (
@@ -662,15 +685,12 @@ export const RoomLobby: React.FC = () => {
                     <span className="text-lg">⛵</span>
                     <span>
                       Navegantes:{' '}
-                      {config.seafarersScenario === 'THE_FOUR_ISLANDS'
-                        ? 'Las Cuatro Islas'
-                        : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO'
-                        ? 'Archipiélago Libre'
-                        : 'Hacia Nuevas Riberas'}
+                      {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.title ||
+                        'Rumbo a nuevas orillas'}
                     </span>
                   </span>
                   <span className="text-[10px] text-sky-300 font-bold bg-sky-900/60 px-2 py-0.5 rounded border border-sky-500/30">
-                    Meta Oficial: {config.victoryPointsTarget || 13} PV
+                    Meta Oficial: {config.victoryPointsTarget || 14} PV
                   </span>
                 </div>
 

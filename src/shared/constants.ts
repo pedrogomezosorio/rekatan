@@ -5,7 +5,9 @@ import {
   PlayerColor,
   PortType,
   ResourceType,
+  SeafarersScenario,
   TerrainType,
+  WonderId,
 } from './types';
 
 /**
@@ -46,6 +48,7 @@ export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
   DESERT: '/assets/terrains/desert.png?v=3',
   SEA: '/assets/terrains/ocean.jpg?v=3',
   GOLD: '/assets/terrains/hills.png?v=3',
+  FOG: '/assets/terrains/ocean.jpg?v=3',
 };
 
 /**
@@ -208,6 +211,7 @@ export const TERRAIN_META: Record<
   DESERT: { name: 'Desierto', fill: '#d6bc8b', stroke: '#a68a56', emoji: '🏜️' },
   SEA: { name: 'Mar', fill: '#0c4a6e', stroke: '#075985', emoji: '🌊' },
   GOLD: { name: 'Río de Oro', fill: '#d97706', stroke: '#b45309', emoji: '✨' },
+  FOG: { name: 'Niebla Marina (Tierra Ignota)', fill: '#334155', stroke: '#1e293b', emoji: '🌫️' },
 };
 
 export const PLAYER_COLORS: Record<
@@ -322,29 +326,173 @@ export const BUILDING_COSTS: Record<
   DEV_CARD: { WOOD: 0, BRICK: 0, SHEEP: 1, WHEAT: 1, ORE: 1 },
 };
 
-export const SEAFARERS_SCENARIOS = [
+export interface SeafarersScenarioMeta {
+  id: SeafarersScenario;
+  number: number;
+  title: string;
+  subtitle: string;
+  badge: string;
+  recommendedVP: number;
+  category: 'BÁSICO' | 'AVANZADO' | 'MUNDO LIBRE';
+  description: string;
+}
+
+export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
   {
-    id: 'HEADING_FOR_NEW_SHORES' as const,
-    title: 'Hacia Nuevas Riberas',
+    id: 'HEADING_FOR_NEW_SHORES',
+    number: 1,
+    title: 'Rumbo a nuevas orillas',
     subtitle: '1 Isla principal donde todos inician + 3 islas exteriores con Río de Oro y +2 PV de descubrimiento.',
-    badge: 'Escenario Oficial Insignia',
-    recommendedVP: 13,
+    badge: 'Escenario 1',
+    recommendedVP: 14,
+    category: 'BÁSICO',
+    description: 'Los colonos parten de su isla madre hacia el horizonte marítimo en busca de islas exteriores con ricos yacimientos de oro.',
   },
   {
-    id: 'THE_FOUR_ISLANDS' as const,
-    title: 'Las Cuatro Islas',
-    subtitle: '4 islas equilibradas separadas por canales marítimos. Cada jugador inicia y zarpa hacia las demás.',
-    badge: 'Expedición Abierta',
+    id: 'THE_FOUR_ISLANDS',
+    number: 2,
+    title: 'Las cuatro islas',
+    subtitle: '4 islas equilibradas separadas por canales oceánicos. +2 PV por cada isla extranjera colonizada.',
+    badge: 'Escenario 2',
     recommendedVP: 13,
+    category: 'BÁSICO',
+    description: 'Un archipiélago de cuatro islas de similar tamaño donde la carrera por el control marítimo y el oro es crucial.',
   },
   {
-    id: 'PROCEDURAL_ARCHIPELAGO' as const,
+    id: 'OCEANIA',
+    number: 3,
+    title: 'Oceanía (Tierra ignota)',
+    subtitle: 'Dos islas conocidas y un gran mar central cubierto por niebla marina. 1 recurso gratis al descubrir.',
+    badge: 'Escenario 3',
+    recommendedVP: 12,
+    category: 'BÁSICO',
+    description: 'Adéntrate en la niebla marina. Cada loseta descubierta te otorga recursos inmediatos y expande el mapa.',
+  },
+  {
+    id: 'THROUGH_THE_DESERT',
+    number: 4,
+    title: 'A través del desierto',
+    subtitle: 'Un cinturón de 3 desiertos divide la isla. Cruza la tierra yerma o navega la costa hacia el oro. +2 PV.',
+    badge: 'Escenario 4',
+    recommendedVP: 14,
+    category: 'BÁSICO',
+    description: 'Los colonos inician al sureste. Al otro lado del árido desierto y en las islas orientales esperan ricas tierras vírgenes.',
+  },
+  {
+    id: 'THE_FORGOTTEN_TRIBE',
+    number: 5,
+    title: 'El pueblo perdido',
+    subtitle: 'Islotes periféricos con regalos olvidados: Fichas Catán (+1 PV), Cartas de desarrollo y Fichas de Puerto.',
+    badge: 'Escenario 5',
+    recommendedVP: 13,
+    category: 'AVANZADO',
+    description: 'Antiguos habitantes dejaron valiosos presentes en pequeños atolones a los que solo accedes mediante rutas de barcos.',
+  },
+  {
+    id: 'CLOTH_FOR_CATAN',
+    number: 6,
+    title: 'Telas para Catán',
+    subtitle: '4 poblados indígenas centrales con fardos de tela. Conecta rutas marítimas para comerciar (2 telas = 1 PV).',
+    badge: 'Escenario 6',
+    recommendedVP: 14,
+    category: 'AVANZADO',
+    description: 'Establece rutas comerciales con las aldeas nativas para recolectar preciosas telas que aportan puntos de victoria directos.',
+  },
+  {
+    id: 'THE_PIRATE_ISLANDS',
+    number: 7,
+    title: 'Las islas de los piratas',
+    subtitle: 'Flota pirata en patrulla continua. Convierte barcos en barcos de guerra con caballeros y conquista la fortaleza pirata.',
+    badge: 'Escenario 7',
+    recommendedVP: 10,
+    category: 'AVANZADO',
+    description: 'Una flota corsaria acecha las rutas oceánicas. Equipa tus navíos con caballeros y asedia las fortalezas enemigas para triunfar.',
+  },
+  {
+    id: 'WONDERS_OF_CATAN',
+    number: 8,
+    title: 'Las maravillas catanas',
+    subtitle: 'Construye las 4 fases de una Maravilla legendaria para ganar de inmediato, o lidera la partida con 10 PV.',
+    badge: 'Escenario 8',
+    recommendedVP: 10,
+    category: 'AVANZADO',
+    description: 'El Gran Puente, la Gran Muralla, la Catedral, el Gran Teatro o el Coloso: erige la mayor obra arquitectónica de la civilización.',
+  },
+  {
+    id: 'NEW_WORLD',
+    number: 9,
+    title: 'Un nuevo mundo',
+    subtitle: 'Generación aleatoria de archipiélago según las pautas de exploración de Klaus Teuber. +1 PV insular.',
+    badge: 'Escenario 9',
+    recommendedVP: 12,
+    category: 'MUNDO LIBRE',
+    description: 'Exploración sin límites en un mar donde cada partida genera un archipiélago totalmente nuevo e irrepetible.',
+  },
+  {
+    id: 'PROCEDURAL_ARCHIPELAGO',
+    number: 0,
     title: 'Archipiélago Libre',
-    subtitle: 'Generación procedural aleatoria con múltiples masas de tierra, mar navegable y ríos de oro.',
-    badge: 'Exploración Infinita',
+    subtitle: 'Mapa dinámico con múltiples atolones dispersos, ríos de oro y canales oceánicos abiertos.',
+    badge: 'Generador Libre',
     recommendedVP: 13,
+    category: 'MUNDO LIBRE',
+    description: 'Configuración equilibrada de islas y canales de libre navegación.',
   },
 ];
+
+export interface WonderMeta {
+  id: WonderId;
+  name: string;
+  description: string;
+  prerequisiteDescription: string;
+  icon: string;
+}
+
+export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
+  GREAT_BRIDGE: {
+    id: 'GREAT_BRIDGE',
+    name: 'El Gran Puente',
+    description: 'Un monumental viaducto que une dos islas a través de un canal estrecho.',
+    prerequisiteDescription: 'Requiere tener un asentamiento en la orilla de un estrecho marítimo.',
+    icon: '🌉',
+  },
+  GREAT_WALL: {
+    id: 'GREAT_WALL',
+    name: 'La Gran Muralla',
+    description: 'Una colosal fortificación de piedra que protege las fronteras de Catán.',
+    prerequisiteDescription: 'Requiere tener un asentamiento adyacente al desierto o tierra baldía.',
+    icon: '🧱',
+  },
+  CATHEDRAL: {
+    id: 'CATHEDRAL',
+    name: 'La Catedral',
+    description: 'Un majestuoso templo de fe y arquitectura gótica catana.',
+    prerequisiteDescription: 'Requiere al menos 1 Ciudad construida y tener al menos 6 PV.',
+    icon: '⛪',
+  },
+  GREAT_THEATRE: {
+    id: 'GREAT_THEATRE',
+    name: 'El Gran Teatro',
+    description: 'Un coliseo de artes y espectáculos para todo el archipiélago.',
+    prerequisiteDescription: 'Requiere al menos 2 Ciudades construidas.',
+    icon: '🎭',
+  },
+  COLOSSUS: {
+    id: 'COLOSSUS',
+    name: 'El Coloso',
+    description: 'Una estatua de bronce colosal que vigila la bocana del puerto principal.',
+    prerequisiteDescription: 'Requiere tener una Ciudad portuaria y una ruta de al menos 5 segmentos.',
+    icon: '🗽',
+  },
+};
+
+export const WONDER_STAGE_COST: Record<ResourceType, number> = {
+  WOOD: 1,
+  BRICK: 1,
+  SHEEP: 1,
+  WHEAT: 1,
+  ORE: 1,
+};
 
 export const PROBABILITY_PIPS: Record<number, number> = {
   2: 1,
