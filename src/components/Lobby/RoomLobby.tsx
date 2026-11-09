@@ -68,35 +68,26 @@ export const RoomLobby: React.FC = () => {
 
   const handleSelectExpansion = (expId: ExpansionModule) => {
     if (!isHost) return;
-    const currentActive = enabledExpansions.find((e) => e !== 'BASE') || 'BASE';
-    let nextExpansions: ExpansionModule[];
-    let nextModule: ExpansionModule;
 
-    if (expId === 'BASE' || currentActive === expId) {
-      // Return to pure Base Game (0 expansions)
-      nextExpansions = ['BASE'];
-      nextModule = 'BASE';
+    if (expId === 'BASE') {
       dispatchAction({
         type: 'UPDATE_CONFIG',
         config: {
-          enabledExpansions: nextExpansions,
-          expansionModule: nextModule,
+          enabledExpansions: ['BASE'],
+          expansionModule: 'BASE',
           victoryPointsTarget: 10,
           desertInCenter: true,
         },
       });
     } else {
-      // Exclusively select exactly 1 expansion alongside BASE
-      nextExpansions = ['BASE', expId];
-      nextModule = expId;
       dispatchAction({
         type: 'UPDATE_CONFIG',
         config: {
-          enabledExpansions: nextExpansions,
-          expansionModule: nextModule,
+          enabledExpansions: ['BASE', expId],
+          expansionModule: expId,
           ...(expId === 'SEAFARERS'
             ? {
-                seafarersScenario: 'HEADING_FOR_NEW_SHORES',
+                seafarersScenario: config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
                 victoryPointsTarget: 13,
                 desertInCenter: false,
               }
@@ -104,6 +95,20 @@ export const RoomLobby: React.FC = () => {
         },
       });
     }
+  };
+
+  const handleSelectScenario = (scenarioId: SeafarersScenario, recommendedVP: number = 13) => {
+    if (!isHost) return;
+    dispatchAction({
+      type: 'UPDATE_CONFIG',
+      config: {
+        expansionModule: 'SEAFARERS',
+        enabledExpansions: ['BASE', 'SEAFARERS'],
+        seafarersScenario: scenarioId,
+        victoryPointsTarget: recommendedVP,
+        desertInCenter: false,
+      },
+    });
   };
 
   const handleBoardModeSelect = (mode: BoardMode) => {
@@ -374,44 +379,112 @@ export const RoomLobby: React.FC = () => {
                 const activeExpansion = enabledExpansions.find((e) => e !== 'BASE') || 'BASE';
                 const checked = exp.id === activeExpansion;
                 return (
-                  <button
+                  <div
                     key={exp.id}
-                    type="button"
-                    disabled={!isHost}
-                    onClick={() => handleSelectExpansion(exp.id)}
-                    className={`w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition ${
+                    className={`rounded-xl border transition overflow-hidden ${
                       checked
-                        ? 'bg-amber-500/15 border-amber-400/60 text-slate-100 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
-                        : 'bg-slate-900/75 border-slate-800 text-slate-400 hover:border-slate-700'
-                    } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                        ? 'bg-amber-500/15 border-amber-400/60 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
+                        : 'bg-slate-900/75 border-slate-800 hover:border-slate-700'
+                    }`}
                   >
-                    <div className="flex items-start gap-2.5">
-                      <span className="text-xl mt-0.5">{exp.icon}</span>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-slate-100">
-                            {exp.title}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-semibold">
-                            {exp.badge}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
-                          {exp.subtitle}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-1 transition ${
-                        checked
-                          ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
-                          : 'bg-slate-950 border-slate-700'
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() => handleSelectExpansion(exp.id)}
+                      className={`w-full flex items-start justify-between gap-3 p-3 text-left transition ${
+                        !isHost ? 'cursor-default' : 'cursor-pointer'
                       }`}
                     >
-                      {checked && <div className="w-2 h-2 rounded-full bg-slate-950" />}
-                    </div>
-                  </button>
+                      <div className="flex items-start gap-2.5">
+                        <span className="text-xl mt-0.5">{exp.icon}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold text-slate-100">
+                              {exp.title}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-semibold">
+                              {exp.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                            {exp.subtitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-1 transition ${
+                          checked
+                            ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                            : 'bg-slate-950 border-slate-700'
+                        }`}
+                      >
+                        {checked && <div className="w-2 h-2 rounded-full bg-slate-950" />}
+                      </div>
+                    </button>
+
+                    {/* Selector interactivo de las 3 modalidades de Navegantes */}
+                    {checked && exp.id === 'SEAFARERS' && (
+                      <div className="p-3 pt-1 space-y-2 border-t border-sky-500/30 bg-sky-950/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
+                            <span>⛵</span>
+                            <span>3 Modalidades de Escenario Oficiales:</span>
+                          </span>
+                          <span className="text-[10px] text-sky-300 font-bold bg-sky-900/70 px-2 py-0.5 rounded border border-sky-500/40">
+                            Meta Oficial: {config.victoryPointsTarget || 13} PV
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {SEAFARERS_SCENARIOS.map((scen) => {
+                            const isScenActive =
+                              (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
+                            return (
+                              <button
+                                key={scen.id}
+                                type="button"
+                                disabled={!isHost}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectScenario(scen.id, scen.recommendedVP);
+                                }}
+                                className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-2.5 ${
+                                  isScenActive
+                                    ? 'bg-sky-500/25 border-sky-400 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.25)] ring-1 ring-sky-400'
+                                    : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-slate-100">
+                                      {scen.title}
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 font-bold border border-sky-500/30">
+                                      {scen.badge}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                    {scen.subtitle}
+                                  </p>
+                                </div>
+
+                                <div
+                                  className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                                    isScenActive
+                                      ? 'bg-sky-400 border-sky-200 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.6)]'
+                                      : 'bg-slate-950 border-slate-700'
+                                  }`}
+                                >
+                                  {isScenActive && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -429,67 +502,91 @@ export const RoomLobby: React.FC = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  {
-                    mode: 'STANDARD_3_4',
-                    label: 'Estándar (3-4J)',
-                    desc: 'Layout 3-4-5-4-3 (19 hex)',
-                  },
-                  {
-                    mode: 'CUSTOM',
-                    label: 'Tablero Personalizado',
-                    desc: 'Coloca losetas y puertos libremente',
-                  },
-                  {
-                    mode: 'EXPANSION_5_6',
-                    label: '5-6 Jugadores',
-                    desc: 'Layout 3-4-5-6-5-4-3 (30 hex)',
-                  },
-                  {
-                    mode: 'MEGA_RADIUS_3',
-                    label: 'Gran Isla (Radio 3)',
-                    desc: '37 hexágonos de terreno',
-                  },
-                ] as const
-              ).map((item) => {
-                const active = config.boardMode === item.mode;
-                return (
-                  <button
-                    key={item.mode}
-                    type="button"
-                    disabled={!isHost}
-                    onClick={() => handleBoardModeSelect(item.mode)}
-                    className={`p-2.5 rounded-xl border text-left transition ${
-                      active
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-200'
-                        : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                    } ${!isHost ? 'opacity-75 cursor-default' : 'cursor-pointer'}`}
-                  >
-                    <div className="text-xs font-bold">{item.label}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{item.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
+            {config.expansionModule === 'SEAFARERS' ? (
+              <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-sky-300 font-extrabold">
+                  <span>⛵</span>
+                  <span>Geografía Insular de Navegantes (37 Hexágonos)</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  El mapa marítimo está gobernado por la modalidad activa: <strong>{config.seafarersScenario === 'THE_FOUR_ISLANDS' ? 'Las Cuatro Islas' : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO' ? 'Archipiélago Libre' : 'Hacia Nuevas Riberas'}</strong>.
+                </p>
+                <div className="text-[10px] text-sky-400/90 bg-sky-950/60 p-2 rounded-lg border border-sky-500/20">
+                  Incluye canales marítimos navegables, Barco Pirata, Islas con Ríos de Oro y +2 PV por Descubrimiento insular.
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    {
+                      mode: 'STANDARD_3_4',
+                      label: 'Estándar (3-4J)',
+                      desc: 'Layout 3-4-5-4-3 (19 hex)',
+                    },
+                    {
+                      mode: 'CUSTOM',
+                      label: 'Tablero Personalizado',
+                      desc: 'Coloca losetas y puertos libremente',
+                    },
+                    {
+                      mode: 'EXPANSION_5_6',
+                      label: '5-6 Jugadores',
+                      desc: 'Layout 3-4-5-6-5-4-3 (30 hex)',
+                    },
+                    {
+                      mode: 'MEGA_RADIUS_3',
+                      label: 'Gran Isla (Radio 3)',
+                      desc: '37 hexágonos de terreno',
+                    },
+                  ] as const
+                ).map((item) => {
+                  const active = config.boardMode === item.mode;
+                  return (
+                    <button
+                      key={item.mode}
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() => handleBoardModeSelect(item.mode)}
+                      className={`p-2.5 rounded-xl border text-left transition ${
+                        active
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-700'
+                      } ${!isHost ? 'opacity-75 cursor-default' : 'cursor-pointer'}`}
+                    >
+                      <div className="text-xs font-bold">{item.label}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{item.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {isHost && (
               <div className="pt-2 flex flex-col gap-2">
-                <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
-                  <span>Desierto en el Centro (q:0, r:0, s:0)</span>
-                  <input
-                    type="checkbox"
-                    checked={config.desertInCenter !== false}
-                    onChange={(e) =>
-                      dispatchAction({
-                        type: 'UPDATE_CONFIG',
-                        config: { desertInCenter: e.target.checked },
-                      })
-                    }
-                    className="accent-amber-500 w-4 h-4"
-                  />
-                </label>
+                {config.expansionModule === 'SEAFARERS' ? (
+                  <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 px-3 py-2 rounded-xl border border-slate-800">
+                    <span>Desierto en el Centro (q:0, r:0, s:0)</span>
+                    <span className="text-[10px] font-semibold text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/30">
+                      ✕ Desactivado en Navegantes (Canal marítimo libre)
+                    </span>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
+                    <span>Desierto en el Centro (q:0, r:0, s:0)</span>
+                    <input
+                      type="checkbox"
+                      checked={config.desertInCenter !== false}
+                      onChange={(e) =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { desertInCenter: e.target.checked },
+                        })
+                      }
+                      className="accent-amber-500 w-4 h-4"
+                    />
+                  </label>
+                )}
 
                 <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
                   <span>Restricción: No juntar 6 y 8 rojos al generar</span>
@@ -513,29 +610,35 @@ export const RoomLobby: React.FC = () => {
                       dispatchAction({
                         type: 'GENERATE_BOARD',
                         preventAdjacentRedNumbers: config.preventAdjacentRedNumbers,
-                        desertInCenter: config.desertInCenter !== false,
+                        desertInCenter: config.expansionModule === 'SEAFARERS' ? false : (config.desertInCenter !== false),
                       })
                     }
                     className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <Dices className="w-4 h-4 text-amber-400" />
-                    <span>Generar Mapa Aleatorio</span>
+                    <span>
+                      {config.expansionModule === 'SEAFARERS'
+                        ? 'Regenerar Escenario de Navegantes'
+                        : 'Generar Mapa Aleatorio'}
+                    </span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditorTool((prev) => ({ ...prev, active: !prev.active }))
-                    }
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
-                      editorTool.active
-                        ? 'bg-sky-500/25 border-sky-400 text-sky-200'
-                        : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
-                    }`}
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>{editorTool.active ? 'Cerrar Editor' : 'Editor Libre'}</span>
-                  </button>
+                  {config.expansionModule !== 'SEAFARERS' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditorTool((prev) => ({ ...prev, active: !prev.active }))
+                      }
+                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+                        editorTool.active
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-200'
+                          : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                      }`}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>{editorTool.active ? 'Cerrar Editor' : 'Editor Libre'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -551,80 +654,23 @@ export const RoomLobby: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
 
-            {/* SEAFARERS: Selector de Escenario de la Expansión */}
+            {/* Status de Navegantes si está activo */}
             {config.expansionModule === 'SEAFARERS' && (
-              <div className="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">⛵</span>
-                    <div>
-                      <div className="text-xs font-black uppercase tracking-wider text-sky-300">
-                        Escenarios de Navegantes
-                      </div>
-                      <div className="text-[10px] text-sky-400/80">
-                        Elige la geografía marítima y las reglas de expedición
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-900/60 text-sky-200 border border-sky-500/30">
+              <div className="p-3 rounded-2xl bg-sky-950/40 border border-sky-500/30 flex items-center justify-between text-xs text-sky-200">
+                <span className="flex items-center gap-2 font-bold">
+                  <span className="text-lg">⛵</span>
+                  <span>
+                    Navegantes Activo:{' '}
                     {config.seafarersScenario === 'THE_FOUR_ISLANDS'
                       ? 'Las Cuatro Islas'
                       : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO'
                       ? 'Archipiélago Libre'
                       : 'Hacia Nuevas Riberas'}
                   </span>
-                </div>
-
-                <div className="space-y-2">
-                  {SEAFARERS_SCENARIOS.map((scen) => {
-                    const isSelected =
-                      (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
-                    return (
-                      <button
-                        key={scen.id}
-                        type="button"
-                        disabled={!isHost}
-                        onClick={() =>
-                          dispatchAction({
-                            type: 'UPDATE_CONFIG',
-                            config: {
-                              seafarersScenario: scen.id,
-                              victoryPointsTarget: scen.recommendedVP,
-                            },
-                          })
-                        }
-                        className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-3 ${
-                          isSelected
-                            ? 'bg-sky-500/20 border-sky-400 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
-                            : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700'
-                        } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-100">
-                              {scen.title}
-                            </span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 border border-sky-500/30 font-semibold">
-                              {scen.badge}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
-                            {scen.subtitle}
-                          </p>
-                        </div>
-                        <div
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
-                            isSelected
-                              ? 'bg-sky-400 border-sky-200'
-                              : 'bg-slate-950 border-slate-700'
-                          }`}
-                        >
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                </span>
+                <span className="text-[10px] text-sky-400 font-bold bg-sky-900/60 px-2 py-0.5 rounded border border-sky-500/30">
+                  Meta: {config.victoryPointsTarget || 13} PV
+                </span>
               </div>
             )}
 

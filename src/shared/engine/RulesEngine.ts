@@ -1064,12 +1064,17 @@ export function applyGameAction(
         action.config.expansionModule !== undefined ||
         action.config.seafarersScenario !== undefined
       ) {
-        if (action.config.expansionModule === 'SEAFARERS') {
+        if (
+          action.config.expansionModule === 'SEAFARERS' ||
+          (state.config.expansionModule === 'SEAFARERS' && action.config.seafarersScenario !== undefined)
+        ) {
+          state.config.expansionModule = 'SEAFARERS';
           state.config.seafarersScenario =
             action.config.seafarersScenario ||
             state.config.seafarersScenario ||
             'HEADING_FOR_NEW_SHORES';
-          state.config.victoryPointsTarget = 13;
+          state.config.victoryPointsTarget =
+            action.config.victoryPointsTarget || 13;
           state.config.desertInCenter = false;
           state.board = generateBoard(
             state.config.boardMode,
@@ -1079,25 +1084,14 @@ export function applyGameAction(
             state.config.seafarersScenario
           );
         } else if (action.config.expansionModule === 'BASE') {
-          state.config.victoryPointsTarget = 10;
+          state.config.expansionModule = 'BASE';
+          state.config.victoryPointsTarget = action.config.victoryPointsTarget || 10;
           state.config.desertInCenter = true;
           state.board = generateBoard(
             state.config.boardMode,
             state.config.preventAdjacentRedNumbers,
             DEFAULT_HEX_SIZE,
             true
-          );
-        } else if (
-          state.config.expansionModule === 'SEAFARERS' &&
-          action.config.seafarersScenario
-        ) {
-          state.config.seafarersScenario = action.config.seafarersScenario;
-          state.board = generateBoard(
-            state.config.boardMode,
-            state.config.preventAdjacentRedNumbers,
-            DEFAULT_HEX_SIZE,
-            false,
-            action.config.seafarersScenario
           );
         }
       }
