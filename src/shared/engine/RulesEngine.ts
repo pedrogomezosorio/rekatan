@@ -625,6 +625,10 @@ export function canBuildShip(
     return { allowed: false, reason: 'Fase inválida para construir un barco.' };
   }
 
+  if (state.phase === 'SETUP_ROAD_1' && state.config.seafarersSetupShipRule === 'ROUND_2_ONLY') {
+    return { allowed: false, reason: 'En esta sala los barcos solo se permiten en la segunda ronda de preparación.' };
+  }
+
   const player = state.players.find((p) => p.id === playerId);
   if (!player || (player.shipsLeft ?? 15) <= 0) {
     return { allowed: false, reason: 'No te quedan barcos disponibles (límite de 15).' };
@@ -1713,13 +1717,18 @@ export function applyGameAction(
             ).length;
 
             if (!hadPriorSettlementOnIsland && settlementsOnOtherIslands > 0) {
-              actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 2;
-              addLog(
-                state,
-                `¡Descubrimiento marítimo! ${actor.name} colonizó una nueva isla exterior y obtuvo +2 Puntos de Victoria.`,
-                'AWARD',
-                actor.id
-              );
+              const vpMode = state.config.seafarersDiscoveryVPMode || 'STANDARD_2VP';
+              if (vpMode !== 'DISABLED') {
+                const isFirstDiscovery = (actor.discoveryVictoryPoints || 0) === 0;
+                const points = vpMode === 'PROGRESSIVE' ? (isFirstDiscovery ? 2 : 1) : 2;
+                actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + points;
+                addLog(
+                  state,
+                  `¡Descubrimiento marítimo! ${actor.name} colonizó una nueva isla exterior y obtuvo +${points} Punto(s) de Victoria.`,
+                  'AWARD',
+                  actor.id
+                );
+              }
             }
           }
         }
@@ -1729,7 +1738,8 @@ export function applyGameAction(
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
         state.players,
-        state.longestRoadPlayerId
+        state.longestRoadPlayerId,
+        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
       );
       recalculateVictoryPoints(state);
       return { state };
@@ -1750,7 +1760,8 @@ export function applyGameAction(
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
         state.players,
-        state.longestRoadPlayerId
+        state.longestRoadPlayerId,
+        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
       );
       if (state.longestRoadPlayerId && state.longestRoadPlayerId !== prevLongestId) {
         const holder = state.players.find((p) => p.id === state.longestRoadPlayerId);
@@ -1872,7 +1883,8 @@ export function applyGameAction(
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
         state.players,
-        state.longestRoadPlayerId
+        state.longestRoadPlayerId,
+        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
       );
       if (state.longestRoadPlayerId && state.longestRoadPlayerId !== prevLongestId) {
         const holder = state.players.find((p) => p.id === state.longestRoadPlayerId);
@@ -1958,6 +1970,9 @@ export function applyGameAction(
     }
 
     case 'MOVE_SHIP': {
+      if (state.config.seafarersMoveShipAllowed === false) {
+        return { state: prevState, error: 'El movimiento de barcos está desactivado en esta partida.' };
+      }
       if (state.phase !== 'MAIN_PHASE' || state.turn.activePlayerId !== playerId) {
         return { state: prevState, error: 'Solo puedes mover un barco en tu fase principal.' };
       }
@@ -1986,7 +2001,8 @@ export function applyGameAction(
       state.longestRoadPlayerId = updateLongestRoadAward(
         state.board,
         state.players,
-        state.longestRoadPlayerId
+        state.longestRoadPlayerId,
+        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
       );
       recalculateVictoryPoints(state);
 
@@ -2455,6 +2471,9 @@ export function applyGameAction(
     }
 
     case 'MOVE_PIRATE': {
+      if (state.config.seafarersPirateMode === 'PACIFIC_NO_PIRATE') {
+        return { state: prevState, error: 'El Barco Pirata está desactivado en esta partida.' };
+      }
       if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
         return { state: prevState, error: 'No puedes mover el Barco Pirata en este momento.' };
       }
@@ -2557,6 +2576,9 @@ export function applyGameAction(
     case 'SET_ROBBER_OR_PIRATE_MODE': {
       if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
         return { state: prevState, error: 'Acción no válida en esta fase.' };
+      }
+      if (action.mode === 'PIRATE' && state.config.seafarersPirateMode === 'PACIFIC_NO_PIRATE') {
+        return { state: prevState, error: 'El Barco Pirata está desactivado en esta partida.' };
       }
       state.turn.robberOrPirateMode = action.mode;
       return { state };

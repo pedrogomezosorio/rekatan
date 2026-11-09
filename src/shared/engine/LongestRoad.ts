@@ -14,7 +14,8 @@ export interface LongestRoadResult {
  */
 export function calculatePlayerLongestRoad(
   board: BoardState,
-  playerId: string
+  playerId: string,
+  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT'
 ): LongestRoadResult {
   const playerEdges = Object.values(board.edges).filter(
     (e) => e.playerId === playerId && e.building !== null
@@ -69,13 +70,16 @@ export function calculatePlayerLongestRoad(
       if (!edge) continue;
 
       // In Seafarers: Transition between ROAD and SHIP requires player's settlement/city at currentVertexId
+      // (Unless the room has enabled the 'FREE_CONNECTION' variant)
       if (currentPath.length > 0) {
         const prevEdgeId = currentPath[currentPath.length - 1];
         const prevEdge = board.edges[prevEdgeId];
         if (prevEdge && prevEdge.building !== edge.building) {
-          const hasOwnBuilding = vertex.building !== null && vertex.playerId === playerId;
-          if (!hasOwnBuilding) {
-            continue;
+          if (coastConnectionMode !== 'FREE_CONNECTION') {
+            const hasOwnBuilding = vertex.building !== null && vertex.playerId === playerId;
+            if (!hasOwnBuilding) {
+              continue;
+            }
           }
         }
       }
@@ -113,12 +117,13 @@ export function calculatePlayerLongestRoad(
 export function updateLongestRoadAward(
   board: BoardState,
   players: PlayerState[],
-  currentHolderId: string | null
+  currentHolderId: string | null,
+  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT'
 ): string | null {
   let maxLen = 0;
 
   for (const player of players) {
-    const res = calculatePlayerLongestRoad(board, player.id);
+    const res = calculatePlayerLongestRoad(board, player.id, coastConnectionMode);
     player.longestRoadLength = res.length;
     player.longestRoadEdgeIds = res.edgeIds;
     if (res.length > maxLen) {

@@ -654,23 +654,273 @@ export const RoomLobby: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
 
-            {/* Status de Navegantes si está activo */}
+            {/* Status y Variantes Oficiales de Navegantes */}
             {config.expansionModule === 'SEAFARERS' && (
-              <div className="p-3 rounded-2xl bg-sky-950/40 border border-sky-500/30 flex items-center justify-between text-xs text-sky-200">
-                <span className="flex items-center gap-2 font-bold">
-                  <span className="text-lg">⛵</span>
-                  <span>
-                    Navegantes Activo:{' '}
-                    {config.seafarersScenario === 'THE_FOUR_ISLANDS'
-                      ? 'Las Cuatro Islas'
-                      : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO'
-                      ? 'Archipiélago Libre'
-                      : 'Hacia Nuevas Riberas'}
+              <div className="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/40 space-y-3">
+                <div className="flex items-center justify-between border-b border-sky-500/25 pb-2">
+                  <span className="flex items-center gap-2 font-bold text-xs text-sky-200">
+                    <span className="text-lg">⛵</span>
+                    <span>
+                      Navegantes:{' '}
+                      {config.seafarersScenario === 'THE_FOUR_ISLANDS'
+                        ? 'Las Cuatro Islas'
+                        : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO'
+                        ? 'Archipiélago Libre'
+                        : 'Hacia Nuevas Riberas'}
+                    </span>
                   </span>
-                </span>
-                <span className="text-[10px] text-sky-400 font-bold bg-sky-900/60 px-2 py-0.5 rounded border border-sky-500/30">
-                  Meta: {config.victoryPointsTarget || 13} PV
-                </span>
+                  <span className="text-[10px] text-sky-300 font-bold bg-sky-900/60 px-2 py-0.5 rounded border border-sky-500/30">
+                    Meta Oficial: {config.victoryPointsTarget || 13} PV
+                  </span>
+                </div>
+
+                <div className="text-[11px] font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5 pt-1">
+                  <Wrench className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Variantes y Reglas Oficiales de Navegantes:</span>
+                </div>
+
+                {/* 1. Mover Barcos Abiertos */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-200">
+                    1. Reubicar Barco de Ruta Abierta (1 por turno)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersMoveShipAllowed: true },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersMoveShipAllowed !== false
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Permitido [Oficial]</div>
+                      <div className="text-[10px] opacity-80">1 movimiento libre/turno</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersMoveShipAllowed: false },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersMoveShipAllowed === false
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Rutas Fijas</div>
+                      <div className="text-[10px] opacity-80">No se pueden mover</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Conexión Carretera - Barco en Costa */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-200">
+                    2. Continuidad de Gran Ruta en la Costa
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersCoastConnection: 'REQUIRE_SETTLEMENT' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersCoastConnection !== 'FREE_CONNECTION'
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Requiere Poblado [Oficial]</div>
+                      <div className="text-[10px] opacity-80">Edificio propio en costa</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersCoastConnection: 'FREE_CONNECTION' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersCoastConnection === 'FREE_CONNECTION'
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Conexión Directa</div>
+                      <div className="text-[10px] opacity-80">Enlazan sin poblado</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Barco Pirata */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-200">
+                    3. Presencia del Barco Pirata
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersPirateMode: 'ACTIVE' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersPirateMode !== 'PACIFIC_NO_PIRATE'
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Pirata Activo [Oficial]</div>
+                      <div className="text-[10px] opacity-80">Roba y bloquea en mar</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersPirateMode: 'PACIFIC_NO_PIRATE' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersPirateMode === 'PACIFIC_NO_PIRATE'
+                          ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Modo Pacífico</div>
+                      <div className="text-[10px] opacity-80">Solo Ladrón en tierra</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Puntos de Descubrimiento */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-200">
+                    4. Puntos por Descubrimiento Insular
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersDiscoveryVPMode: 'STANDARD_2VP' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        (config.seafarersDiscoveryVPMode || 'STANDARD_2VP') === 'STANDARD_2VP'
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>+2 PV [Oficial]</div>
+                      <div className="text-[10px] opacity-80">Por isla exterior</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersDiscoveryVPMode: 'PROGRESSIVE' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersDiscoveryVPMode === 'PROGRESSIVE'
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Progresivo</div>
+                      <div className="text-[10px] opacity-80">+2 PV 1ª, +1 PV sig.</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersDiscoveryVPMode: 'DISABLED' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersDiscoveryVPMode === 'DISABLED'
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Desactivado</div>
+                      <div className="text-[10px] opacity-80">0 PV extra</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5. Barcos en Preparación */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-200">
+                    5. Barcos en la Fase Inicial de Preparación
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersSetupShipRule: 'ANY_ROUND' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersSetupShipRule !== 'ROUND_2_ONLY'
+                          ? 'bg-sky-500/25 border-sky-400 text-sky-100 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Cualquier Ronda [Oficial]</div>
+                      <div className="text-[10px] opacity-80">Ronda 1 o 2 en costa</div>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { seafarersSetupShipRule: 'ROUND_2_ONLY' },
+                        })
+                      }
+                      className={`p-2 rounded-xl border text-left text-xs transition ${
+                        config.seafarersSetupShipRule === 'ROUND_2_ONLY'
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold'
+                          : 'bg-slate-900 border-slate-800 text-slate-400'
+                      }`}
+                    >
+                      <div>Solo 2ª Ronda</div>
+                      <div className="text-[10px] opacity-80">Ronda 1 exige carretera</div>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 

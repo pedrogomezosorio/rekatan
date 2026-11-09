@@ -376,6 +376,12 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   expansionModule: 'BASE',
   enabledExpansions: ['BASE'],
   maxPlayers: 4,
+  seafarersScenario: 'HEADING_FOR_NEW_SHORES',
+  seafarersMoveShipAllowed: true,
+  seafarersCoastConnection: 'REQUIRE_SETTLEMENT',
+  seafarersPirateMode: 'ACTIVE',
+  seafarersDiscoveryVPMode: 'STANDARD_2VP',
+  seafarersSetupShipRule: 'ANY_ROUND',
 };
 
 export const STANDARD_TERRAINS_19: TerrainType[] = [

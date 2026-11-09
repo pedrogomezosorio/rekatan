@@ -107,6 +107,12 @@ export interface GameConfig {
   desertInCenter: boolean;
   // Escenario de Navegantes
   seafarersScenario?: SeafarersScenario;
+  // Variantes oficiales y reglas de la expansión Navegantes
+  seafarersMoveShipAllowed?: boolean;
+  seafarersCoastConnection?: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION';
+  seafarersPirateMode?: 'ACTIVE' | 'PACIFIC_NO_PIRATE';
+  seafarersDiscoveryVPMode?: 'STANDARD_2VP' | 'PROGRESSIVE' | 'DISABLED';
+  seafarersSetupShipRule?: 'ANY_ROUND' | 'ROUND_2_ONLY';
   // 1. Distancia mínima entre casas
   minSettlementDistance: 1 | 2;
   // 2. Uso Inmediato de Cartas de Desarrollo (true = jugables en el mismo turno de compra)

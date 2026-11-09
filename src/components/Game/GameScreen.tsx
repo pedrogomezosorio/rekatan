@@ -628,6 +628,7 @@ export const GameScreen: React.FC = () => {
     !isPausedByHost &&
     phase === 'MAIN_PHASE' &&
     isSeafarers &&
+    gameState.config.seafarersMoveShipAllowed !== false &&
     !me.hasMovedShipThisTurn &&
     getMovableShipEdges(gameState, playerId).length > 0;
 
@@ -923,7 +924,11 @@ export const GameScreen: React.FC = () => {
             validMovableShipIds={validMovableShipIds}
             selectedMovableShipId={selectedMovableShipId}
             isMovingRobber={isMovingRobber}
-            isMovingPirate={isMovingRobber && isSeafarers}
+            isMovingPirate={
+              isMovingRobber &&
+              isSeafarers &&
+              gameState.config.seafarersPirateMode !== 'PACIFIC_NO_PIRATE'
+            }
             producingHexIds={boardProducingHexIds}
             lowEndPcMode={lowEndPcMode}
             lastEvent={gameState.lastEvent}
@@ -970,9 +975,13 @@ export const GameScreen: React.FC = () => {
               if (isPausedByHost) return;
               if (isMovingRobber) {
                 const targetHex = board.hexes[hexId];
-                if (targetHex?.terrain === 'SEA' && board.pirateHexId) {
+                if (
+                  targetHex?.terrain === 'SEA' &&
+                  board.pirateHexId &&
+                  gameState.config.seafarersPirateMode !== 'PACIFIC_NO_PIRATE'
+                ) {
                   dispatchAction({ type: 'MOVE_PIRATE', hexId });
-                } else {
+                } else if (targetHex?.terrain !== 'SEA') {
                   dispatchAction({ type: 'MOVE_ROBBER', hexId });
                 }
               }

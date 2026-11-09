@@ -319,4 +319,48 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     expect(state.players[0].publicVictoryPoints).toBe(4);
     expect(state.players[0].totalVictoryPoints).toBe(4);
   });
+
+  it('respects official variants: static ships, pacific mode, and progressive discovery', () => {
+    let state = createInitialGameState('ROOM_VARIANTS', {
+      id: 'P1',
+      name: 'Explorador',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state = applyGameAction(state, 'P1', {
+      type: 'UPDATE_CONFIG',
+      config: {
+        expansionModule: 'SEAFARERS',
+        seafarersMoveShipAllowed: false,
+        seafarersPirateMode: 'PACIFIC_NO_PIRATE',
+        seafarersDiscoveryVPMode: 'PROGRESSIVE',
+      },
+    }).state;
+
+    expect(state.config.seafarersMoveShipAllowed).toBe(false);
+    expect(state.config.seafarersPirateMode).toBe('PACIFIC_NO_PIRATE');
+    expect(state.config.seafarersDiscoveryVPMode).toBe('PROGRESSIVE');
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    state.turn.hasRolledDice = true;
+
+    // Moving ship should be rejected when seafarersMoveShipAllowed is false
+    const moveRes = applyGameAction(state, 'P1', {
+      type: 'MOVE_SHIP',
+      fromEdgeId: Object.keys(state.board.edges)[0],
+      toEdgeId: Object.keys(state.board.edges)[1],
+    });
+    expect(moveRes.error).toBe('El movimiento de barcos está desactivado en esta partida.');
+
+    // Moving pirate should be rejected in pacific mode
+    state.phase = 'ROBBER_MOVE';
+    const seaHex = Object.values(state.board.hexes).find((h) => h.terrain === 'SEA')!;
+    const pirateRes = applyGameAction(state, 'P1', {
+      type: 'MOVE_PIRATE',
+      hexId: seaHex.id,
+    });
+    expect(pirateRes.error).toBe('El Barco Pirata está desactivado en esta partida.');
+  });
 });
