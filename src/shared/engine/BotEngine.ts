@@ -21,6 +21,7 @@ import {
   getValidCityVertices,
   getValidRoadEdges,
   getValidSettlementVertices,
+  getValidShipEdges,
   hasResources,
 } from './RulesEngine';
 
@@ -57,6 +58,22 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
 
   const difficulty: BotDifficulty = bot.botDifficulty || state.config.defaultBotDifficulty || 'MEDIUM';
 
+  // 0. PENDING GOLD CLAIMS
+  if (state.turn.pendingGoldClaims && state.turn.pendingGoldClaims.length > 0) {
+    const botClaim = state.turn.pendingGoldClaims.find((c) => c.playerId === bot.id && c.amount > 0);
+    if (botClaim) {
+      const neededRes: ResourceType =
+        (['ORE', 'WHEAT', 'SHEEP', 'WOOD', 'BRICK'] as ResourceType[]).find(
+          (r) => state.bank[r] > 0
+        ) || 'WOOD';
+      const next = applyGameAction(state, bot.id, {
+        type: 'CLAIM_GOLD_RESOURCE',
+        resource: neededRes,
+      }).state;
+      return withBotNotice(next, `${bot.name} extrae ${neededRes} del Río de Oro`);
+    }
+  }
+
   // 1. ORDER ROLL PHASE
   if (state.phase === 'ORDER_ROLL') {
     if (!state.turn.orderRolls?.[bot.id]) {
@@ -80,13 +97,24 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
 
   if (state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2') {
     const validRoads = getValidRoadEdges(state, bot.id);
-    if (validRoads.length === 0) return state;
-    const chosenRoad = pickBestRoadEdge(state, validRoads, difficulty, bot.id);
-    const next = applyGameAction(state, bot.id, {
-      type: 'PLACE_ROAD',
-      edgeId: chosenRoad,
-    }).state;
-    return withBotNotice(next, `${bot.name} coloca una Carretera inicial`);
+    const validShips = getValidShipEdges(state, bot.id);
+
+    if (validRoads.length > 0 && (validShips.length === 0 || Math.random() < 0.55)) {
+      const chosenRoad = pickBestRoadEdge(state, validRoads, difficulty, bot.id);
+      const next = applyGameAction(state, bot.id, {
+        type: 'PLACE_ROAD',
+        edgeId: chosenRoad,
+      }).state;
+      return withBotNotice(next, `${bot.name} coloca una Carretera inicial`);
+    } else if (validShips.length > 0) {
+      const chosenShip = validShips[Math.floor(Math.random() * validShips.length)];
+      const next = applyGameAction(state, bot.id, {
+        type: 'PLACE_SHIP',
+        edgeId: chosenShip,
+      }).state;
+      return withBotNotice(next, `${bot.name} bota un Barco inicial`);
+    }
+    return state;
   }
 
   // 3. MANDATORY DICE ROLL PHASE
@@ -332,6 +360,22 @@ export function executeBotStep(state: GameState, botPlayerId: string): GameState
         edgeId: chosenRoad,
       }).state;
       return withBotNotice(next, `${activeBot.name} construye una Carretera`);
+    }
+
+    // F2. Build Ship if Seafarers and bot has resources (costs 1 WOOD, 1 SHEEP)
+    const validShips = getValidShipEdges(currentState, activeBot.id);
+    if (
+      validShips.length > 0 &&
+      (activeBot.shipsLeft ?? 0) > 0 &&
+      hasResources(activeBot.resources, BUILDING_COSTS.SHIP) &&
+      canSpendOrBuildThisTurn(currentState, activeBot.id, true).allowed
+    ) {
+      const chosenShip = validShips[Math.floor(Math.random() * validShips.length)];
+      const next = applyGameAction(currentState, activeBot.id, {
+        type: 'PLACE_SHIP',
+        edgeId: chosenShip,
+      }).state;
+      return withBotNotice(next, `${activeBot.name} bota un Barco`);
     }
 
     // G. Buy Development Card (costs 1 SHEEP, 1 WHEAT, 1 ORE)

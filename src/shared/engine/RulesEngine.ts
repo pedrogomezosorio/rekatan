@@ -19,6 +19,7 @@ import {
   GameLogEntry,
   GamePhase,
   GameState,
+  Hex,
   PlayerColor,
   PlayerState,
   PortInfo,
@@ -113,6 +114,9 @@ export function createInitialGameState(
     settlementsLeft: 5,
     citiesLeft: 4,
     roadsLeft: 15,
+    shipsLeft: 15,
+    hasMovedShipThisTurn: false,
+    discoveryVictoryPoints: 0,
     publicVictoryPoints: 0,
     totalVictoryPoints: 0,
     mustDiscardCount: 0,
@@ -222,6 +226,9 @@ export function recalculateVictoryPoints(state: GameState): void {
     }
     if (state.largestArmyPlayerId === p.id) {
       publicVP += 2;
+    }
+    if (p.discoveryVictoryPoints) {
+      publicVP += p.discoveryVictoryPoints;
     }
 
     const hiddenVP = p.devCards.filter((c) => c.type === 'VICTORY_POINT').length;
@@ -455,20 +462,20 @@ export function canBuildSettlement(
     }
   }
 
-  // Strictly verify connection to at least one road owned by `playerId`
+  // Strictly verify connection to at least one road or ship owned by `playerId`
   // by checking both adjacentEdgeIds and edge endpoint vertices directly.
-  const connectedToOwnRoad = Object.values(state.board.edges).some(
+  const connectedToOwnRoadOrShip = Object.values(state.board.edges).some(
     (edge) =>
-      edge.building === 'ROAD' &&
+      (edge.building === 'ROAD' || edge.building === 'SHIP') &&
       edge.playerId === playerId &&
       (edge.vertexIds[0] === vertexId || edge.vertexIds[1] === vertexId)
   );
 
-  // CRITICAL RULE: Except in initial setup, a settlement MUST connect to one of the player's own roads!
-  if (!isSetup && !connectedToOwnRoad) {
+  // CRITICAL RULE: Except in initial setup, a settlement MUST connect to one of the player's own roads or ships!
+  if (!isSetup && !connectedToOwnRoadOrShip) {
     return {
       allowed: false,
-      reason: 'Solo puedes construir un poblado en un vértice conectado a una de tus propias carreteras.',
+      reason: 'Solo puedes construir un poblado en un vértice conectado a una de tus propias carreteras o barcos.',
     };
   }
 
@@ -490,10 +497,10 @@ export function canBuildSettlement(
         allowed: false,
         reason: 'Regla de distancia: no puedes construir a menos de 2 caminos de otro poblado o ciudad.',
       };
-    } else if (!connectedToOwnRoad) {
+    } else if (!connectedToOwnRoadOrShip) {
       return {
         allowed: false,
-        reason: 'Con distancia mínima de 1 arista debes conectar mediante carretera propia.',
+        reason: 'Con distancia mínima de 1 arista debes conectar mediante carretera o barco propio.',
       };
     }
   }
@@ -602,6 +609,276 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
 }
 
 /**
+ * Validates whether `playerId` can build a Ship on `edgeId`.
+ */
+export function canBuildShip(
+  state: GameState,
+  playerId: string,
+  edgeId: string,
+  ignoreResources: boolean = false
+): { allowed: boolean; reason?: string } {
+  const isSetup =
+    state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
+  const isMain = state.phase === 'MAIN_PHASE';
+
+  if (!isSetup && !isMain) {
+    return { allowed: false, reason: 'Fase inválida para construir un barco.' };
+  }
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || (player.shipsLeft ?? 15) <= 0) {
+    return { allowed: false, reason: 'No te quedan barcos disponibles (límite de 15).' };
+  }
+
+  const edge = state.board.edges[edgeId];
+  if (!edge || edge.building !== null) {
+    return { allowed: false, reason: 'Camino marítimo no válido u ocupado.' };
+  }
+
+  // Ship must be on sea or coastal edge (cannot be built on pure inland land-land edge)
+  const isWaterOrCoastal = !edge.isLand || edge.isCoastal;
+  if (!isWaterOrCoastal) {
+    return { allowed: false, reason: 'Los barcos solo pueden colocarse en el mar o en la costa.' };
+  }
+
+  // Pirate blocks building on adjacent edges
+  if (state.board.pirateHexId && edge.hexIds.includes(state.board.pirateHexId)) {
+    return { allowed: false, reason: 'El Pirata bloquea la construcción de barcos en este hexágono.' };
+  }
+
+  if (isSetup) {
+    const lastVertexId = state.turn.lastPlacedSetupSettlementId;
+    if (!lastVertexId) return { allowed: false, reason: 'No hay poblado inicial colocado.' };
+    if (!edge.vertexIds.includes(lastVertexId)) {
+      return { allowed: false, reason: 'El barco inicial debe conectarse al último poblado costero colocado.' };
+    }
+    return { allowed: true };
+  }
+
+  if (isMain && !ignoreResources) {
+    const check = canSpendOrBuildThisTurn(state, playerId, true);
+    if (!check.allowed) return check;
+    if (!hasResources(player.resources, BUILDING_COSTS.SHIP)) {
+      return {
+        allowed: false,
+        reason: 'No tienes los recursos necesarios (1 Madera, 1 Oveja).',
+      };
+    }
+  }
+
+  // In MAIN_PHASE: must connect to player's network:
+  // a) Connects to player's settlement or city at one endpoint
+  // b) OR connects to another ship owned by player, without an opponent building blocking the vertex
+  // Note: A ship CANNOT branch directly from a road without a settlement/city!
+  const connects = edge.vertexIds.some((vId) => {
+    const v = state.board.vertices[vId];
+    if (!v) return false;
+    if (v.playerId === playerId && v.building !== null) return true;
+    if (v.playerId !== null && v.playerId !== playerId && v.building !== null) {
+      return false; // Opponent building blocks continuation
+    }
+    return v.adjacentEdgeIds.some((adjEdgeId) => {
+      if (adjEdgeId === edge.id) return false;
+      const adjEdge = state.board.edges[adjEdgeId];
+      return adjEdge && adjEdge.playerId === playerId && adjEdge.building === 'SHIP';
+    });
+  });
+
+  if (!connects) {
+    return {
+      allowed: false,
+      reason: 'El barco debe conectarse a un poblado/ciudad propio o a otra línea de barcos propia.',
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Returns all valid edge IDs where `playerId` can currently build a Ship.
+ */
+export function getValidShipEdges(state: GameState, playerId: string): string[] {
+  if (state.turn.activePlayerId !== playerId) return [];
+
+  const isSetup = state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
+  const isMain = state.phase === 'MAIN_PHASE';
+  if (!isSetup && !isMain) return [];
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || (player.shipsLeft ?? 15) <= 0) return [];
+
+  if (isMain) {
+    const check = canSpendOrBuildThisTurn(state, playerId, true);
+    if (!check.allowed) return [];
+    if (!hasResources(player.resources, BUILDING_COSTS.SHIP)) return [];
+  }
+
+  const valid: string[] = [];
+  for (const edge of Object.values(state.board.edges)) {
+    if (canBuildShip(state, playerId, edge.id, true).allowed) {
+      valid.push(edge.id);
+    }
+  }
+  return valid;
+}
+
+/**
+ * Returns all potential ship edges regardless of current player resources.
+ */
+export function getPotentialShipEdges(state: GameState, playerId: string): string[] {
+  const valid: string[] = [];
+  for (const edge of Object.values(state.board.edges)) {
+    if (canBuildShip(state, playerId, edge.id, true).allowed) {
+      valid.push(edge.id);
+    }
+  }
+  return valid;
+}
+
+/**
+ * Returns all edge IDs with an "open" ship belonging to `playerId` that can be moved.
+ */
+export function getMovableShipEdges(state: GameState, playerId: string): string[] {
+  if (state.phase !== 'MAIN_PHASE' || state.turn.activePlayerId !== playerId) {
+    return [];
+  }
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player || player.hasMovedShipThisTurn) return [];
+
+  const movableEdges: string[] = [];
+
+  for (const edge of Object.values(state.board.edges)) {
+    if (edge.building !== 'SHIP' || edge.playerId !== playerId) continue;
+
+    // Pirate blocks moving adjacent ships!
+    if (state.board.pirateHexId && edge.hexIds.includes(state.board.pirateHexId)) {
+      continue;
+    }
+
+    // A ship is open if at least one of its endpoint vertices has NO other ship of the player
+    // AND NO settlement/city of the player.
+    const [v1Id, v2Id] = edge.vertexIds;
+    const v1 = state.board.vertices[v1Id];
+    const v2 = state.board.vertices[v2Id];
+
+    const v1HasOtherShipOrBuilding =
+      (v1?.playerId === playerId && v1?.building !== null) ||
+      (v1?.adjacentEdgeIds.some(
+        (adjId) =>
+          adjId !== edge.id &&
+          state.board.edges[adjId]?.building === 'SHIP' &&
+          state.board.edges[adjId]?.playerId === playerId
+      ) ?? false);
+
+    const v2HasOtherShipOrBuilding =
+      (v2?.playerId === playerId && v2?.building !== null) ||
+      (v2?.adjacentEdgeIds.some(
+        (adjId) =>
+          adjId !== edge.id &&
+          state.board.edges[adjId]?.building === 'SHIP' &&
+          state.board.edges[adjId]?.playerId === playerId
+      ) ?? false);
+
+    // If either v1 or v2 has no other ship/building, this ship is at the end of an open line!
+    if (!v1HasOtherShipOrBuilding || !v2HasOtherShipOrBuilding) {
+      movableEdges.push(edge.id);
+    }
+  }
+
+  return movableEdges;
+}
+
+/**
+ * Returns valid destinations when moving an open ship from `fromEdgeId`.
+ */
+export function getValidShipMoveDestinations(
+  state: GameState,
+  playerId: string,
+  fromEdgeId: string
+): string[] {
+  const fromEdge = state.board.edges[fromEdgeId];
+  if (!fromEdge || fromEdge.building !== 'SHIP' || fromEdge.playerId !== playerId) {
+    return [];
+  }
+
+  // Temporarily remove ship to test valid placement destinations (ignoring resource costs)
+  fromEdge.building = null;
+  fromEdge.playerId = null;
+
+  const validDestinations: string[] = [];
+  for (const edge of Object.values(state.board.edges)) {
+    if (edge.id !== fromEdgeId && canBuildShip(state, playerId, edge.id, true).allowed) {
+      validDestinations.push(edge.id);
+    }
+  }
+
+  // Restore ship
+  fromEdge.building = 'SHIP';
+  fromEdge.playerId = playerId;
+
+  return validDestinations;
+}
+
+/**
+ * Maps each land hex to an Island ID (connected component of non-SEA hexes).
+ */
+export function computeIslandComponents(board: BoardState): Map<string, number> {
+  const hexIslandMap = new Map<string, number>();
+  const landHexes = Object.values(board.hexes).filter((h) => h.terrain !== 'SEA');
+  let currentIslandId = 0;
+
+  const visited = new Set<string>();
+
+  for (const startHex of landHexes) {
+    if (visited.has(startHex.id)) continue;
+
+    const queue: Hex[] = [startHex];
+    visited.add(startHex.id);
+    hexIslandMap.set(startHex.id, currentIslandId);
+
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      // Find adjacent land hexes (distance 1 in hex grid)
+      for (const other of landHexes) {
+        if (visited.has(other.id)) continue;
+        const dist =
+          (Math.abs(curr.q - other.q) +
+            Math.abs(curr.r - other.r) +
+            Math.abs(curr.s - other.s)) /
+          2;
+        if (dist === 1) {
+          visited.add(other.id);
+          hexIslandMap.set(other.id, currentIslandId);
+          queue.push(other);
+        }
+      }
+    }
+    currentIslandId++;
+  }
+
+  return hexIslandMap;
+}
+
+/**
+ * Returns the Island ID of a given vertex (based on touching land hexes), or null if purely sea.
+ */
+export function getVertexIslandId(
+  board: BoardState,
+  vertexId: string,
+  islandMap?: Map<string, number>
+): number | null {
+  const vertex = board.vertices[vertexId];
+  if (!vertex) return null;
+  const map = islandMap || computeIslandComponents(board);
+  for (const hId of vertex.hexIds) {
+    if (map.has(hId)) {
+      return map.get(hId)!;
+    }
+  }
+  return null;
+}
+
+/**
  * Returns all valid vertex IDs where `playerId` can upgrade a Settlement to a City.
  */
 export function getValidCityVertices(state: GameState, playerId: string): string[] {
@@ -700,6 +977,11 @@ function advanceToNextTurn(state: GameState): void {
   state.turn.freeRoadsRemaining = 0;
   state.turn.botStatusMessage = null;
   state.turn.botProposedTradeThisTurn = false;
+  state.turn.pendingGoldClaims = [];
+  state.turn.robberOrPirateMode = null;
+  for (const p of state.players) {
+    p.hasMovedShipThisTurn = false;
+  }
   state.phase = 'WAITING_FOR_DICE';
   refreshTurnDeadline(state);
 
@@ -777,6 +1059,51 @@ export function applyGameAction(
         state.config.maxPlayers = Math.max(4, state.players.length);
       }
 
+      // If expansionModule or seafarersScenario changed, handle Seafarers board setup
+      if (
+        action.config.expansionModule !== undefined ||
+        action.config.seafarersScenario !== undefined
+      ) {
+        if (action.config.expansionModule === 'SEAFARERS') {
+          state.config.seafarersScenario =
+            action.config.seafarersScenario ||
+            state.config.seafarersScenario ||
+            'HEADING_FOR_NEW_SHORES';
+          state.config.victoryPointsTarget = 13;
+          state.config.desertInCenter = false;
+          state.board = generateBoard(
+            state.config.boardMode,
+            state.config.preventAdjacentRedNumbers,
+            DEFAULT_HEX_SIZE,
+            false,
+            state.config.seafarersScenario
+          );
+        } else if (action.config.expansionModule === 'BASE') {
+          state.config.victoryPointsTarget = 10;
+          state.config.desertInCenter = true;
+          state.board = generateBoard(
+            state.config.boardMode,
+            state.config.preventAdjacentRedNumbers,
+            DEFAULT_HEX_SIZE,
+            true
+          );
+        } else if (
+          state.config.expansionModule === 'SEAFARERS' &&
+          action.config.seafarersScenario
+        ) {
+          state.config.seafarersScenario = action.config.seafarersScenario;
+          state.board = generateBoard(
+            state.config.boardMode,
+            state.config.preventAdjacentRedNumbers,
+            DEFAULT_HEX_SIZE,
+            false,
+            action.config.seafarersScenario
+          );
+        }
+      }
+
+      const isSeaf = state.config.expansionModule === 'SEAFARERS';
+
       // If boardMode, preventAdjacentRedNumbers, or desertInCenter changed, update or regenerate board
       const desertChanged =
         action.config.desertInCenter !== undefined &&
@@ -788,28 +1115,30 @@ export function applyGameAction(
         action.config.boardMode !== undefined &&
         action.config.boardMode !== prevBoardMode;
 
-      if (modeChanged && action.config.boardMode !== 'CUSTOM') {
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE,
-          state.config.desertInCenter
-        );
-      } else if (redRuleChanged) {
-        if (state.config.boardMode === 'CUSTOM') {
-          state.config.boardMode = state.players.length > 4 ? 'EXPANSION_5_6' : 'STANDARD_3_4';
+      if (!isSeaf) {
+        if (modeChanged && action.config.boardMode !== 'CUSTOM') {
+          state.board = generateBoard(
+            state.config.boardMode,
+            state.config.preventAdjacentRedNumbers,
+            DEFAULT_HEX_SIZE,
+            state.config.desertInCenter
+          );
+        } else if (redRuleChanged) {
+          if (state.config.boardMode === 'CUSTOM') {
+            state.config.boardMode = state.players.length > 4 ? 'EXPANSION_5_6' : 'STANDARD_3_4';
+          }
+          state.board = generateBoard(
+            state.config.boardMode,
+            state.config.preventAdjacentRedNumbers,
+            DEFAULT_HEX_SIZE,
+            state.config.desertInCenter
+          );
         }
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE,
-          state.config.desertInCenter
-        );
-      }
 
-      // Reorganize existing board in-place whenever desertInCenter is clicked/configured
-      if (action.config.desertInCenter !== undefined) {
-        state.board = enforceDesertInCenterRule(state.board, action.config.desertInCenter);
+        // Reorganize existing board in-place whenever desertInCenter is clicked/configured
+        if (action.config.desertInCenter !== undefined) {
+          state.board = enforceDesertInCenterRule(state.board, action.config.desertInCenter);
+        }
       }
 
       addLog(state, `${actor.name} actualizó la configuración de la sala.`, 'SYSTEM', actor.id);
@@ -831,12 +1160,21 @@ export function applyGameAction(
       const desertCenter =
         action.desertInCenter ?? state.config.desertInCenter;
 
-      state.board = generateBoard(modeToGenerate, preventRed, DEFAULT_HEX_SIZE, desertCenter);
-      state.board = enforceDesertInCenterRule(state.board, desertCenter);
+      const isSeaf = state.config.expansionModule === 'SEAFARERS';
+      state.board = generateBoard(
+        modeToGenerate,
+        preventRed,
+        DEFAULT_HEX_SIZE,
+        isSeaf ? false : desertCenter,
+        isSeaf ? (state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') : undefined
+      );
+      if (!isSeaf) {
+        state.board = enforceDesertInCenterRule(state.board, desertCenter);
+      }
       if (action.mode) {
         state.config.boardMode = action.mode;
       }
-      if (action.desertInCenter !== undefined) {
+      if (action.desertInCenter !== undefined && !isSeaf) {
         state.config.desertInCenter = action.desertInCenter;
       }
       addLog(state, `${actor.name} generó un nuevo mapa aleatorio.`, 'SYSTEM', actor.id);
@@ -990,6 +1328,9 @@ export function applyGameAction(
         settlementsLeft: 5,
         citiesLeft: 4,
         roadsLeft: 15,
+        shipsLeft: 15,
+        hasMovedShipThisTurn: false,
+        discoveryVictoryPoints: 0,
         publicVictoryPoints: 0,
         totalVictoryPoints: 0,
         mustDiscardCount: 0,
@@ -1036,6 +1377,9 @@ export function applyGameAction(
           settlementsLeft: 5,
           citiesLeft: 4,
           roadsLeft: 15,
+          shipsLeft: 15,
+          hasMovedShipThisTurn: false,
+          discoveryVictoryPoints: 0,
           publicVictoryPoints: 0,
           totalVictoryPoints: 0,
           mustDiscardCount: 0,
@@ -1100,9 +1444,15 @@ export function applyGameAction(
         ? { WOOD: 24, BRICK: 24, SHEEP: 24, WHEAT: 24, ORE: 24 }
         : { WOOD: 19, BRICK: 19, SHEEP: 19, WHEAT: 19, ORE: 19 };
 
-      // Strictly ensure Desert in center and initial Robber placement if desertInCenter option is active
-      if (state.config.desertInCenter !== false) {
+      // Strictly ensure Desert in center and initial Robber placement if desertInCenter option is active (non-Seafarers only)
+      if (state.config.expansionModule !== 'SEAFARERS' && state.config.desertInCenter !== false) {
         state.board = enforceDesertInCenterRule(state.board, true);
+      }
+
+      for (const p of state.players) {
+        p.shipsLeft = state.config.expansionModule === 'SEAFARERS' ? 15 : undefined;
+        p.hasMovedShipThisTurn = false;
+        p.discoveryVictoryPoints = 0;
       }
 
       const playerIds = state.players.map((p) => p.id);
@@ -1292,7 +1642,8 @@ export function applyGameAction(
               hex &&
               hex.terrain !== 'DESERT' &&
               hex.terrain !== 'SEA' &&
-              state.bank[hex.terrain] > 0
+              hex.terrain !== 'GOLD' &&
+              state.bank[hex.terrain as ResourceType] > 0
             ) {
               const res = hex.terrain as ResourceType;
               state.bank[res] -= 1;
@@ -1346,6 +1697,38 @@ export function applyGameAction(
           },
         };
         addLog(state, `${actor.name} construyó un nuevo Poblado.`, 'BUILD', actor.id);
+
+        // Seafarers Discovery Victory Points: award +2 VP if this is the player's first settlement on a foreign island
+        if (state.config.expansionModule === 'SEAFARERS' || state.board.pirateHexId) {
+          const islandMap = computeIslandComponents(state.board);
+          const targetIsland = getVertexIslandId(state.board, vertex.id, islandMap);
+          if (targetIsland !== null) {
+            const hadPriorSettlementOnIsland = Object.values(state.board.vertices).some(
+              (otherV) =>
+                otherV.id !== vertex.id &&
+                otherV.playerId === actor.id &&
+                otherV.building !== null &&
+                getVertexIslandId(state.board, otherV.id, islandMap) === targetIsland
+            );
+
+            const settlementsOnOtherIslands = Object.values(state.board.vertices).filter(
+              (otherV) =>
+                otherV.id !== vertex.id &&
+                otherV.playerId === actor.id &&
+                otherV.building !== null
+            ).length;
+
+            if (!hadPriorSettlementOnIsland && settlementsOnOtherIslands > 0) {
+              actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + 2;
+              addLog(
+                state,
+                `¡Descubrimiento marítimo! ${actor.name} colonizó una nueva isla exterior y obtuvo +2 Puntos de Victoria.`,
+                'AWARD',
+                actor.id
+              );
+            }
+          }
+        }
       }
 
       // Placing a settlement can break an opponent's Longest Road!
@@ -1477,6 +1860,152 @@ export function applyGameAction(
       }
 
       recalculateVictoryPoints(state);
+      return { state };
+    }
+
+    case 'PLACE_SHIP': {
+      const validShips = getValidShipEdges(state, playerId);
+      if (!validShips.includes(action.edgeId)) {
+        return { state: prevState, error: 'No puedes construir un barco en ese camino marítimo.' };
+      }
+
+      const edge = state.board.edges[action.edgeId];
+      edge.building = 'SHIP';
+      edge.playerId = playerId;
+      actor.shipsLeft = Math.max(0, (actor.shipsLeft ?? 15) - 1);
+
+      const prevLongestId = state.longestRoadPlayerId;
+      state.longestRoadPlayerId = updateLongestRoadAward(
+        state.board,
+        state.players,
+        state.longestRoadPlayerId
+      );
+      if (state.longestRoadPlayerId && state.longestRoadPlayerId !== prevLongestId) {
+        const holder = state.players.find((p) => p.id === state.longestRoadPlayerId);
+        if (holder) {
+          addLog(
+            state,
+            `${holder.name} obtiene la Gran Ruta Comercial (${holder.longestRoadLength} rutas/barcos, +2 PV).`,
+            'AWARD',
+            holder.id
+          );
+        }
+      }
+
+      if (state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2') {
+        state.turn.lastPlacedSetupSettlementId = null;
+        state.turn.setupStepIndex += 1;
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'SHIP',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
+        const totalSetupSteps = state.turn.setupOrder.length;
+        const playerCount = state.players.length;
+
+        if (state.turn.setupStepIndex < totalSetupSteps) {
+          const nextPlayerId = state.turn.setupOrder[state.turn.setupStepIndex];
+          state.turn.activePlayerId = nextPlayerId;
+          state.phase =
+            state.turn.setupStepIndex < playerCount
+              ? 'SETUP_SETTLEMENT_1'
+              : 'SETUP_SETTLEMENT_2';
+          refreshTurnDeadline(state);
+
+          const nextPlayer = state.players.find((p) => p.id === nextPlayerId);
+          addLog(
+            state,
+            `${actor.name} botó su barco inicial. Turno de colocación para ${nextPlayer?.name}.`,
+            'BUILD',
+            actor.id
+          );
+        } else {
+          // Snake Draft finished! Start Turn 1 with first player in strict WAITING_FOR_DICE phase
+          const firstPlayer = state.players[0];
+          state.turn.turnNumber = 1;
+          state.turn.activePlayerId = firstPlayer.id;
+          state.turn.diceRoll = null;
+          state.turn.hasRolledDice = false;
+          state.turn.tradesAndBurnsThisTurn = 0;
+          state.turn.botStatusMessage = null;
+          state.turn.botProposedTradeThisTurn = false;
+          state.phase = 'WAITING_FOR_DICE';
+          refreshTurnDeadline(state);
+
+          addLog(
+            state,
+            `Fase inicial completada. Comienza el Turno #1 de ${firstPlayer.name}. Debe lanzar los dados.`,
+            'SYSTEM',
+            firstPlayer.id
+          );
+        }
+      } else if (state.phase === 'MAIN_PHASE') {
+        deductResources(actor.resources, state.bank, BUILDING_COSTS.SHIP);
+        state.turn.infrastructureBuiltThisTurn += 1;
+        state.turn.hasSpentOrBuiltThisTurn = true;
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'SHIP',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
+        addLog(state, `${actor.name} botó un nuevo Barco.`, 'BUILD', actor.id);
+      }
+
+      recalculateVictoryPoints(state);
+      return { state };
+    }
+
+    case 'MOVE_SHIP': {
+      if (state.phase !== 'MAIN_PHASE' || state.turn.activePlayerId !== playerId) {
+        return { state: prevState, error: 'Solo puedes mover un barco en tu fase principal.' };
+      }
+      if (actor.hasMovedShipThisTurn) {
+        return { state: prevState, error: 'Solo puedes mover un barco por turno.' };
+      }
+      const movableEdges = getMovableShipEdges(state, playerId);
+      if (!movableEdges.includes(action.fromEdgeId)) {
+        return { state: prevState, error: 'Ese barco no está en el extremo de una ruta abierta o está bloqueado.' };
+      }
+      const validDestinations = getValidShipMoveDestinations(state, playerId, action.fromEdgeId);
+      if (!validDestinations.includes(action.toEdgeId)) {
+        return { state: prevState, error: 'Destino no válido para reubicar el barco.' };
+      }
+
+      const fromEdge = state.board.edges[action.fromEdgeId];
+      const toEdge = state.board.edges[action.toEdgeId];
+
+      fromEdge.building = null;
+      fromEdge.playerId = null;
+
+      toEdge.building = 'SHIP';
+      toEdge.playerId = playerId;
+
+      actor.hasMovedShipThisTurn = true;
+      state.longestRoadPlayerId = updateLongestRoadAward(
+        state.board,
+        state.players,
+        state.longestRoadPlayerId
+      );
+      recalculateVictoryPoints(state);
+
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'BUILDING_PLACED',
+        builtItem: {
+          type: 'SHIP',
+          edgeId: toEdge.id,
+          playerId: actor.id,
+        },
+      };
+      addLog(state, `${actor.name} zarpó y reubicó un Barco en su ruta.`, 'BUILD', actor.id);
       return { state };
     }
 
@@ -1626,6 +2155,56 @@ export function applyGameAction(
         const summaryPerPlayer = new Map<string, string[]>();
 
         for (const hex of producingHexes) {
+          if (hex.terrain === 'GOLD') {
+            for (const v of Object.values(state.board.vertices)) {
+              if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
+                const owner = state.players.find((p) => p.id === v.playerId);
+                if (!owner || owner.status === 'ABANDONED') continue;
+                const wantedAmount = v.building === 'CITY' ? 2 : 1;
+
+                if (owner.isBot) {
+                  for (let i = 0; i < wantedAmount; i++) {
+                    const chosenRes: ResourceType =
+                      (['ORE', 'WHEAT', 'SHEEP', 'WOOD', 'BRICK'] as ResourceType[]).find(
+                        (r) => state.bank[r] > 0
+                      ) || 'WOOD';
+                    if (state.bank[chosenRes] > 0) {
+                      state.bank[chosenRes]--;
+                      owner.resources[chosenRes]++;
+                      flights.push({
+                        id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}_gold_${i}`,
+                        hexId: hex.id,
+                        playerId: owner.id,
+                        resource: chosenRes,
+                        amount: 1,
+                      });
+                      const list = summaryPerPlayer.get(owner.name) || [];
+                      list.push(`+1 ${RESOURCE_META[chosenRes].name} (Oro)`);
+                      summaryPerPlayer.set(owner.name, list);
+                    }
+                  }
+                } else {
+                  if (!state.turn.pendingGoldClaims) {
+                    state.turn.pendingGoldClaims = [];
+                  }
+                  const existingClaim = state.turn.pendingGoldClaims.find((c) => c.playerId === owner.id);
+                  if (existingClaim) {
+                    existingClaim.amount += wantedAmount;
+                  } else {
+                    state.turn.pendingGoldClaims.push({
+                      playerId: owner.id,
+                      amount: wantedAmount,
+                    });
+                  }
+                  const list = summaryPerPlayer.get(owner.name) || [];
+                  list.push(`+${wantedAmount} Oro a elegir`);
+                  summaryPerPlayer.set(owner.name, list);
+                }
+              }
+            }
+            continue;
+          }
+
           const res = hex.terrain as ResourceType;
           // Find all vertices touching this hex that have a building
           for (const v of Object.values(state.board.vertices)) {
@@ -1878,6 +2457,142 @@ export function applyGameAction(
         actor.id
       );
       refreshTurnDeadline(state);
+      return { state };
+    }
+
+    case 'MOVE_PIRATE': {
+      if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
+        return { state: prevState, error: 'No puedes mover el Barco Pirata en este momento.' };
+      }
+      const targetHex = state.board.hexes[action.hexId];
+      if (!targetHex || targetHex.terrain !== 'SEA') {
+        return { state: prevState, error: 'El Barco Pirata solo puede colocarse en un hexágono de mar.' };
+      }
+
+      const keptSameHex = action.hexId === state.board.pirateHexId;
+      state.board.pirateHexId = targetHex.id;
+
+      // Find all opponent players with a ship bordering targetHex
+      const candidateSet = new Set<string>();
+      for (const edge of Object.values(state.board.edges)) {
+        if (
+          edge.building === 'SHIP' &&
+          edge.playerId &&
+          edge.playerId !== playerId &&
+          edge.hexIds.includes(targetHex.id)
+        ) {
+          const victim = state.players.find((p) => p.id === edge.playerId);
+          if (victim && countTotalResources(victim.resources) > 0) {
+            candidateSet.add(victim.id);
+          }
+        }
+      }
+
+      const candidates = Array.from(candidateSet);
+
+      if (candidates.length === 0) {
+        state.robberStealCandidates = [];
+        state.phase = 'MAIN_PHASE';
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'ROBBER_MOVED',
+          robberTargetHexId: targetHex.id,
+          robberAffectedPlayerIds: [],
+          robberMovedByPlayerId: actor.id,
+        };
+        addLog(
+          state,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Barco Pirata en' : 'movió el Barco Pirata al'} Mar (sin barcos rivales con cartas para saquear).`,
+          'ROBBER',
+          actor.id
+        );
+        refreshTurnDeadline(state);
+        return { state };
+      } else if (candidates.length === 1) {
+        const victim = state.players.find((p) => p.id === candidates[0])!;
+        const stolenRes = stealRandomCard(victim, actor);
+        state.robberStealCandidates = [];
+        state.phase = 'MAIN_PHASE';
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'CARD_STOLEN',
+          robberTargetHexId: targetHex.id,
+          robberAffectedPlayerIds: [victim.id],
+          robberMovedByPlayerId: actor.id,
+          steal: stolenRes
+            ? {
+                id: `STEAL_${nextNonce}`,
+                thiefId: actor.id,
+                victimId: victim.id,
+                resource: stolenRes,
+                hexId: targetHex.id,
+              }
+            : undefined,
+        };
+        addLog(
+          state,
+          `${actor.name} abordó a ${victim.name} con el Barco Pirata y saqueó 1 ${
+            stolenRes ? RESOURCE_META[stolenRes].name : 'carta'
+          }.`,
+          'ROBBER',
+          actor.id
+        );
+        refreshTurnDeadline(state);
+        return { state };
+      } else {
+        state.robberStealCandidates = candidates;
+        state.phase = 'ROBBER_STEAL';
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'ROBBER_MOVED',
+          robberTargetHexId: targetHex.id,
+          robberAffectedPlayerIds: candidates,
+          robberMovedByPlayerId: actor.id,
+        };
+        addLog(
+          state,
+          `${actor.name} movió el Barco Pirata al Mar. Debe elegir a qué flota rival saquearle 1 carta.`,
+          'ROBBER',
+          actor.id
+        );
+        refreshTurnDeadline(state);
+        return { state };
+      }
+    }
+
+    case 'SET_ROBBER_OR_PIRATE_MODE': {
+      if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
+        return { state: prevState, error: 'Acción no válida en esta fase.' };
+      }
+      state.turn.robberOrPirateMode = action.mode;
+      return { state };
+    }
+
+    case 'CLAIM_GOLD_RESOURCE': {
+      if (!state.turn.pendingGoldClaims || state.turn.pendingGoldClaims.length === 0) {
+        return { state: prevState, error: 'No hay recursos de Río de Oro pendientes de reclamar.' };
+      }
+      const claimIdx = state.turn.pendingGoldClaims.findIndex((c) => c.playerId === playerId);
+      if (claimIdx === -1 || state.turn.pendingGoldClaims[claimIdx].amount <= 0) {
+        return { state: prevState, error: 'No tienes cosechas de Río de Oro pendientes.' };
+      }
+      if (state.bank[action.resource] <= 0) {
+        return { state: prevState, error: `No quedan cartas de ${RESOURCE_META[action.resource].name} en la banca.` };
+      }
+
+      state.bank[action.resource]--;
+      actor.resources[action.resource]++;
+      state.turn.pendingGoldClaims[claimIdx].amount--;
+      if (state.turn.pendingGoldClaims[claimIdx].amount <= 0) {
+        state.turn.pendingGoldClaims.splice(claimIdx, 1);
+      }
+
+      addLog(
+        state,
+        `${actor.name} extrajo 1 ${RESOURCE_META[action.resource].name} del Río de Oro.`,
+        'TRADE',
+        actor.id
+      );
       return { state };
     }
 

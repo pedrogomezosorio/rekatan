@@ -103,6 +103,31 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               height={hexSize * 2}
               fill="url(#tile-vignette-grad)"
             />
+
+            {/* Río de Oro (Gold River & Nuggets Overlay for Seafarers) */}
+            {hex.terrain === 'GOLD' && (
+              <g className="pointer-events-none">
+                <path
+                  d={`M ${-hexSize * 0.7} ${-hexSize * 0.4} Q ${-hexSize * 0.1} ${-hexSize * 0.1}, 0 0 T ${hexSize * 0.7} ${hexSize * 0.4}`}
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth={14}
+                  strokeLinecap="round"
+                  opacity={0.65}
+                />
+                <path
+                  d={`M ${-hexSize * 0.7} ${-hexSize * 0.4} Q ${-hexSize * 0.1} ${-hexSize * 0.1}, 0 0 T ${hexSize * 0.7} ${hexSize * 0.4}`}
+                  fill="none"
+                  stroke="#fef08a"
+                  strokeWidth={6}
+                  strokeLinecap="round"
+                  opacity={0.9}
+                />
+                <circle cx={-14} cy={-10} r={3.2} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
+                <circle cx={14} cy={12} r={3.5} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
+                <circle cx={-2} cy={2} r={2.8} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
+              </g>
+            )}
           </g>
         ) : (
           <g clipPath="url(#hex-outer-surface-clip)">

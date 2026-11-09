@@ -799,6 +799,68 @@ export const RobberStealModal: React.FC<{
   );
 };
 
+// 2.5. SEAFARERS GOLD RIVER CLAIM MODAL
+export const GoldClaimModal: React.FC<{
+  remainingClaims: number;
+  bank: Record<ResourceType, number>;
+  onClaim: (resource: ResourceType) => void;
+}> = ({ remainingClaims, bank, onClaim }) => {
+  return (
+    <motion.div
+      variants={modalBackdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+    >
+      <motion.div
+        variants={modalCardVariants}
+        className="w-full max-w-md bg-gradient-to-b from-[#1f1610] to-[#120d0a] border-2 border-amber-400/70 rounded-3xl p-6 shadow-2xl space-y-5"
+      >
+        <div className="flex items-center gap-3 text-amber-300">
+          <Sparkles className="w-7 h-7 text-amber-400 shrink-0 animate-pulse" />
+          <div>
+            <h3 className="font-display text-lg font-extrabold text-amber-100">
+              ¡Cosecha del Río de Oro!
+            </h3>
+            <p className="text-xs text-stone-300">
+              Elige 1 recurso de la banca ({remainingClaims} restante{remainingClaims > 1 ? 's' : ''}):
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-5 gap-2">
+          {ALL_RESOURCES.map((res) => {
+            const stock = bank[res] ?? 0;
+            const disabled = stock <= 0;
+            return (
+              <button
+                key={res}
+                type="button"
+                disabled={disabled}
+                onClick={() => onClaim(res)}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition ${
+                  disabled
+                    ? 'opacity-40 bg-stone-900/60 border-stone-800 cursor-not-allowed'
+                    : 'bg-[#291e14]/90 hover:bg-[#3d2c1c] border-amber-500/50 hover:border-amber-400 cursor-pointer shadow-lg hover:scale-105'
+                }`}
+              >
+                <ResourceIcon resource={res} size={36} />
+                <span className="text-[11px] font-bold text-amber-100 mt-1">
+                  {RESOURCE_META[res].name}
+                </span>
+                <span className="text-[10px] text-stone-400">
+                  {stock} disp.
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 // 3. VISUAL & EASY INTERACTIVE TRADE & "QUEMAR CARTAS" (BANK/PORTS) MODAL
 export const TradeModal: React.FC<{
   gameState: GameState;

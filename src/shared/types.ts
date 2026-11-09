@@ -1,6 +1,6 @@
 export type ResourceType = 'WOOD' | 'BRICK' | 'SHEEP' | 'WHEAT' | 'ORE';
 
-export type TerrainType = ResourceType | 'DESERT' | 'SEA';
+export type TerrainType = ResourceType | 'DESERT' | 'SEA' | 'GOLD';
 
 export type PortType = 'GENERIC' | ResourceType;
 
@@ -79,6 +79,7 @@ export interface BoardState {
   edges: Record<string, Edge>;
   ports: PortInfo[];
   robberHexId: string;
+  pirateHexId?: string;
 }
 
 export type ExpansionModule =
@@ -87,6 +88,11 @@ export type ExpansionModule =
   | 'CITIES_AND_KNIGHTS'
   | 'BARBARIANS'
   | 'EXPLORERS_AND_PIRATES';
+
+export type SeafarersScenario =
+  | 'HEADING_FOR_NEW_SHORES'
+  | 'THE_FOUR_ISLANDS'
+  | 'PROCEDURAL_ARCHIPELAGO';
 
 export type TurnActionRestrictionLevel =
   | 'LEVEL_1_FREE'
@@ -99,6 +105,8 @@ export interface GameConfig {
   boardMode: BoardMode;
   preventAdjacentRedNumbers: boolean;
   desertInCenter: boolean;
+  // Escenario de Navegantes
+  seafarersScenario?: SeafarersScenario;
   // 1. Distancia mínima entre casas
   minSettlementDistance: 1 | 2;
   // 2. Uso Inmediato de Cartas de Desarrollo (true = jugables en el mismo turno de compra)
@@ -164,6 +172,9 @@ export interface PlayerState {
   settlementsLeft: number;
   citiesLeft: number;
   roadsLeft: number;
+  shipsLeft?: number;
+  hasMovedShipThisTurn?: boolean;
+  discoveryVictoryPoints?: number;
   publicVictoryPoints: number;
   totalVictoryPoints: number;
   mustDiscardCount: number;
@@ -207,6 +218,11 @@ export interface TurnState {
   pausedRemainingTimerMs?: number | null;
   botStatusMessage?: string | null;
   botProposedTradeThisTurn?: boolean;
+  pendingGoldClaims?: Array<{
+    playerId: string;
+    amount: number;
+  }>;
+  robberOrPirateMode?: 'ROBBER' | 'PIRATE' | null;
 }
 
 export interface TradeOffer {
@@ -313,7 +329,7 @@ export interface GameState {
     buyerPlayerId?: string;
     buyerPlayerName?: string;
     builtItem?: {
-      type: 'SETTLEMENT' | 'CITY' | 'ROAD';
+      type: 'SETTLEMENT' | 'CITY' | 'ROAD' | 'SHIP';
       vertexId?: string;
       edgeId?: string;
       playerId: string;
@@ -360,10 +376,15 @@ export type GameAction =
   | { type: 'CONFIRM_TURN_ORDER' }
   | { type: 'PLACE_SETTLEMENT'; vertexId: string }
   | { type: 'PLACE_ROAD'; edgeId: string }
+  | { type: 'PLACE_SHIP'; edgeId: string }
+  | { type: 'MOVE_SHIP'; fromEdgeId: string; toEdgeId: string }
   | { type: 'UPGRADE_CITY'; vertexId: string }
   | { type: 'ROLL_DICE' }
   | { type: 'DISCARD_RESOURCES'; resources: Record<ResourceType, number> }
   | { type: 'MOVE_ROBBER'; hexId: string }
+  | { type: 'MOVE_PIRATE'; hexId: string }
+  | { type: 'SET_ROBBER_OR_PIRATE_MODE'; mode: 'ROBBER' | 'PIRATE' }
+  | { type: 'CLAIM_GOLD_RESOURCE'; resource: ResourceType }
   | { type: 'STEAL_RESOURCE'; victimPlayerId: string }
   | { type: 'BUY_DEV_CARD' }
   | {

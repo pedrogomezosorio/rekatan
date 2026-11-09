@@ -6,6 +6,7 @@ import {
   Hex,
   PortInfo,
   PortType,
+  SeafarersScenario,
   TerrainType,
   Vertex,
 } from '../types';
@@ -155,7 +156,8 @@ export function buildTopologyFromHexes(
   hexSize: number = DEFAULT_HEX_SIZE,
   existingVertices?: Record<string, Vertex>,
   existingEdges?: Record<string, Edge>,
-  existingPorts?: PortInfo[]
+  existingPorts?: PortInfo[],
+  isSeafarers: boolean = false
 ): {
   vertices: Record<string, Vertex>;
   edges: Record<string, Edge>;
@@ -198,17 +200,23 @@ export function buildTopologyFromHexes(
     return vertices[vId];
   };
 
-  // First pass: iterate over non-SEA hexes so we only create playable vertices and edges
-  const landHexes = Object.values(hexes).filter((h) => h.terrain !== 'SEA');
+  // In Base Game: only non-SEA hexes generate playable topology
+  // In Seafarers: both land and navigable sea hexes generate topological vertices and edges
+  const isSeafarersMode = isSeafarers || Object.values(hexes).some((h) => h.terrain === 'GOLD');
+  const playableHexes = isSeafarersMode
+    ? Object.values(hexes)
+    : Object.values(hexes).filter((h) => h.terrain !== 'SEA');
   const allHexes = Object.values(hexes);
 
   // Track which hexes touch each vertex/edge
-  for (const hex of landHexes) {
+  for (const hex of playableHexes) {
     const corners = getHexCornerPoints(hex.center.x, hex.center.y, hexSize);
     const cornerVertices = corners.map((pt) => getOrCreateVertex(pt.x, pt.y));
 
     for (const v of cornerVertices) {
-      v.isLand = true;
+      if (hex.terrain !== 'SEA') {
+        v.isLand = true;
+      }
       if (!v.hexIds.includes(hex.id)) {
         v.hexIds.push(hex.id);
       }
@@ -232,11 +240,16 @@ export function buildTopologyFromHexes(
           y2: vertices[idB].y,
           building: prevEdge ? prevEdge.building : null,
           playerId: prevEdge ? prevEdge.playerId : null,
-          isLand: true,
+          isLand: hex.terrain !== 'SEA',
           isCoastal: false,
         };
-      } else if (!edges[edgeId].hexIds.includes(hex.id)) {
-        edges[edgeId].hexIds.push(hex.id);
+      } else {
+        if (!edges[edgeId].hexIds.includes(hex.id)) {
+          edges[edgeId].hexIds.push(hex.id);
+        }
+        if (hex.terrain !== 'SEA') {
+          edges[edgeId].isLand = true;
+        }
       }
 
       if (!v1.adjacentVertexIds.includes(v2.id)) v1.adjacentVertexIds.push(v2.id);
@@ -260,20 +273,38 @@ export function buildTopologyFromHexes(
     }
   }
 
-  // Mark coastal edges and vertices:
-  // An edge is coastal if it touches exactly 1 land hex!
+  // Mark coastal edges and vertices
   const coastalEdges: Edge[] = [];
   for (const edge of Object.values(edges)) {
-    const landTouchCount = edge.hexIds.filter(
+    const landCount = edge.hexIds.filter(
       (hId) => hexes[hId] && hexes[hId].terrain !== 'SEA'
     ).length;
-    if (landTouchCount === 1) {
-      edge.isCoastal = true;
+    const touchesSea = edge.hexIds.some(
+      (hId) => hexes[hId] && hexes[hId].terrain === 'SEA'
+    );
+    const isCoastal = isSeafarersMode ? landCount >= 1 && touchesSea : landCount === 1;
+
+    edge.isLand = landCount >= 1;
+    edge.isCoastal = isCoastal;
+    if (edge.isCoastal) {
       coastalEdges.push(edge);
       const [vA, vB] = edge.vertexIds;
-      if (vertices[vA]) vertices[vA].isCoastal = true;
-      if (vertices[vB]) vertices[vB].isCoastal = true;
+      if (vertices[vA]) {
+        vertices[vA].isCoastal = true;
+        vertices[vA].isLand = true;
+      }
+      if (vertices[vB]) {
+        vertices[vB].isCoastal = true;
+        vertices[vB].isLand = true;
+      }
     }
+  }
+
+  for (const vertex of Object.values(vertices)) {
+    vertex.isLand = vertex.hexIds.some((hId) => hexes[hId] && hexes[hId].terrain !== 'SEA');
+    vertex.isCoastal = isSeafarersMode
+      ? vertex.isLand && vertex.hexIds.some((hId) => hexes[hId] && hexes[hId].terrain === 'SEA')
+      : vertex.isCoastal;
   }
 
   // Order coastal edges clockwise around the board center (0, 0) for uniform port placement
@@ -402,14 +433,261 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
+ * Generates an authentic Seafarers scenario board:
+ * - HEADING_FOR_NEW_SHORES: 1 Main Island (14 hexes) + 3 Outlying Islands with Gold (6 hexes) + 17 navigable sea hexes.
+ * - THE_FOUR_ISLANDS: 4 balanced islands separated by sea channels (16 land hexes) + 21 sea hexes.
+ * - PROCEDURAL_ARCHIPELAGO: Randomized clusters with sea channels and 2 gold hexes.
+ */
+export function generateSeafarersBoard(
+  scenario: SeafarersScenario = 'HEADING_FOR_NEW_SHORES',
+  preventAdjacentRedNumbers: boolean = true,
+  hexSize: number = DEFAULT_HEX_SIZE
+): BoardState {
+  const hexes: Record<string, Hex> = {};
+  let robberHexId = '';
+  let pirateHexId = '';
+
+  // Generate radius 3 hex grid coordinates (37 hexes)
+  const allCoords: CubicCoord[] = [];
+  for (let q = -3; q <= 3; q++) {
+    for (let r = -3; r <= 3; r++) {
+      const s = -q - r;
+      if (Math.abs(s) <= 3) {
+        allCoords.push({ q, r, s });
+      }
+    }
+  }
+
+  // Pre-fill all coords with SEA
+  for (const c of allCoords) {
+    const id = coordToId(c.q, c.r, c.s);
+    hexes[id] = {
+      id,
+      q: c.q,
+      r: c.r,
+      s: c.s,
+      terrain: 'SEA',
+      numberToken: null,
+      hasRobber: false,
+      center: hexToPixel(c.q, c.r, hexSize),
+    };
+  }
+
+  if (scenario === 'HEADING_FOR_NEW_SHORES') {
+    // 1. Main Island (14 hexes: 1 Desert, 3 Wood, 2 Brick, 3 Sheep, 3 Wheat, 2 Ore)
+    const mainIslandConfigs: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: -3, r: 1, terrain: 'WOOD', num: 5 },
+      { q: -3, r: 2, terrain: 'BRICK', num: 2 },
+      { q: -3, r: 3, terrain: 'SHEEP', num: 10 },
+      { q: -2, r: 0, terrain: 'WOOD', num: 3 },
+      { q: -2, r: 1, terrain: 'WHEAT', num: 9 },
+      { q: -2, r: 2, terrain: 'ORE', num: 10 },
+      { q: -1, r: -2, terrain: 'SHEEP', num: 4 },
+      { q: -1, r: -1, terrain: 'WHEAT', num: 8 },
+      { q: -1, r: 0, terrain: 'DESERT', num: null },
+      { q: -1, r: 1, terrain: 'BRICK', num: 6 },
+      { q: -1, r: 2, terrain: 'ORE', num: 11 },
+      { q: 0, r: -1, terrain: 'WOOD', num: 4 },
+      { q: 0, r: 0, terrain: 'WHEAT', num: 3 },
+      { q: 0, r: 1, terrain: 'SHEEP', num: 9 },
+    ];
+
+    // 2. Foreign Island 1 (NE, 2 hexes)
+    const island1Configs: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 1, r: -3, terrain: 'GOLD', num: 8 },
+      { q: 2, r: -3, terrain: 'WOOD', num: 5 },
+    ];
+
+    // 3. Foreign Island 2 (E, 2 hexes)
+    const island2Configs: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 2, r: -1, terrain: 'GOLD', num: 6 },
+      { q: 3, r: -2, terrain: 'ORE', num: 9 },
+    ];
+
+    // 4. Foreign Island 3 (SE, 2 hexes)
+    const island3Configs: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      { q: 1, r: 2, terrain: 'BRICK', num: 4 },
+      { q: 2, r: 1, terrain: 'SHEEP', num: 10 },
+    ];
+
+    const allLand = [...mainIslandConfigs, ...island1Configs, ...island2Configs, ...island3Configs];
+    for (const item of allLand) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+        if (item.terrain === 'DESERT') {
+          hexes[id].hasRobber = true;
+          robberHexId = id;
+        }
+      }
+    }
+
+    pirateHexId = '1,0,-1'; // Central maritime channel
+  } else if (scenario === 'THE_FOUR_ISLANDS') {
+    // 4 Balanced Islands (each 4 hexes separated by maritime channels)
+    const fourIslands: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      // Island 1 (NW)
+      { q: -3, r: 0, terrain: 'WOOD', num: 6 },
+      { q: -3, r: 1, terrain: 'BRICK', num: 5 },
+      { q: -2, r: 0, terrain: 'SHEEP', num: 9 },
+      { q: -2, r: -1, terrain: 'WHEAT', num: 4 },
+      // Island 2 (NE)
+      { q: 0, r: -3, terrain: 'GOLD', num: 8 },
+      { q: 1, r: -3, terrain: 'ORE', num: 10 },
+      { q: 0, r: -2, terrain: 'WOOD', num: 3 },
+      { q: 1, r: -2, terrain: 'WHEAT', num: 11 },
+      // Island 3 (SW)
+      { q: -1, r: 2, terrain: 'GOLD', num: 6 },
+      { q: -1, r: 3, terrain: 'WHEAT', num: 9 },
+      { q: 0, r: 2, terrain: 'BRICK', num: 4 },
+      { q: 0, r: 3, terrain: 'ORE', num: 5 },
+      // Island 4 (SE)
+      { q: 2, r: -1, terrain: 'WOOD', num: 8 },
+      { q: 3, r: -1, terrain: 'SHEEP', num: 10 },
+      { q: 2, r: 0, terrain: 'BRICK', num: 3 },
+      { q: 3, r: -2, terrain: 'WHEAT', num: 2 },
+    ];
+
+    for (const item of fourIslands) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.num;
+      }
+    }
+    robberHexId = '-2,0,2';
+    if (hexes[robberHexId]) hexes[robberHexId].hasRobber = true;
+    pirateHexId = '0,0,0'; // Central maritime intersection
+  } else {
+    // PROCEDURAL_ARCHIPELAGO: 4 distinct island clusters with sea channels and gold
+    const proceduralLandCoords: Array<{ q: number; r: number; terrain: TerrainType; num: number | null }> = [
+      // Cluster 1 (West, 6 hexes with Desert)
+      { q: -3, r: 1, terrain: 'WOOD', num: 5 },
+      { q: -3, r: 2, terrain: 'BRICK', num: 4 },
+      { q: -2, r: 0, terrain: 'SHEEP', num: 8 },
+      { q: -2, r: 1, terrain: 'DESERT', num: null },
+      { q: -2, r: 2, terrain: 'ORE', num: 10 },
+      { q: -1, r: 1, terrain: 'WHEAT', num: 9 },
+
+      // Cluster 2 (North/NE, 4 hexes with Gold)
+      { q: 0, r: -3, terrain: 'GOLD', num: 8 },
+      { q: 1, r: -3, terrain: 'WOOD', num: 3 },
+      { q: 1, r: -2, terrain: 'BRICK', num: 11 },
+      { q: 2, r: -3, terrain: 'SHEEP', num: 4 },
+
+      // Cluster 3 (East, 3 hexes with Gold)
+      { q: 2, r: -1, terrain: 'GOLD', num: 6 },
+      { q: 3, r: -1, terrain: 'ORE', num: 5 },
+      { q: 3, r: -2, terrain: 'WHEAT', num: 10 },
+
+      // Cluster 4 (South, 3 hexes)
+      { q: 0, r: 2, terrain: 'WOOD', num: 6 },
+      { q: 0, r: 3, terrain: 'SHEEP', num: 2 },
+      { q: 1, r: 2, terrain: 'BRICK', num: 9 },
+    ];
+
+    for (const item of proceduralLandCoords) {
+      const id = coordToId(item.q, item.r, -item.q - item.r);
+      if (hexes[id]) {
+        hexes[id].terrain = item.terrain;
+        hexes[id].numberToken = item.terrain === 'DESERT' ? null : item.num;
+        if (item.terrain === 'DESERT') {
+          hexes[id].hasRobber = true;
+          robberHexId = id;
+        }
+      }
+    }
+    pirateHexId = '0,0,0';
+  }
+
+  // Fallback robber if needed
+  if (!robberHexId) {
+    const firstLand = Object.values(hexes).find((h) => h.terrain !== 'SEA');
+    if (firstLand) {
+      robberHexId = firstLand.id;
+      firstLand.hasRobber = true;
+    }
+  }
+
+  // Build Seafarers Topology (both land and navigable sea generate interactive graph!)
+  const { vertices, edges, coastalEdgeIdsOrdered } = buildTopologyFromHexes(
+    hexes,
+    hexSize,
+    undefined,
+    undefined,
+    undefined,
+    true
+  );
+
+  // Distribute 8 coastal ports
+  const seafarersPortPool: PortType[] = [
+    'GENERIC',
+    'GENERIC',
+    'GENERIC',
+    'WOOD',
+    'BRICK',
+    'SHEEP',
+    'WHEAT',
+    'ORE',
+  ];
+  const shuffledPorts = shuffle(seafarersPortPool);
+  const ports: PortInfo[] = [];
+  const usedVertices = new Set<string>();
+
+  for (let i = 0; i < shuffledPorts.length; i++) {
+    const portType = shuffledPorts[i];
+    const ratio: 2 | 3 = portType === 'GENERIC' ? 3 : 2;
+    for (const cEdgeId of coastalEdgeIdsOrdered) {
+      const edge = edges[cEdgeId];
+      if (
+        edge &&
+        !usedVertices.has(edge.vertexIds[0]) &&
+        !usedVertices.has(edge.vertexIds[1])
+      ) {
+        const dockCenter = computeDockCenter(edge, hexes, hexSize);
+        ports.push({
+          id: `PORT_SEA_${i}_${cEdgeId}`,
+          type: portType,
+          ratio,
+          edgeId: cEdgeId,
+          vertexIds: edge.vertexIds,
+          dockCenter,
+        });
+        usedVertices.add(edge.vertexIds[0]);
+        usedVertices.add(edge.vertexIds[1]);
+        vertices[edge.vertexIds[0]].port = { type: portType, ratio };
+        vertices[edge.vertexIds[1]].port = { type: portType, ratio };
+        break;
+      }
+    }
+  }
+
+  return {
+    mode: 'STANDARD_3_4',
+    hexSize,
+    hexes,
+    vertices,
+    edges,
+    ports,
+    robberHexId,
+    pirateHexId,
+  };
+}
+
+/**
  * Generates a complete Catan BoardState for the given mode, red-number rule, and center-desert option.
  */
 export function generateBoard(
   mode: BoardMode = 'STANDARD_3_4',
   preventAdjacentRedNumbers: boolean = true,
   hexSize: number = DEFAULT_HEX_SIZE,
-  desertInCenter: boolean = true
+  desertInCenter: boolean = true,
+  seafarersScenario?: SeafarersScenario
 ): BoardState {
+  if (seafarersScenario) {
+    return generateSeafarersBoard(seafarersScenario, preventAdjacentRedNumbers, hexSize);
+  }
   const landCoords = getLandCoordsForMode(mode);
   const seaCoords = getSurroundingSeaCoords(landCoords);
 

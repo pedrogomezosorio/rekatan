@@ -41,9 +41,12 @@ import {
   canSpendOrBuildThisTurn,
   canTradeThisTurn,
   getPlayerBankTradeRatios,
+  getMovableShipEdges,
   getValidCityVertices,
   getValidRoadEdges,
   getValidSettlementVertices,
+  getValidShipEdges,
+  getValidShipMoveDestinations,
   hasResources,
 } from '../../shared/engine/RulesEngine';
 import { PlayerState, ResourceType } from '../../shared/types';
@@ -57,6 +60,7 @@ import {
   ActiveTradeFloatingBanner,
   DevCardModal,
   DisconnectResolutionBanner,
+  GoldClaimModal,
   RobberDiscardModal,
   RobberStealModal,
   TradeModal,
@@ -75,6 +79,7 @@ export const GameScreen: React.FC = () => {
   } = useGame();
 
   const [buildMode, setBuildMode] = useState<ActiveBuildMode>(null);
+  const [selectedMovableShipId, setSelectedMovableShipId] = useState<string | null>(null);
   const [isBuildDrawerOpen, setIsBuildDrawerOpen] = useState(false);
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeModalInitialTab, setTradeModalInitialTab] = useState<'PLAYERS' | 'BANK'>('BANK');
@@ -495,6 +500,32 @@ export const GameScreen: React.FC = () => {
     return [];
   }, [gameState, isMyTurn, isPausedByHost, buildMode, playerId]);
 
+  const isSeafarers = gameState
+    ? gameState.config.expansionModule === 'SEAFARERS' || Boolean(gameState.board.pirateHexId)
+    : false;
+
+  const validShipIds = useMemo(() => {
+    if (!gameState || !isMyTurn || isPausedByHost) return [];
+    if (gameState.phase === 'SETUP_ROAD_1' || gameState.phase === 'SETUP_ROAD_2') {
+      return isSeafarers ? getValidShipEdges(gameState, playerId) : [];
+    }
+    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'SHIP') {
+      return getValidShipEdges(gameState, playerId);
+    }
+    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'MOVE_SHIP' && selectedMovableShipId) {
+      return getValidShipMoveDestinations(gameState, playerId, selectedMovableShipId);
+    }
+    return [];
+  }, [gameState, isMyTurn, isPausedByHost, buildMode, playerId, isSeafarers, selectedMovableShipId]);
+
+  const validMovableShipIds = useMemo(() => {
+    if (!gameState || !isMyTurn || isPausedByHost || !isSeafarers) return [];
+    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'MOVE_SHIP') {
+      return getMovableShipEdges(gameState, playerId);
+    }
+    return [];
+  }, [gameState, isMyTurn, isPausedByHost, buildMode, playerId, isSeafarers]);
+
   // Maritime Trade Ratios for local player
   const myPortRatios = useMemo<Record<ResourceType, 2 | 3 | 4>>(
     () =>
@@ -581,6 +612,29 @@ export const GameScreen: React.FC = () => {
     me.citiesLeft > 0 &&
     hasResources(me.resources, BUILDING_COSTS.CITY) &&
     getValidCityVertices(gameState, playerId).length > 0;
+
+  const canBuildShipNow =
+    isMyTurn &&
+    !isPausedByHost &&
+    phase === 'MAIN_PHASE' &&
+    isSeafarers &&
+    infraPermission.allowed &&
+    (me.shipsLeft ?? 0) > 0 &&
+    hasResources(me.resources, BUILDING_COSTS.SHIP) &&
+    getValidShipEdges(gameState, playerId).length > 0;
+
+  const canMoveShipNow =
+    isMyTurn &&
+    !isPausedByHost &&
+    phase === 'MAIN_PHASE' &&
+    isSeafarers &&
+    !me.hasMovedShipThisTurn &&
+    getMovableShipEdges(gameState, playerId).length > 0;
+
+  const myPendingGoldClaim = useMemo(() => {
+    if (!gameState?.turn.pendingGoldClaims) return null;
+    return gameState.turn.pendingGoldClaims.find((c) => c.playerId === playerId && c.amount > 0) || null;
+  }, [gameState?.turn.pendingGoldClaims, playerId]);
 
   const unplayedDevCount = me.devCards.filter((c) => !c.played).length;
   const isWaitingForMandatoryDice = phase === 'WAITING_FOR_DICE';
@@ -865,7 +919,11 @@ export const GameScreen: React.FC = () => {
             validSettlementIds={validSettlementIds}
             validCityIds={validCityIds}
             validRoadIds={validRoadIds}
+            validShipIds={validShipIds}
+            validMovableShipIds={validMovableShipIds}
+            selectedMovableShipId={selectedMovableShipId}
             isMovingRobber={isMovingRobber}
+            isMovingPirate={isMovingRobber && isSeafarers}
             producingHexIds={boardProducingHexIds}
             lowEndPcMode={lowEndPcMode}
             lastEvent={gameState.lastEvent}
@@ -881,7 +939,29 @@ export const GameScreen: React.FC = () => {
             }}
             onEdgeClick={(edgeId) => {
               if (isPausedByHost) return;
-              if (validRoadIds.includes(edgeId)) {
+              if (buildMode === 'MOVE_SHIP') {
+                if (!selectedMovableShipId) {
+                  if (validMovableShipIds.includes(edgeId)) {
+                    setSelectedMovableShipId(edgeId);
+                  }
+                } else if (validShipIds.includes(edgeId)) {
+                  dispatchAction({
+                    type: 'MOVE_SHIP',
+                    fromEdgeId: selectedMovableShipId,
+                    toEdgeId: edgeId,
+                  });
+                  setSelectedMovableShipId(null);
+                  setBuildMode(null);
+                }
+              } else if (
+                validShipIds.includes(edgeId) &&
+                (buildMode === 'SHIP' ||
+                  gameState.phase === 'SETUP_ROAD_1' ||
+                  gameState.phase === 'SETUP_ROAD_2')
+              ) {
+                dispatchAction({ type: 'PLACE_SHIP', edgeId });
+                setBuildMode(null);
+              } else if (validRoadIds.includes(edgeId)) {
                 dispatchAction({ type: 'PLACE_ROAD', edgeId });
                 setBuildMode(null);
               }
@@ -889,10 +969,50 @@ export const GameScreen: React.FC = () => {
             onHexClick={(hexId) => {
               if (isPausedByHost) return;
               if (isMovingRobber) {
-                dispatchAction({ type: 'MOVE_ROBBER', hexId });
+                const targetHex = board.hexes[hexId];
+                if (targetHex?.terrain === 'SEA' && board.pirateHexId) {
+                  dispatchAction({ type: 'MOVE_PIRATE', hexId });
+                } else {
+                  dispatchAction({ type: 'MOVE_ROBBER', hexId });
+                }
               }
             }}
           />
+
+          {/* Seafarers: Pirate & Robber selection prompt */}
+          {isMovingRobber && isSeafarers && isMyTurn && !isPausedByHost && (
+            <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
+              <div className="flex items-center gap-2 bg-[#120904]/95 border-2 border-amber-500/80 text-amber-200 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto">
+                <span className="text-base">🏴‍☠️</span>
+                <span>
+                  Haz clic en un terreno para mover el <strong>Ladrón</strong>, o en el mar para mover el <strong>Barco Pirata</strong>.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Seafarers: Move Ship helper prompt */}
+          {buildMode === 'MOVE_SHIP' && isMyTurn && !isPausedByHost && (
+            <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
+              <div className="flex items-center gap-3 bg-[#0a192f]/95 border-2 border-sky-400 text-sky-200 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto">
+                <Anchor className="w-4 h-4 text-sky-400 animate-spin" />
+                <span>
+                  {!selectedMovableShipId
+                    ? 'Selecciona un barco al final de una ruta abierta para moverlo'
+                    : 'Selecciona una posición marítima válida para colocar el barco'}
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedMovableShipId(null);
+                    setBuildMode(null);
+                  }}
+                  className="px-2 py-0.5 bg-sky-950 border border-sky-500/40 rounded-lg text-[10px] text-sky-300 hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Centered Non-Overlapping FIFO Notification Queue (3.8s for Human & Bot Transactions/Actions) */}
           <div className="absolute top-3 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
@@ -1179,6 +1299,8 @@ export const GameScreen: React.FC = () => {
                 }}
                 me={me}
                 canBuildRoadNow={canBuildRoadNow}
+                canBuildShipNow={canBuildShipNow}
+                canMoveShipNow={canMoveShipNow}
                 canBuildSettlementNow={canBuildSettlementNow}
                 canBuildCityNow={canBuildCityNow}
                 canBuyDevCardNow={devBuyPermission.allowed && !isPausedByHost}
@@ -1187,6 +1309,7 @@ export const GameScreen: React.FC = () => {
                 disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 isRoadBuildingDev={isMyTurn && phase === 'ROAD_BUILDING_DEV'}
                 onFinishRoadBuilding={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
+                isSeafarers={isSeafarers}
               />
 
               {/* 2. Intercambiar / Comerciar (I) */}
@@ -1570,6 +1693,16 @@ export const GameScreen: React.FC = () => {
             onSelectVictim={(victimPlayerId) =>
               dispatchAction({ type: 'STEAL_RESOURCE', victimPlayerId })
             }
+          />
+        )}
+
+        {/* Seafarers Gold Claim Modal */}
+        {myPendingGoldClaim && !isPausedByHost && (
+          <GoldClaimModal
+            key="modal-gold-claim"
+            remainingClaims={myPendingGoldClaim.amount}
+            bank={gameState.bank}
+            onClaim={(resource) => dispatchAction({ type: 'CLAIM_GOLD_RESOURCE', resource })}
           />
         )}
 

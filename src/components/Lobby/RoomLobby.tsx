@@ -23,10 +23,11 @@ import {
   EXPANSION_CATALOG,
   PLAYER_COLORS,
   RESOURCE_META,
+  SEAFARERS_SCENARIOS,
   TERRAIN_META,
   TILE_TEXTURE_PATHS,
 } from '../../shared/constants';
-import { BoardMode, BotDifficulty, ExpansionModule, PortType, TerrainType } from '../../shared/types';
+import { BoardMode, BotDifficulty, ExpansionModule, PortType, SeafarersScenario, TerrainType } from '../../shared/types';
 import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 
@@ -75,19 +76,34 @@ export const RoomLobby: React.FC = () => {
       // Return to pure Base Game (0 expansions)
       nextExpansions = ['BASE'];
       nextModule = 'BASE';
+      dispatchAction({
+        type: 'UPDATE_CONFIG',
+        config: {
+          enabledExpansions: nextExpansions,
+          expansionModule: nextModule,
+          victoryPointsTarget: 10,
+          desertInCenter: true,
+        },
+      });
     } else {
       // Exclusively select exactly 1 expansion alongside BASE
       nextExpansions = ['BASE', expId];
       nextModule = expId;
+      dispatchAction({
+        type: 'UPDATE_CONFIG',
+        config: {
+          enabledExpansions: nextExpansions,
+          expansionModule: nextModule,
+          ...(expId === 'SEAFARERS'
+            ? {
+                seafarersScenario: 'HEADING_FOR_NEW_SHORES',
+                victoryPointsTarget: 13,
+                desertInCenter: false,
+              }
+            : {}),
+        },
+      });
     }
-
-    dispatchAction({
-      type: 'UPDATE_CONFIG',
-      config: {
-        enabledExpansions: nextExpansions,
-        expansionModule: nextModule,
-      },
-    });
   };
 
   const handleBoardModeSelect = (mode: BoardMode) => {
@@ -535,58 +551,151 @@ export const RoomLobby: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
 
+            {/* SEAFARERS: Selector de Escenario de la Expansión */}
+            {config.expansionModule === 'SEAFARERS' && (
+              <div className="p-3.5 rounded-2xl bg-sky-950/40 border border-sky-500/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">⛵</span>
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-wider text-sky-300">
+                        Escenarios de Navegantes
+                      </div>
+                      <div className="text-[10px] text-sky-400/80">
+                        Elige la geografía marítima y las reglas de expedición
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-900/60 text-sky-200 border border-sky-500/30">
+                    {config.seafarersScenario === 'THE_FOUR_ISLANDS'
+                      ? 'Las Cuatro Islas'
+                      : config.seafarersScenario === 'PROCEDURAL_ARCHIPELAGO'
+                      ? 'Archipiélago Libre'
+                      : 'Hacia Nuevas Riberas'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {SEAFARERS_SCENARIOS.map((scen) => {
+                    const isSelected =
+                      (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
+                    return (
+                      <button
+                        key={scen.id}
+                        type="button"
+                        disabled={!isHost}
+                        onClick={() =>
+                          dispatchAction({
+                            type: 'UPDATE_CONFIG',
+                            config: {
+                              seafarersScenario: scen.id,
+                              victoryPointsTarget: scen.recommendedVP,
+                            },
+                          })
+                        }
+                        className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-sky-500/20 border-sky-400 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
+                            : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700'
+                        } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-100">
+                              {scen.title}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-300 border border-sky-500/30 font-semibold">
+                              {scen.badge}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                            {scen.subtitle}
+                          </p>
+                        </div>
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                            isSelected
+                              ? 'bg-sky-400 border-sky-200'
+                              : 'bg-slate-950 border-slate-700'
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Regla: Desierto en el Centro */}
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-200">
                 Desierto en el Centro
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={!isHost}
-                  onClick={() =>
-                    dispatchAction({
-                      type: 'UPDATE_CONFIG',
-                      config: { desertInCenter: true },
-                    })
-                  }
-                  className={`p-2 rounded-xl border text-left text-xs transition ${
-                    config.desertInCenter !== false
-                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
-                      : 'bg-slate-900 border-slate-800 text-slate-400'
-                  }`}
-                >
-                  <div>Activado (Por defecto)</div>
-                  <div className="text-[10px] opacity-80">Centro (0,0,0) fijo con el Ladrón</div>
-                </button>
-                <button
-                  type="button"
-                  disabled={!isHost}
-                  onClick={() =>
-                    dispatchAction({
-                      type: 'UPDATE_CONFIG',
-                      config: { desertInCenter: false },
-                    })
-                  }
-                  className={`p-2 rounded-xl border text-left text-xs transition ${
-                    config.desertInCenter === false
-                      ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
-                      : 'bg-slate-900 border-slate-800 text-slate-400'
-                  }`}
-                >
-                  <div>Posición Aleatoria</div>
-                  <div className="text-[10px] opacity-80">El Desierto se mezcla en el mapa</div>
-                </button>
-              </div>
+              {config.expansionModule === 'SEAFARERS' ? (
+                <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+                  <span className="text-base">🏝️</span>
+                  <span>
+                    <strong>Geografía de Islas:</strong> En Navegantes, la posición de los desiertos y ríos de oro está determinada por el escenario marítimo.
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!isHost}
+                    onClick={() =>
+                      dispatchAction({
+                        type: 'UPDATE_CONFIG',
+                        config: { desertInCenter: true },
+                      })
+                    }
+                    className={`p-2 rounded-xl border text-left text-xs transition ${
+                      config.desertInCenter !== false
+                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
+                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div>Activado (Por defecto)</div>
+                    <div className="text-[10px] opacity-80">Centro (0,0,0) fijo con el Ladrón</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isHost}
+                    onClick={() =>
+                      dispatchAction({
+                        type: 'UPDATE_CONFIG',
+                        config: { desertInCenter: false },
+                      })
+                    }
+                    className={`p-2 rounded-xl border text-left text-xs transition ${
+                      config.desertInCenter === false
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
+                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div>Posición Aleatoria</div>
+                    <div className="text-[10px] opacity-80">El Desierto se mezcla en el mapa</div>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 1. Condición de Victoria */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-200">
-                1. Condición de Victoria (Puntos)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-200">
+                  1. Condición de Victoria (Puntos)
+                </label>
+                {config.expansionModule === 'SEAFARERS' && (
+                  <span className="text-[10px] text-sky-400 font-medium">
+                    (Oficial Navegantes: 13 PV)
+                  </span>
+                )}
+              </div>
               <div className="grid grid-cols-5 gap-1.5">
-                {[9, 10, 11, 12, 15].map((pts) => (
+                {(config.expansionModule === 'SEAFARERS' ? [10, 12, 13, 14, 15] : [9, 10, 11, 12, 15]).map((pts) => (
                   <button
                     key={pts}
                     type="button"

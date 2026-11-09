@@ -36,7 +36,11 @@ export interface HexBoardSVGProps {
   validSettlementIds?: string[];
   validCityIds?: string[];
   validRoadIds?: string[];
+  validShipIds?: string[];
+  validMovableShipIds?: string[];
+  selectedMovableShipId?: string | null;
   isMovingRobber?: boolean;
+  isMovingPirate?: boolean;
   producingHexIds?: string[];
   onVertexClick?: (vertexId: string) => void;
   onEdgeClick?: (edgeId: string) => void;
@@ -56,7 +60,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   validSettlementIds = [],
   validCityIds = [],
   validRoadIds = [],
+  validShipIds = [],
+  validMovableShipIds = [],
+  selectedMovableShipId = null,
   isMovingRobber = false,
+  isMovingPirate = false,
   producingHexIds = [],
   onVertexClick,
   onEdgeClick,
@@ -105,9 +113,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const prevRobberHexRef = useRef<string>(board.robberHexId);
 
-  // Discreet Highlight for recently built items (Roads, Settlements, Cities)
+  // Discreet Highlight for recently built items (Roads, Ships, Settlements, Cities)
   const [highlightedBuiltItem, setHighlightedBuiltItem] = useState<{
-    type: 'ROAD' | 'SETTLEMENT' | 'CITY';
+    type: 'ROAD' | 'SHIP' | 'SETTLEMENT' | 'CITY';
     vertexId?: string;
     edgeId?: string;
     playerId: string;
@@ -234,6 +242,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const validSettlementSet = useMemo(() => new Set(validSettlementIds), [validSettlementIds]);
   const validCitySet = useMemo(() => new Set(validCityIds), [validCityIds]);
   const validRoadSet = useMemo(() => new Set(validRoadIds), [validRoadIds]);
+  const validShipSet = useMemo(() => new Set(validShipIds), [validShipIds]);
+  const validMovableShipSet = useMemo(() => new Set(validMovableShipIds), [validMovableShipIds]);
   const producingSet = useMemo(() => new Set(producingHexIds), [producingHexIds]);
 
   // Local clipPath polygon points centered at (0, 0)
@@ -403,9 +413,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const handleHexInteraction = (hex: Hex) => {
     if (didMoveRef.current) return;
-    if (hex.terrain === 'SEA') return;
+    if (hex.terrain === 'SEA' && !board.pirateHexId) return;
 
     if (editorTool?.active) {
+      if (hex.terrain === 'SEA') return;
       if (editorTool.mode === 'SWAP') {
         if (!swapSourceHexId) {
           setSwapSourceHexId(hex.id);
@@ -423,7 +434,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       return;
     }
 
-    if (isMovingRobber) {
+    if (isMovingRobber || isMovingPirate) {
       onHexClick?.(hex.id);
     }
   };
@@ -438,7 +449,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       return;
     }
 
-    if (validRoadSet.has(edge.id)) {
+    if (
+      validRoadSet.has(edge.id) ||
+      validShipSet.has(edge.id) ||
+      validMovableShipSet.has(edge.id)
+    ) {
       onEdgeClick?.(edge.id);
     }
   };
@@ -454,6 +469,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const edgeList = Object.values(board.edges);
   const vertexList = Object.values(board.vertices);
   const robberHex = board.hexes[board.robberHexId];
+  const pirateHex = board.pirateHexId ? board.hexes[board.pirateHexId] : undefined;
 
   return (
     <motion.div
@@ -575,10 +591,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const isSea = hex.terrain === 'SEA';
             const isProducing = producingSet.has(hex.id);
             const isRobberTarget = isMovingRobber && !isSea;
+            const isPirateTarget = (isMovingPirate || (isMovingRobber && board.pirateHexId !== undefined)) && isSea;
             const isSwapSelected = swapSourceHexId === hex.id;
             const isRedConflict = redConflictHexIds.has(hex.id);
             const isInteractive = Boolean(
-              isRobberTarget || (editorTool?.active && !isSea)
+              isRobberTarget || isPirateTarget || (editorTool?.active && !isSea)
             );
 
             return (
@@ -587,7 +604,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 hex={hex}
                 hexSize={board.hexSize}
                 isProducing={isProducing}
-                isRobberTarget={isRobberTarget}
+                isRobberTarget={isRobberTarget || isPirateTarget}
                 isSwapSelected={isSwapSelected}
                 isRedConflict={isRedConflict}
                 showCoords={showCoords}
@@ -734,24 +751,29 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
 
             const isValidRoad = validRoadSet.has(edge.id);
+            const isValidShip = validShipSet.has(edge.id);
+            const isMovableShip = validMovableShipSet.has(edge.id);
+            const isSelectedMovableShip = selectedMovableShipId === edge.id;
             const isPortEditTarget = Boolean(
               editorTool?.active && editorTool.mode === 'SET_PORT' && edge.isCoastal
             );
+            const isInteractiveEdge = isValidRoad || isValidShip || isMovableShip || isPortEditTarget;
             const owner = edge.playerId ? playerMap.get(edge.playerId) : null;
             const colorCfg = owner ? PLAYER_COLORS[owner.color] : null;
             const isLongest = longestRoadEdgesSet.has(edge.id);
-            const isJustBuiltRoad = highlightedBuiltItem?.edgeId === edge.id;
+            const isJustBuiltRoad = highlightedBuiltItem?.edgeId === edge.id && highlightedBuiltItem?.type === 'ROAD';
+            const isJustBuiltShip = highlightedBuiltItem?.edgeId === edge.id && highlightedBuiltItem?.type === 'SHIP';
 
             return (
               <g
                 key={edge.id}
                 transform={`translate(${midX}, ${midY}) rotate(${angleDeg})`}
                 onClick={() => handleEdgeInteraction(edge)}
-                className={isValidRoad || isPortEditTarget ? 'cursor-pointer' : undefined}
-                pointerEvents={isValidRoad || isPortEditTarget ? 'all' : undefined}
+                className={isInteractiveEdge ? 'cursor-pointer' : undefined}
+                pointerEvents={isInteractiveEdge ? 'all' : undefined}
               >
-                {/* Invisible Fat Hit Area for Easy Clicking / Touching on Tablet */}
-                {(isValidRoad || isPortEditTarget) && (
+                {/* Invisible Fat Hit Area for Easy Clicking / Touching on Tablet & PC */}
+                {isInteractiveEdge && (
                   <rect
                     x={-len / 2}
                     y={-14}
@@ -823,6 +845,46 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
+                {/* Built 3D Wooden Ship Piece for Seafarers */}
+                {edge.building === 'SHIP' && colorCfg && (
+                  <g filter={lowEndPcMode ? undefined : 'url(#piece-drop-shadow)'}>
+                    {isLongest && (
+                      <ellipse
+                        cx={0}
+                        cy={0}
+                        rx={halfLen + 3}
+                        ry={8}
+                        fill="none"
+                        stroke="#fbbf24"
+                        strokeWidth={4}
+                        opacity={0.8}
+                      />
+                    )}
+                    {/* Keel Shadow */}
+                    <path
+                      d={`M ${-halfLen} 0 Q 0 5, ${halfLen} 0 Q 0 -5, ${-halfLen} 0 Z`}
+                      fill="#120904"
+                      opacity={0.8}
+                    />
+                    {/* 3D Wooden Hull */}
+                    <path
+                      d={`M ${-halfLen + 2} 1 Q 0 6, ${halfLen - 2} 1 Q 0 -4, ${-halfLen + 2} 1 Z`}
+                      fill={colorCfg.primary}
+                      stroke={colorCfg.stroke}
+                      strokeWidth={1.8}
+                    />
+                    {/* Mast */}
+                    <line x1={0} y1={-1} x2={0} y2={-9} stroke="#5c3a18" strokeWidth={1.8} strokeLinecap="round" />
+                    {/* Sail */}
+                    <path
+                      d="M 0 -8 Q 6 -5, 0 -2 Z"
+                      fill={colorCfg.secondary}
+                      stroke={colorCfg.stroke}
+                      strokeWidth={1}
+                    />
+                  </g>
+                )}
+
                 {/* Discreet Glow Pulse for newly built road */}
                 {isJustBuiltRoad && (
                   <g className="pointer-events-none">
@@ -850,6 +912,23 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
+                {/* Discreet Glow Pulse for newly built ship */}
+                {isJustBuiltShip && (
+                  <g className="pointer-events-none">
+                    <ellipse
+                      cx={0}
+                      cy={0}
+                      rx={halfLen + 4}
+                      ry={9}
+                      fill="none"
+                      stroke="#38bdf8"
+                      strokeWidth={5}
+                      opacity={0.85}
+                      className="animate-pulse"
+                    />
+                  </g>
+                )}
+
                 {/* Pulsing Highlight for Valid Road Placement */}
                 {isValidRoad && (
                   <g>
@@ -871,6 +950,49 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                       fill="#fde047"
                       stroke="#1c1917"
                       strokeWidth={1.6}
+                    />
+                  </g>
+                )}
+
+                {/* Pulsing Highlight for Valid Ship Placement (Azure marine trail) */}
+                {isValidShip && (
+                  <g>
+                    <line
+                      x1={-halfLen}
+                      y1={0}
+                      x2={halfLen}
+                      y2={0}
+                      stroke="#0284c7"
+                      strokeWidth={11}
+                      strokeLinecap="round"
+                      opacity={0.75}
+                      className={lowEndPcMode ? undefined : 'animate-pulse'}
+                    />
+                    <line
+                      x1={-halfLen}
+                      y1={0}
+                      x2={halfLen}
+                      y2={0}
+                      stroke="#38bdf8"
+                      strokeWidth={4.5}
+                      strokeLinecap="round"
+                    />
+                    <circle cx={0} cy={0} r={5.5} fill="#0284c7" stroke="#e0f2fe" strokeWidth={1.6} />
+                  </g>
+                )}
+
+                {/* Movable Ship Endpoints Highlight */}
+                {isMovableShip && (
+                  <g className="animate-bounce">
+                    <ellipse
+                      cx={0}
+                      cy={0}
+                      rx={halfLen + 3}
+                      ry={8}
+                      fill="none"
+                      stroke={isSelectedMovableShip ? '#f59e0b' : '#38bdf8'}
+                      strokeWidth={3}
+                      strokeDasharray="4 2"
                     />
                   </g>
                 )}
@@ -1105,6 +1227,48 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               <ellipse cx={0} cy={-9} rx={4.8} ry={5.2} fill="#020617" />
               <circle cx={-2} cy={-9.5} r={1.2} fill="#ef4444" />
               <circle cx={2} cy={-9.5} r={1.2} fill="#ef4444" />
+            </g>
+          )}
+
+          {/* 6. THE PIRATE SHIP: 3D BLACK GALLEON WITH SKULL EMBLEM ON WATER */}
+          {pirateHex && (
+            <g
+              transform={`translate(${pirateHex.center.x}, ${pirateHex.center.y})`}
+              className="pointer-events-none"
+              filter={lowEndPcMode ? undefined : 'url(#robber-aura)'}
+            >
+              {robberImpact && !lowEndPcMode && (
+                <circle
+                  cx={0}
+                  cy={10}
+                  r={32}
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth={3}
+                  className="animate-ping"
+                />
+              )}
+              {/* Ominous Dark Water Wake */}
+              <ellipse cx={0} cy={14} rx={22} ry={7} fill="#020617" opacity={0.65} />
+              {/* Black Galleon Hull */}
+              <path
+                d="M -18 12 Q 0 18, 18 12 L 14 0 Q 0 4, -14 0 Z"
+                fill="#0f172a"
+                stroke="#334155"
+                strokeWidth={1.6}
+              />
+              {/* Main Mast */}
+              <line x1={0} y1={2} x2={0} y2={-20} stroke="#475569" strokeWidth={2.2} strokeLinecap="round" />
+              {/* Black Pirate Sail */}
+              <path
+                d="M 0 -18 Q 12 -12, 0 -4 Q -12 -12, 0 -18 Z"
+                fill="#020617"
+                stroke="#64748b"
+                strokeWidth={1.4}
+              />
+              {/* Crimson Pirate Flag */}
+              <path d="M 0 -20 L 7 -17 L 0 -14 Z" fill="#dc2626" />
+              <circle cx={0} cy={-11} r={2} fill="#e2e8f0" />
             </g>
           )}
         </g>

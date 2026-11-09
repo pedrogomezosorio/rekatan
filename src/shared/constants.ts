@@ -45,6 +45,7 @@ export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
   ORE: '/assets/terrains/mountains.png?v=3',
   DESERT: '/assets/terrains/desert.png?v=3',
   SEA: '/assets/terrains/ocean.jpg?v=3',
+  GOLD: '/assets/terrains/hills.png?v=3',
 };
 
 /**
@@ -206,6 +207,7 @@ export const TERRAIN_META: Record<
   ORE: { name: 'Montaña (Piedra)', fill: '#475569', stroke: '#1e293b', emoji: '⛰️' },
   DESERT: { name: 'Desierto', fill: '#d6bc8b', stroke: '#a68a56', emoji: '🏜️' },
   SEA: { name: 'Mar', fill: '#0c4a6e', stroke: '#075985', emoji: '🌊' },
+  GOLD: { name: 'Río de Oro', fill: '#d97706', stroke: '#b45309', emoji: '✨' },
 };
 
 export const PLAYER_COLORS: Record<
@@ -310,14 +312,39 @@ export function isImageAvatar(avatar?: string): boolean {
 }
 
 export const BUILDING_COSTS: Record<
-  'ROAD' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD',
+  'ROAD' | 'SHIP' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD',
   Record<ResourceType, number>
 > = {
   ROAD: { WOOD: 1, BRICK: 1, SHEEP: 0, WHEAT: 0, ORE: 0 },
+  SHIP: { WOOD: 1, BRICK: 0, SHEEP: 1, WHEAT: 0, ORE: 0 },
   SETTLEMENT: { WOOD: 1, BRICK: 1, SHEEP: 1, WHEAT: 1, ORE: 0 },
   CITY: { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 2, ORE: 3 },
   DEV_CARD: { WOOD: 0, BRICK: 0, SHEEP: 1, WHEAT: 1, ORE: 1 },
 };
+
+export const SEAFARERS_SCENARIOS = [
+  {
+    id: 'HEADING_FOR_NEW_SHORES' as const,
+    title: 'Hacia Nuevas Riberas',
+    subtitle: '1 Isla principal donde todos inician + 3 islas exteriores con Río de Oro y +2 PV de descubrimiento.',
+    badge: 'Escenario Oficial Insignia',
+    recommendedVP: 13,
+  },
+  {
+    id: 'THE_FOUR_ISLANDS' as const,
+    title: 'Las Cuatro Islas',
+    subtitle: '4 islas equilibradas separadas por canales marítimos. Cada jugador inicia y zarpa hacia las demás.',
+    badge: 'Expedición Abierta',
+    recommendedVP: 13,
+  },
+  {
+    id: 'PROCEDURAL_ARCHIPELAGO' as const,
+    title: 'Archipiélago Libre',
+    subtitle: 'Generación procedural aleatoria con múltiples masas de tierra, mar navegable y ríos de oro.',
+    badge: 'Exploración Infinita',
+    recommendedVP: 13,
+  },
+];
 
 export const PROBABILITY_PIPS: Record<number, number> = {
   2: 1,

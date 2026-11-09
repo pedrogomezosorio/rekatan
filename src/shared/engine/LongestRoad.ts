@@ -68,6 +68,18 @@ export function calculatePlayerLongestRoad(
       const edge = board.edges[edgeId];
       if (!edge) continue;
 
+      // In Seafarers: Transition between ROAD and SHIP requires player's settlement/city at currentVertexId
+      if (currentPath.length > 0) {
+        const prevEdgeId = currentPath[currentPath.length - 1];
+        const prevEdge = board.edges[prevEdgeId];
+        if (prevEdge && prevEdge.building !== edge.building) {
+          const hasOwnBuilding = vertex.building !== null && vertex.playerId === playerId;
+          if (!hasOwnBuilding) {
+            continue;
+          }
+        }
+      }
+
       const nextVertexId =
         edge.vertexIds[0] === currentVertexId ? edge.vertexIds[1] : edge.vertexIds[0];
 

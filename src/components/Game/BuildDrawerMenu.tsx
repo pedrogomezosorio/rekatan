@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Castle, Hammer, Home, Route, Sparkles, X } from 'lucide-react';
+import { Anchor, Castle, Hammer, Home, Route, Ship, Sparkles, X } from 'lucide-react';
 import { BUILDING_COSTS, RESOURCE_META } from '../../shared/constants';
 import { PlayerState, ResourceType } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
-export type ActiveBuildMode = 'ROAD' | 'SETTLEMENT' | 'CITY' | null;
+export type ActiveBuildMode = 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | null;
 
 interface BuildDrawerMenuProps {
   isOpen: boolean;
@@ -15,6 +15,8 @@ interface BuildDrawerMenuProps {
   onBuyDevCard: () => void;
   me: PlayerState;
   canBuildRoadNow: boolean;
+  canBuildShipNow?: boolean;
+  canMoveShipNow?: boolean;
   canBuildSettlementNow: boolean;
   canBuildCityNow: boolean;
   canBuyDevCardNow: boolean;
@@ -23,10 +25,11 @@ interface BuildDrawerMenuProps {
   disabledBeforeDice: boolean;
   isRoadBuildingDev?: boolean;
   onFinishRoadBuilding?: () => void;
+  isSeafarers?: boolean;
 }
 
 interface BuildOptionSpec {
-  id: 'ROAD' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD';
+  id: 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD';
   title: string;
   subtitle: string;
   remainingLabel: string;
@@ -44,6 +47,8 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   onBuyDevCard,
   me,
   canBuildRoadNow,
+  canBuildShipNow = false,
+  canMoveShipNow = false,
   canBuildSettlementNow,
   canBuildCityNow,
   canBuyDevCardNow,
@@ -52,6 +57,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   disabledBeforeDice,
   isRoadBuildingDev,
   onFinishRoadBuilding,
+  isSeafarers = false,
 }) => {
   const options: BuildOptionSpec[] = [
     {
@@ -67,6 +73,40 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
         onToggleOpen();
       },
     },
+    ...(isSeafarers
+      ? [
+          {
+            id: 'SHIP' as const,
+            title: 'Barco',
+            subtitle: 'Navega por rutas marítimas y costas',
+            remainingLabel: `${me.shipsLeft ?? 15} disp.`,
+            icon: <Ship className="w-5 h-5 text-cyan-300" />,
+            cost: BUILDING_COSTS.SHIP,
+            canExecute: canBuildShipNow,
+            onTrigger: () => {
+              onSelectBuildMode('SHIP');
+              onToggleOpen();
+            },
+          },
+          ...(canMoveShipNow
+            ? [
+                {
+                  id: 'MOVE_SHIP' as const,
+                  title: 'Mover Barco',
+                  subtitle: 'Reubica 1 barco de una ruta abierta (1/turno)',
+                  remainingLabel: me.hasMovedShipThisTurn ? 'Usado' : 'Disponible',
+                  icon: <Anchor className="w-5 h-5 text-sky-400" />,
+                  cost: {},
+                  canExecute: !me.hasMovedShipThisTurn,
+                  onTrigger: () => {
+                    onSelectBuildMode('MOVE_SHIP');
+                    onToggleOpen();
+                  },
+                },
+              ]
+            : []),
+        ]
+      : []),
     {
       id: 'SETTLEMENT',
       title: 'Poblado',
@@ -109,7 +149,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   ];
 
   const anyOptionAvailable =
-    canBuildRoadNow || canBuildSettlementNow || canBuildCityNow || canBuyDevCardNow;
+    canBuildRoadNow || canBuildShipNow || canBuildSettlementNow || canBuildCityNow || canBuyDevCardNow || canMoveShipNow;
 
   // When in Road Building Dev Card phase, display an active free road placement button
   if (isRoadBuildingDev) {
@@ -134,8 +174,10 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
 
   // When a placement mode is active on the board, transform the button into a red "Cancelar Construcción" button
   if (buildMode !== null) {
-    const modeNames: Record<'ROAD' | 'SETTLEMENT' | 'CITY', string> = {
+    const modeNames: Record<NonNullable<ActiveBuildMode>, string> = {
       ROAD: 'Carretera',
+      SHIP: 'Barco',
+      MOVE_SHIP: 'Mover Barco',
       SETTLEMENT: 'Poblado',
       CITY: 'Ciudad',
     };
