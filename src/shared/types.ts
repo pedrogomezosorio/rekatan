@@ -47,6 +47,7 @@ export interface Vertex {
   port: { type: PortType; ratio: 2 | 3 } | null;
   isLand: boolean;
   isCoastal: boolean;
+  catanChits?: number; // Fichas Catán colocadas bajo el poblado/ciudad o en la intersección
 }
 
 export type EdgeBuildingType = 'ROAD' | 'SHIP';
@@ -77,7 +78,8 @@ export type WonderId =
   | 'GREAT_WALL'
   | 'CATHEDRAL'
   | 'GREAT_THEATRE'
-  | 'COLOSSUS';
+  | 'COLOSSUS'
+  | 'GREAT_LIBRARY';
 
 export interface BoardState {
   mode: BoardMode;
@@ -89,6 +91,9 @@ export interface BoardState {
   robberHexId: string;
   pirateHexId?: string;
   // Navegantes Official Scenarios State:
+  mainIslandHexIds?: string[];
+  uninhabitableHexIds?: string[];
+  foreignTerritoryMap?: Record<string, string>;
   fogDeck?: Array<{ terrain: TerrainType; numberToken: number | null }>;
   revealedHexIds?: string[];
   nativeVillages?: Record<
@@ -101,6 +106,7 @@ export interface BoardState {
       id: string;
       vertexId: string;
       type: 'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT';
+      portType?: PortType;
       claimed: boolean;
       claimedByPlayerId?: string;
     }
@@ -111,6 +117,13 @@ export interface BoardState {
     string,
     { id: string; hexId: string; vertexId: string; targetPlayerColor: PlayerColor; chitsRemaining: number }
   >;
+  safePirateHexId?: string;
+  clothCommonReserve?: number;
+  wonderMarkers?: {
+    greatBridgeVertexIds: string[];
+    greatWallVertexIds: string[];
+    forbiddenSetupVertexIds: string[];
+  };
   wondersState?: Record<
     string,
     { wonderId: WonderId; claimedByPlayerId: string; stage: number }
@@ -143,12 +156,15 @@ export type TurnActionRestrictionLevel =
 
 export type BotDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
+export type SeafarersBoardSize = '3P' | '4P' | '5_6P';
+
 export interface GameConfig {
   boardMode: BoardMode;
   preventAdjacentRedNumbers: boolean;
   desertInCenter: boolean;
-  // Escenario de Navegantes
+  // Escenario de Navegantes y Tamaño de Isla (2-3, 4, o 5-6 jugadores)
   seafarersScenario?: SeafarersScenario;
+  seafarersBoardSize?: SeafarersBoardSize;
   // Variantes oficiales y reglas de la expansión Navegantes
   seafarersMoveShipAllowed?: boolean;
   seafarersCoastConnection?: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION';
@@ -222,6 +238,8 @@ export interface PlayerState {
   roadsLeft: number;
   shipsLeft?: number;
   hasMovedShipThisTurn?: boolean;
+  homeIslandIds?: string[];
+  colonizedForeignIds?: string[];
   discoveryVictoryPoints?: number;
   clothBales?: number; // Navegantes Escenario 6: Telas (2 fardos = 1 PV)
   warshipsCount?: number; // Navegantes Escenario 7: Barcos de Guerra
@@ -240,11 +258,14 @@ export type GamePhase =
   | 'SETUP_ROAD_1'
   | 'SETUP_SETTLEMENT_2'
   | 'SETUP_ROAD_2'
+  | 'SETUP_SETTLEMENT_3'
+  | 'SETUP_ROAD_3'
   | 'WAITING_FOR_DICE'
   | 'ROBBER_DISCARD'
   | 'ROBBER_MOVE'
   | 'ROBBER_STEAL'
   | 'MAIN_PHASE'
+  | 'SPECIAL_BUILD_PHASE'
   | 'ROAD_BUILDING_DEV'
   | 'PAUSED_DISCONNECT'
   | 'GAME_OVER';
@@ -412,7 +433,13 @@ export interface GameState {
 
 export type GameAction =
   | { type: 'UPDATE_CONFIG'; config: Partial<GameConfig> }
-  | { type: 'GENERATE_BOARD'; mode?: BoardMode; preventAdjacentRedNumbers?: boolean; desertInCenter?: boolean }
+  | {
+      type: 'GENERATE_BOARD';
+      mode?: BoardMode;
+      preventAdjacentRedNumbers?: boolean;
+      desertInCenter?: boolean;
+      randomizeVariableSetup?: boolean;
+    }
   | { type: 'CUSTOM_SET_HEX_TERRAIN'; hexId: string; terrain: TerrainType }
   | { type: 'CUSTOM_SET_HEX_NUMBER'; hexId: string; numberToken: number | null }
   | { type: 'CUSTOM_SWAP_HEXES'; hexIdA: string; hexIdB: string }

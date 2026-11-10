@@ -174,14 +174,14 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
             isProducing
               ? '#fbbf24'
               : isSwapSelected
-              ? '#38bdf8'
-              : isRedConflict
-              ? '#ef4444'
-              : isFog
-              ? '#475569'
-              : isSea
-              ? 'rgba(56, 189, 248, 0.16)'
-              : '#5c3a18'
+                ? '#38bdf8'
+                : isRedConflict
+                  ? '#ef4444'
+                  : isFog
+                    ? '#475569'
+                    : isSea
+                      ? 'rgba(56, 189, 248, 0.16)'
+                      : '#5c3a18'
           }
           strokeWidth={isProducing || isSwapSelected ? 4.5 : isSea ? 1 : 2.2}
           filter={isProducing && !lowEndPcMode ? 'url(#producing-glow)' : undefined}

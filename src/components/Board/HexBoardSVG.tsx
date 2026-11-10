@@ -1121,6 +1121,182 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
+                {/* Catan Chits under Settlement / City */}
+                {vertex.building && vertex.catanChits && vertex.catanChits > 0 && (
+                  <g transform="translate(0, 14)">
+                    <image
+                      href="/assets/tokens/catan_chit.png"
+                      x={-13}
+                      y={-13}
+                      width={26}
+                      height={26}
+                    />
+                    <circle
+                      cx={8}
+                      cy={-6}
+                      r={6}
+                      fill="#ef4444"
+                      stroke="#ffffff"
+                      strokeWidth={1.2}
+                    />
+                    <text
+                      x={8}
+                      y={-3.5}
+                      textAnchor="middle"
+                      fill="#ffffff"
+                      fontSize={8}
+                      fontWeight="bold"
+                    >
+                      +{vertex.catanChits}
+                    </text>
+                  </g>
+                )}
+
+                {/* Forgotten Gift on Vertex (Escenario 5) */}
+                {!vertex.building &&
+                  (() => {
+                    const gift = Object.values(board.forgottenGifts || {}).find(
+                      (g) => g.vertexId === vertex.id && !g.claimed
+                    );
+                    if (!gift) return null;
+                    return (
+                      <g className="pointer-events-none">
+                        <image
+                          href="/assets/tokens/catan_chit.png"
+                          x={-13}
+                          y={-13}
+                          width={26}
+                          height={26}
+                        />
+                        <circle
+                          cx={0}
+                          cy={0}
+                          r={14}
+                          fill="none"
+                          stroke="#fbbf24"
+                          strokeWidth={1.8}
+                          strokeDasharray="2 2"
+                        />
+                        <rect
+                          x={-10}
+                          y={-5}
+                          width={20}
+                          height={10}
+                          rx={3}
+                          fill="rgba(15, 23, 42, 0.85)"
+                        />
+                        <text
+                          x={0}
+                          y={3}
+                          textAnchor="middle"
+                          fill="#fef08a"
+                          fontSize={7}
+                          fontWeight="bold"
+                        >
+                          {gift.type === 'CATAN_CHIT_1VP'
+                            ? '+1 PV'
+                            : gift.type === 'DEV_CARD'
+                            ? 'DEV'
+                            : 'PORT'}
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                {/* Native Village / Cloth Bales in Escenario 6 */}
+                {!vertex.building &&
+                  (() => {
+                    const village = Object.values(board.nativeVillages || {}).find(
+                      (v) => v.vertexId === vertex.id
+                    );
+                    if (!village) return null;
+                    return (
+                      <g className="pointer-events-none">
+                        <circle
+                          cx={0}
+                          cy={0}
+                          r={14}
+                          fill="#78350f"
+                          stroke="#fde047"
+                          strokeWidth={1.8}
+                        />
+                        <image
+                          href="/assets/tokens/catan_chit.png"
+                          x={-11}
+                          y={-11}
+                          width={22}
+                          height={22}
+                          opacity={0.85}
+                        />
+                        <rect
+                          x={-9}
+                          y={-7}
+                          width={18}
+                          height={14}
+                          rx={4}
+                          fill="rgba(15, 23, 42, 0.9)"
+                          stroke="#38bdf8"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={0}
+                          y={3}
+                          textAnchor="middle"
+                          fill="#38bdf8"
+                          fontSize={9}
+                          fontWeight="bold"
+                        >
+                          {village.numberToken}
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                {/* Pirate Fortress in Escenario 7 */}
+                {!vertex.building &&
+                  (() => {
+                    const fortress = Object.values(board.pirateFortresses || {}).find(
+                      (f) => f.vertexId === vertex.id
+                    );
+                    if (!fortress) return null;
+                    const fColorCfg = PLAYER_COLORS[fortress.targetPlayerColor];
+                    return (
+                      <g className="pointer-events-none">
+                        <polygon
+                          points="-12,10 12,10 14,-6 8,-6 8,-12 3,-12 3,-6 -3,-6 -3,-12 -8,-12 -8,-6 -14,-6"
+                          fill="#1e1b4b"
+                          stroke={fColorCfg?.stroke || '#dc2626'}
+                          strokeWidth={2}
+                        />
+                        <image
+                          href="/assets/tokens/catan_chit.png"
+                          x={-9}
+                          y={-6}
+                          width={18}
+                          height={18}
+                        />
+                        <circle
+                          cx={9}
+                          cy={-8}
+                          r={6}
+                          fill="#dc2626"
+                          stroke="#ffffff"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={9}
+                          y={-5.5}
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize={8}
+                          fontWeight="bold"
+                        >
+                          {fortress.chitsRemaining}
+                        </text>
+                      </g>
+                    );
+                  })()}
+
                 {/* Pulsing Valid Settlement Target */}
                 {isValidSettlement && (
                   <g>
@@ -1298,6 +1474,64 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               {/* Crimson Pirate Flag */}
               <path d="M 0 -20 L 7 -17 L 0 -14 Z" fill="#dc2626" />
               <circle cx={0} cy={-11} r={2} fill="#e2e8f0" />
+            </g>
+          )}
+
+          {/* 7. SAFE PIRATE HEX MARK (!) (Escenario 7) */}
+          {board.safePirateHexId && board.hexes[board.safePirateHexId] && (
+            <g
+              transform={`translate(${board.hexes[board.safePirateHexId].center.x}, ${
+                board.hexes[board.safePirateHexId].center.y
+              })`}
+              className="pointer-events-none"
+            >
+              <circle
+                cx={0}
+                cy={0}
+                r={18}
+                fill="rgba(234, 179, 8, 0.25)"
+                stroke="#eab308"
+                strokeWidth={2.5}
+              />
+              <text
+                x={0}
+                y={7}
+                textAnchor="middle"
+                fill="#fef08a"
+                fontSize={20}
+                fontWeight="900"
+              >
+                !
+              </text>
+            </g>
+          )}
+
+          {/* 8. PIRATE FLEET WARSHIP (Escenario 7) */}
+          {board.pirateFleetHexId && board.hexes[board.pirateFleetHexId] && (
+            <g
+              transform={`translate(${board.hexes[board.pirateFleetHexId].center.x}, ${
+                board.hexes[board.pirateFleetHexId].center.y
+              })`}
+              className="pointer-events-none"
+            >
+              <ellipse cx={0} cy={12} rx={18} ry={6} fill="rgba(0,0,0,0.6)" />
+              <polygon
+                points="-16,8 16,8 20,-2 -20,-2"
+                fill="#0f172a"
+                stroke="#dc2626"
+                strokeWidth={2}
+              />
+              <polygon points="0,-2 0,-18 12,-10" fill="#dc2626" />
+              <text
+                x={0}
+                y={6}
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize={8}
+                fontWeight="bold"
+              >
+                🏴‍☠️ FLOTA
+              </text>
             </g>
           )}
         </g>

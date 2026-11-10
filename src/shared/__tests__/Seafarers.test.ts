@@ -40,23 +40,27 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     expect(s1_3p_land.length).toBe(22);
     expect(s1_3p_land.some((h) => h.terrain === 'DESERT')).toBe(false);
     expect(s1_3p_land.filter((h) => h.terrain === 'GOLD').length).toBe(2);
-    expect(s1_3p.hexes['-3,0,3'].hasRobber).toBe(true); // Cerro 12
+    const cerro12 = Object.values(s1_3p.hexes).find((h) => h.terrain === 'BRICK' && h.numberToken === 12);
+    expect(cerro12?.hasRobber).toBe(true); // Cerro 12
 
     // 4 jugadores: 19 isla principal + 9 islotes = 28 hexes terrestres, desierto con ladrón
     const s1_4p_land = Object.values(s1_4p.hexes).filter((h) => h.terrain !== 'SEA');
     expect(s1_4p_land.length).toBe(28);
     expect(s1_4p_land.some((h) => h.terrain === 'DESERT')).toBe(true);
-    expect(s1_4p.hexes['-1,0,1'].hasRobber).toBe(true); // Desierto central
+    const desert4p = Object.values(s1_4p.hexes).find((h) => h.terrain === 'DESERT');
+    expect(desert4p?.hasRobber).toBe(true); // Desierto central con ladrón
 
     // Escenario 2: Las cuatro islas
     const s2_3p = generateSeafarersBoard('THE_FOUR_ISLANDS', true, 62, 3);
     const s2_4p = generateSeafarersBoard('THE_FOUR_ISLANDS', true, 62, 4);
     // 3 jugadores: 4 islas de 5 hexes = 20 hexes terrestres
     expect(Object.values(s2_3p.hexes).filter((h) => h.terrain !== 'SEA').length).toBe(20);
-    expect(s2_3p.hexes['-2,3,-1'].hasRobber).toBe(true); // Bosque 12 en SO
+    const twelve3p = Object.values(s2_3p.hexes).find((h) => h.numberToken === 12);
+    expect(twelve3p?.hasRobber).toBe(true); // Ficha 12 en SO con Ladrón
     // 4 jugadores: 23 hexes terrestres
     expect(Object.values(s2_4p.hexes).filter((h) => h.terrain !== 'SEA').length).toBe(23);
-    expect(s2_4p.hexes['1,-1,0'].hasRobber).toBe(true); // Sembrado 12 en NE
+    const wheat12_4p = Object.values(s2_4p.hexes).find((h) => h.terrain === 'WHEAT' && h.numberToken === 12);
+    expect(wheat12_4p?.hasRobber).toBe(true); // Sembrado 12 en NE
 
     // Escenario 3: Oceanía
     const s3_3p = generateSeafarersBoard('OCEANIA', true, 62, 3);
@@ -509,15 +513,15 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     const desertCount = Object.values(s4.hexes).filter((h) => h.terrain === 'DESERT').length;
     expect(desertCount).toBeGreaterThanOrEqual(3);
 
-    // Escenario 5: El pueblo perdido
+    // Escenario 5: El pueblo perdido (8 Fichas Catán, 4 cartas desarrollo, 6 puertos = 18 dones)
     const s5 = generateSeafarersBoard('THE_FORGOTTEN_TRIBE');
     expect(s5.forgottenGifts).toBeDefined();
-    expect(Object.keys(s5.forgottenGifts!).length).toBe(4);
+    expect(Object.keys(s5.forgottenGifts!).length).toBe(18);
 
-    // Escenario 6: Telas para Catán
+    // Escenario 6: Telas para Catán (8 aldeas indígenas en 4 islotes, 2 por islote)
     const s6 = generateSeafarersBoard('CLOTH_FOR_CATAN');
     expect(s6.nativeVillages).toBeDefined();
-    expect(Object.keys(s6.nativeVillages!).length).toBe(4);
+    expect(Object.keys(s6.nativeVillages!).length).toBe(8);
 
     // Escenario 7: Las islas de los piratas
     const s7 = generateSeafarersBoard('THE_PIRATE_ISLANDS');

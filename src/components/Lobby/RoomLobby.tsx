@@ -27,7 +27,7 @@ import {
   TERRAIN_META,
   TILE_TEXTURE_PATHS,
 } from '../../shared/constants';
-import { BoardMode, BotDifficulty, ExpansionModule, PortType, SeafarersScenario, TerrainType } from '../../shared/types';
+import { BoardMode, BotDifficulty, ExpansionModule, PortType, SeafarersBoardSize, SeafarersScenario, TerrainType } from '../../shared/types';
 import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 
@@ -521,32 +521,124 @@ export const RoomLobby: React.FC = () => {
               )}
             </div>
 
-            {config.expansionModule === 'SEAFARERS' ? (
-              <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 text-xs space-y-2">
-                <div className="flex items-center justify-between gap-2 text-sky-300 font-extrabold">
-                  <div className="flex items-center gap-2">
-                    <span>⛵</span>
-                    <span>Geografía Oficial de Navegantes</span>
+            {config.expansionModule === 'SEAFARERS' ? (() => {
+              const effectiveSeafarersSize: SeafarersBoardSize =
+                config.seafarersBoardSize ||
+                (players.length <= 3 ? '3P' : players.length >= 5 ? '5_6P' : '4P');
+              const selectedScenario =
+                SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario) ||
+                SEAFARERS_SCENARIOS[0];
+
+              return (
+                <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 text-xs space-y-3">
+                  <div className="flex items-center justify-between gap-2 text-sky-300 font-extrabold">
+                    <div className="flex items-center gap-2">
+                      <span>⛵</span>
+                      <span>Tamaño del Tablero de Navegantes</span>
+                    </div>
+                    <span className="text-[10px] bg-sky-900/80 border border-sky-400/50 text-sky-200 px-2 py-0.5 rounded-full font-bold">
+                      {effectiveSeafarersSize === '3P'
+                        ? '2-3 Jugadores'
+                        : effectiveSeafarersSize === '5_6P'
+                        ? '5-6 Jugadores'
+                        : '4 Jugadores'}
+                    </span>
                   </div>
-                  <span className="text-[10px] bg-sky-900/80 border border-sky-400/50 text-sky-200 px-2 py-0.5 rounded-full font-bold">
-                    {players.length <= 3 ? 'Mapa 2-3 Jugadores' : 'Mapa 4 Jugadores'}
-                  </span>
+
+                  {/* 3 Botones interactivos para escoger el tamaño de la isla según los PDFs oficiales */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          size: '3P' as const,
+                          label: '2-3 Jugadores',
+                          desc: 'Marco compacto',
+                          badge: '3 Jugadores',
+                        },
+                        {
+                          size: '4P' as const,
+                          label: '4 Jugadores',
+                          desc: 'Marco estándar',
+                          badge: '4 Jugadores',
+                        },
+                        {
+                          size: '5_6P' as const,
+                          label: '5-6 Jugadores',
+                          desc: 'Gran marco 56/63',
+                          badge: 'Ampliación 5-6J',
+                        },
+                      ]
+                    ).map((item) => {
+                      const isSelected = effectiveSeafarersSize === item.size;
+                      return (
+                        <button
+                          key={item.size}
+                          type="button"
+                          disabled={!isHost}
+                          onClick={() => {
+                            dispatchAction({
+                              type: 'UPDATE_CONFIG',
+                              config: {
+                                seafarersBoardSize: item.size,
+                                maxPlayers:
+                                  item.size === '5_6P'
+                                    ? 6
+                                    : config.maxPlayers > 4
+                                    ? 4
+                                    : config.maxPlayers,
+                              },
+                            });
+                          }}
+                          className={`p-2 rounded-xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-sky-500/25 border-sky-400 text-sky-100 shadow-md shadow-sky-500/10'
+                              : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                          } ${!isHost ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-[11px] text-white">
+                              {item.label}
+                            </span>
+                            {isSelected && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                            )}
+                          </div>
+                          <span className="text-[9px] text-slate-400 mt-0.5">
+                            {item.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-snug">
+                    Escenario:{' '}
+                    <strong className="text-white">
+                      {selectedScenario.title}
+                    </strong>.
+                    <span className="block mt-0.5 text-[10px] text-sky-300/80">
+                      Topología y marco extraídos 100% de los manuales oficiales de Klaus Teuber.
+                    </span>
+                  </p>
+
+                  {/* Apartados detallados de Puntos de Victoria, Montaje variable y Fichas Catán */}
+                  <div className="space-y-1.5 pt-2 border-t border-sky-500/20 text-[11px]">
+                    <div className="text-slate-200">
+                      <strong className="text-amber-300 font-extrabold">🏆 Puntos de Victoria especiales:</strong>{' '}
+                      {selectedScenario.specialVPRule}
+                    </div>
+                    <div className="text-slate-300">
+                      <strong className="text-sky-300 font-extrabold">🎲 Montaje variable (Sección 4):</strong>{' '}
+                      {selectedScenario.variableSetupRule}
+                    </div>
+                    <div className="text-slate-400 text-[10px]">
+                      <strong className="text-slate-300 font-bold">🪙 Fichas Catán:</strong>{' '}
+                      {selectedScenario.catanChitsCount[effectiveSeafarersSize] || 0} fichas asignadas a este escenario para {effectiveSeafarersSize === '3P' ? '3' : effectiveSeafarersSize === '5_6P' ? '5-6' : '4'} jugadores.
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-snug">
-                  Escenario:{' '}
-                  <strong className="text-white">
-                    {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.title || 'Rumbo a nuevas orillas'}
-                  </strong>.
-                  <span className="block mt-0.5 text-[10px] text-sky-300/80">
-                    Adaptado con precisión al número de hexágonos y componentes oficiales para {players.length <= 3 ? '3' : '4'} jugadores del reglamento de Klaus Teuber.
-                  </span>
-                </p>
-                <div className="text-[10px] text-sky-400/90 bg-sky-950/60 p-2 rounded-lg border border-sky-500/20">
-                  {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.subtitle ||
-                    'Incluye canales marítimos navegables, Barco Pirata, Islas con Ríos de Oro y +2 PV por Descubrimiento insular.'}
-                </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
@@ -642,6 +734,7 @@ export const RoomLobby: React.FC = () => {
                         type: 'GENERATE_BOARD',
                         preventAdjacentRedNumbers: config.preventAdjacentRedNumbers,
                         desertInCenter: config.expansionModule === 'SEAFARERS' ? false : (config.desertInCenter !== false),
+                        randomizeVariableSetup: config.expansionModule === 'SEAFARERS' ? true : undefined,
                       })
                     }
                     className="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"

@@ -483,9 +483,9 @@ export function canSpendOrBuildThisTurn(
 
 /**
  * Validates whether `playerId` can build a Settlement at `vertexId`.
- * Except during initial setup (SETUP_SETTLEMENT_1 / SETUP_SETTLEMENT_2),
+ * Except during initial setup (SETUP_SETTLEMENT_1 / SETUP_SETTLEMENT_2 / SETUP_SETTLEMENT_3),
  * a player CANNOT place a settlement on an empty vertex unless it is connected
- * to at least one of their own roads.
+ * to at least one of their own roads or ships.
  */
 export function canBuildSettlement(
   state: GameState,
@@ -498,7 +498,9 @@ export function canBuildSettlement(
   }
 
   const isSetup =
-    state.phase === 'SETUP_SETTLEMENT_1' || state.phase === 'SETUP_SETTLEMENT_2';
+    state.phase === 'SETUP_SETTLEMENT_1' ||
+    state.phase === 'SETUP_SETTLEMENT_2' ||
+    state.phase === 'SETUP_SETTLEMENT_3';
   const isMain = state.phase === 'MAIN_PHASE';
 
   if (!isSetup && !isMain) {
@@ -515,36 +517,51 @@ export function canBuildSettlement(
     return { allowed: false, reason: 'Intersección inválida u ocupada.' };
   }
 
-  // Restricciones geográficas oficiales de Navegantes
-  if (state.config.seafarersScenario === 'THE_FORGOTTEN_TRIBE') {
-    const isletHexIds = new Set(['-3,0,3', '0,-3,3', '-1,3,-2', '3,0,-3']);
-    if (v.hexIds.some((hId) => isletHexIds.has(hId))) {
+  // 1. Regla oficial de islotes inhabitables (El Pueblo Perdido, Telas para Catán, Islas Piratas)
+  if (state.board.uninhabitableHexIds && state.board.uninhabitableHexIds.length > 0) {
+    const uninhabitableSet = new Set(state.board.uninhabitableHexIds);
+    const landHexesOfVertex = v.hexIds.filter((hId) => {
+      const h = state.board.hexes[hId];
+      return h && h.terrain !== 'SEA' && h.terrain !== 'FOG';
+    });
+    if (
+      landHexesOfVertex.length > 0 &&
+      landHexesOfVertex.every((hId) => uninhabitableSet.has(hId))
+    ) {
       return {
         allowed: false,
-        reason: 'En El pueblo perdido no se permite fundar poblados en los islotes de la tribu.',
+        reason: 'Según las reglas oficiales de este escenario, no está permitido fundar poblados en este islote.',
       };
     }
   }
 
-  if (state.config.seafarersScenario === 'THROUGH_THE_DESERT' && isSetup) {
-    const nwAndIslandsHexIds = new Set([
-      '-2,-1,3', '-1,-2,3', '-2,0,2', '-3,1,2',
-      '3,-2,-1', '3,-1,-2', '2,-3,1', '3,-3,0',
-    ]);
-    if (v.hexIds.some((hId) => nwAndIslandsHexIds.has(hId))) {
+  // 2. Regla oficial de preparación inicial en Navegantes: solo en las Islas Principales / Conocidas
+  if (isSetup && state.board.mainIslandHexIds && state.board.mainIslandHexIds.length > 0) {
+    const mainSet = new Set(state.board.mainIslandHexIds);
+    if (!v.hexIds.some((hId) => mainSet.has(hId))) {
       return {
         allowed: false,
-        reason: 'En A través del desierto, los poblados iniciales deben fundarse al sureste del desierto.',
+        reason: 'Durante la fase inicial solo puedes fundar poblados en las islas principales.',
       };
     }
   }
 
-  if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && isSetup) {
-    const pirateHexes = new Set(['-3,1,2', '-3,2,1', '-2,-1,3', '-2,2,0', '0,-1,1', '0,0,0', '0,1,-1']);
-    if (v.hexIds.some((hId) => pirateHexes.has(hId))) {
+  // 3. En Las Seis Islas (5-6 jugadores), los 2 poblados iniciales deben fundarse en islas distintas
+  if (
+    isSetup &&
+    state.phase === 'SETUP_SETTLEMENT_2' &&
+    state.config.seafarersScenario === 'THE_FOUR_ISLANDS' &&
+    state.players.length >= 5 &&
+    player.homeIslandIds &&
+    player.homeIslandIds.length > 0
+  ) {
+    const vTerritories = v.hexIds
+      .map((hId) => state.board.foreignTerritoryMap?.[hId])
+      .filter((t): t is string => Boolean(t));
+    if (vTerritories.some((t) => player.homeIslandIds!.includes(t))) {
       return {
         allowed: false,
-        reason: 'Debes colocar tus poblados iniciales en la gran isla de los colonos al este.',
+        reason: 'En Las Seis Islas (5-6 jugadores), no puedes fundar tus 2 poblados iniciales en la misma isla.',
       };
     }
   }
@@ -561,7 +578,6 @@ export function canBuildSettlement(
   }
 
   // Strictly verify connection to at least one road or ship owned by `playerId`
-  // by checking both adjacentEdgeIds and edge endpoint vertices directly.
   const connectedToOwnRoadOrShip = Object.values(state.board.edges).some(
     (edge) =>
       (edge.building === 'ROAD' || edge.building === 'SHIP') &&
@@ -646,7 +662,10 @@ export function getPotentialSettlementVertices(
 export function getValidRoadEdges(state: GameState, playerId: string): string[] {
   if (state.turn.activePlayerId !== playerId) return [];
 
-  const isSetup = state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
+  const isSetup =
+    state.phase === 'SETUP_ROAD_1' ||
+    state.phase === 'SETUP_ROAD_2' ||
+    state.phase === 'SETUP_ROAD_3';
   const isFreeDev = state.phase === 'ROAD_BUILDING_DEV';
   const isMain = state.phase === 'MAIN_PHASE';
 
@@ -716,7 +735,9 @@ export function canBuildShip(
   ignoreResources: boolean = false
 ): { allowed: boolean; reason?: string } {
   const isSetup =
-    state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
+    state.phase === 'SETUP_ROAD_1' ||
+    state.phase === 'SETUP_ROAD_2' ||
+    state.phase === 'SETUP_ROAD_3';
   const isMain = state.phase === 'MAIN_PHASE';
   const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
 
@@ -803,7 +824,10 @@ export function canBuildShip(
 export function getValidShipEdges(state: GameState, playerId: string): string[] {
   if (state.turn.activePlayerId !== playerId) return [];
 
-  const isSetup = state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
+  const isSetup =
+    state.phase === 'SETUP_ROAD_1' ||
+    state.phase === 'SETUP_ROAD_2' ||
+    state.phase === 'SETUP_ROAD_3';
   const isMain = state.phase === 'MAIN_PHASE';
   const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
   if (!isSetup && !isMain && !isRoadBuilding) return [];
@@ -1278,14 +1302,18 @@ export function applyGameAction(
         state.config.maxPlayers = Math.max(4, state.players.length);
       }
 
-      // If expansionModule or seafarersScenario changed, handle Seafarers board setup
+      // If expansionModule, seafarersScenario, or seafarersBoardSize changed, handle Seafarers board setup
       if (
         action.config.expansionModule !== undefined ||
-        action.config.seafarersScenario !== undefined
+        action.config.seafarersScenario !== undefined ||
+        action.config.seafarersBoardSize !== undefined
       ) {
+        if (action.config.seafarersBoardSize !== undefined) {
+          state.config.seafarersBoardSize = action.config.seafarersBoardSize;
+        }
         if (
           action.config.expansionModule === 'SEAFARERS' ||
-          (state.config.expansionModule === 'SEAFARERS' && action.config.seafarersScenario !== undefined)
+          (state.config.expansionModule === 'SEAFARERS' && (action.config.seafarersScenario !== undefined || action.config.seafarersBoardSize !== undefined))
         ) {
           state.config.expansionModule = 'SEAFARERS';
           state.config.seafarersScenario =
@@ -1301,7 +1329,9 @@ export function applyGameAction(
             DEFAULT_HEX_SIZE,
             false,
             state.config.seafarersScenario,
-            state.players.length
+            state.players.length,
+            false,
+            state.config.seafarersBoardSize
           );
         } else if (action.config.expansionModule === 'BASE') {
           state.config.expansionModule = 'BASE';
@@ -1381,7 +1411,9 @@ export function applyGameAction(
         DEFAULT_HEX_SIZE,
         isSeaf ? false : desertCenter,
         isSeaf ? (state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') : undefined,
-        state.players.length
+        state.players.length,
+        action.randomizeVariableSetup ?? true,
+        state.config.seafarersBoardSize
       );
       if (!isSeaf) {
         state.board = enforceDesertInCenterRule(state.board, desertCenter);
@@ -1559,7 +1591,9 @@ export function applyGameAction(
           DEFAULT_HEX_SIZE,
           false,
           state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length
+          state.players.length,
+          false,
+          state.config.seafarersBoardSize
         );
       }
       addLog(state, `Se añadió a ${bot.name} (${botDifficulty}) a la sala.`, 'SYSTEM', actor.id);
@@ -1618,7 +1652,9 @@ export function applyGameAction(
           DEFAULT_HEX_SIZE,
           false,
           state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length
+          state.players.length,
+          false,
+          state.config.seafarersBoardSize
         );
       }
       addLog(state, `Se rellenó la sala con ${needed} Bot(s) (${botDifficulty}).`, 'SYSTEM', actor.id);
@@ -1666,7 +1702,9 @@ export function applyGameAction(
           DEFAULT_HEX_SIZE,
           false,
           state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length
+          state.players.length,
+          false,
+          state.config.seafarersBoardSize
         );
       }
       return { state };
@@ -1690,7 +1728,9 @@ export function applyGameAction(
           DEFAULT_HEX_SIZE,
           false,
           state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length
+          state.players.length,
+          false,
+          state.config.seafarersBoardSize
         );
       }
 
@@ -1980,9 +2020,11 @@ export function applyGameAction(
                 const isFirstDiscovery = (actor.discoveryVictoryPoints || 0) === 0;
                 const points = vpMode === 'PROGRESSIVE' ? (isFirstDiscovery ? 2 : 1) : 2;
                 actor.discoveryVictoryPoints = (actor.discoveryVictoryPoints || 0) + points;
+                state.board.vertices[vertex.id].catanChits =
+                  (state.board.vertices[vertex.id].catanChits || 0) + points;
                 addLog(
                   state,
-                  `¡Descubrimiento marítimo! ${actor.name} colonizó una nueva isla exterior y obtuvo +${points} Punto(s) de Victoria.`,
+                  `¡Descubrimiento marítimo! ${actor.name} colonizó una nueva isla exterior y colocó ${points} Ficha(s) Catán (+${points} PV) bajo su poblado.`,
                   'AWARD',
                   actor.id
                 );
