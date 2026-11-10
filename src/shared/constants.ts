@@ -5,6 +5,7 @@ import {
   PlayerColor,
   PortType,
   ResourceType,
+  SeafarersBoardSize,
   SeafarersScenario,
   TerrainType,
   WonderId,
@@ -479,6 +480,9 @@ export interface WonderMeta {
   description: string;
   prerequisiteDescription: string;
   icon: string;
+  cardImage?: string;
+  stageCost?: Partial<Record<ResourceType, number>>;
+  onlyExtended?: boolean;
 }
 
 export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
@@ -488,6 +492,16 @@ export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
     description: 'Un monumental viaducto que une dos islas a través de un canal estrecho.',
     prerequisiteDescription: 'Requiere tener un poblado o ciudad en uno de los marcadores violetas del estrecho.',
     icon: '🌉',
+  },
+  GREAT_BRIDGE_NORTH: {
+    id: 'GREAT_BRIDGE_NORTH',
+    name: 'Gran Puente del norte',
+    description: 'La maravilla del estrecho norte de la ampliación para 5 y 6 jugadores.',
+    prerequisiteDescription: 'Un poblado o ciudad en un cuadrado violeta del estrecho del norte.',
+    icon: '🌉',
+    cardImage: '/assets/wonders/great_bridge_north.png',
+    stageCost: { WOOD: 3, WHEAT: 1, SHEEP: 1 },
+    onlyExtended: true,
   },
   GREAT_WALL: {
     id: 'GREAT_WALL',
@@ -523,6 +537,9 @@ export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
     description: 'El mayor archivo de sabiduría y cartografía marítima de Catán (Ampliación 5-6J).',
     prerequisiteDescription: 'Requiere al menos 2 Ciudades construidas.',
     icon: '🏛️',
+    cardImage: '/assets/wonders/great_library.png',
+    stageCost: { WOOD: 1, BRICK: 1, SHEEP: 3 },
+    onlyExtended: true,
   },
 };
 
@@ -535,6 +552,15 @@ export const WONDER_STAGE_COST: Record<ResourceType, number> = {
   WHEAT: 1,
   ORE: 1,
 };
+
+export function getWonderStageCost(wonderId: WonderId): Record<ResourceType, number> {
+  const cost = WONDERS_CATALOG[wonderId].stageCost;
+  return cost ? Object.fromEntries(ALL_RESOURCES.map(resource => [resource, cost[resource] || 0])) as Record<ResourceType, number> : { ...WONDER_STAGE_COST };
+}
+
+export function getAvailableWonders(size: SeafarersBoardSize = '4P'): WonderMeta[] {
+  return Object.values(WONDERS_CATALOG).filter(wonder => !wonder.onlyExtended || size === '5_6P');
+}
 
 export const PROBABILITY_PIPS: Record<number, number> = {
   2: 1,

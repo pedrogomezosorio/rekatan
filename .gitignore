@@ -37,3 +37,6 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local multiplayer room snapshots
+.rekatan/
+

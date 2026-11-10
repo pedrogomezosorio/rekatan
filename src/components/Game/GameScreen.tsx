@@ -55,6 +55,7 @@ import { OverlayAnimations } from '../Animations/OverlayAnimations';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 import { BuildDrawerMenu, ActiveBuildMode } from './BuildDrawerMenu';
 import { ResourceHandFan } from './ResourceHandFan';
+import { WondersModal } from './WondersPanel';
 import {
   AbandonConfirmModal,
   ActiveTradeFloatingBanner,
@@ -84,6 +85,7 @@ export const GameScreen: React.FC = () => {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeModalInitialTab, setTradeModalInitialTab] = useState<'PLAYERS' | 'BANK'>('BANK');
   const [showDevModal, setShowDevModal] = useState(false);
+  const [showWonders, setShowWonders] = useState(false);
   const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChronicle, setShowChronicle] = useState(false);
@@ -1365,6 +1367,12 @@ export const GameScreen: React.FC = () => {
                 </span>
               </button>
 
+              {gameState.config.seafarersScenario === 'WONDERS_OF_CATAN' && (
+                <button type="button" onClick={() => setShowWonders(true)}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950/70 text-amber-100 text-xs font-bold flex items-center gap-2">
+                  <Award className="w-4 h-4" /> Maravillas
+                </button>
+              )}
               {/* 3. Cartas de Desarrollo (D) */}
               <button
                 type="button"
@@ -1561,6 +1569,7 @@ export const GameScreen: React.FC = () => {
       </footer>
 
       {/* SETTINGS MODAL (Low-End PC Mode Toggle) */}
+      {showWonders && <WondersModal gameState={gameState} playerId={playerId} dispatchAction={dispatchAction} onClose={() => setShowWonders(false)} />}
       <AnimatePresence>
         {showSettingsModal && (
           <motion.div

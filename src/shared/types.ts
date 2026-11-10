@@ -75,6 +75,7 @@ export type BoardMode =
 
 export type WonderId =
   | 'GREAT_BRIDGE'
+  | 'GREAT_BRIDGE_NORTH'
   | 'GREAT_WALL'
   | 'CATHEDRAL'
   | 'GREAT_THEATRE'
@@ -85,6 +86,7 @@ export interface BoardState {
   mode: BoardMode;
   seafarersScenario?: SeafarersScenario;
   seafarersBoardSize?: SeafarersBoardSize;
+  seafarersSetup?: 'INITIAL' | 'VARIABLE';
   hexSize: number;
   hexes: Record<string, Hex>;
   /** Visual frame only: never creates navigable edges or pirate targets. */
@@ -127,6 +129,7 @@ export interface BoardState {
   clothCommonReserve?: number;
   wonderMarkers?: {
     greatBridgeVertexIds: string[];
+    greatNorthBridgeVertexIds?: string[];
     greatWallVertexIds: string[];
     forbiddenSetupVertexIds: string[];
   };

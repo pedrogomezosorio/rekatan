@@ -605,6 +605,7 @@ export function generateSeafarersBoard(
   }
   const wonderMarkers = data.wonderMarkers ? {
     greatBridgeVertexIds: data.wonderMarkers.greatBridge.map(s => vertexAt(s).id),
+    greatNorthBridgeVertexIds: data.wonderMarkers.greatBridgeNorth?.map(s => vertexAt(s).id),
     greatWallVertexIds: data.wonderMarkers.greatWall.map(s => vertexAt(s).id),
     forbiddenSetupVertexIds: [...new Set(data.wonderMarkers.forbiddenSetup.map(s => vertexAt(s).id))],
   } : undefined;
@@ -612,6 +613,7 @@ export function generateSeafarersBoard(
   return {
     mode: size === '5_6P' ? 'EXPANSION_5_6' : 'STANDARD_3_4', hexSize, hexes, decorativeSeaHexes,
     seafarersScenario: scenario, seafarersBoardSize: size,
+    seafarersSetup: randomizeVariableSetup || freeWorld ? 'VARIABLE' : 'INITIAL',
     vertices, edges, ports, robberHexId, pirateHexId,
     safePirateHexId: data.safePirateCoord ? idOf(data.safePirateCoord) : undefined,
     clothCommonReserve: scenario === 'CLOTH_FOR_CATAN' ? 10 : undefined,

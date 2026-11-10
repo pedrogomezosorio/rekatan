@@ -77,4 +77,18 @@ describe('Modalidad de Navegantes independiente del número de ocupantes', () =>
     expect(result.state.board.fogDeck?.map(h => h.terrain).sort()).toEqual(deck?.map(h => h.terrain).sort());
     expect(result.state.board.fogDeck?.map(h => h.numberToken).sort()).toEqual(deck?.map(h => h.numberToken).sort());
   });
+
+  it('restaura el montaje inicial de A través del desierto de cuatro jugadores con el trigo 12 en la esquina inferior derecha', () => {
+    let state = lobby('4P');
+    state = applyGameAction(state, 'HOST', { type: 'UPDATE_CONFIG', config: { seafarersScenario: 'THROUGH_THE_DESERT' } }).state;
+    const initial = state.board;
+    state = applyGameAction(state, 'HOST', { type: 'GENERATE_BOARD' }).state;
+    expect(state.board.seafarersSetup).toBe('VARIABLE');
+    state = applyGameAction(state, 'HOST', { type: 'GENERATE_BOARD', randomizeVariableSetup: false }).state;
+    expect(state.board.seafarersSetup).toBe('INITIAL');
+    expect(state.board).toEqual(initial);
+    expect(state.board.hexes['1,3,-4']).toMatchObject({ terrain: 'WHEAT', numberToken: 12 });
+    expect(state.board.hexes['0,3,-3']).toMatchObject({ terrain: 'ORE', numberToken: 6 });
+    expect(state.board.hexes['2,2,-4'].terrain).toBe('SEA');
+  });
 });

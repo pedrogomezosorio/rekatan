@@ -1,5 +1,6 @@
 import { getAvatarNameError, getPublicPlayerName, normalizeAvatar } from '../src/shared/playerIdentity';
 import { getRoomPlayerLimit } from '../src/shared/seafarersConfig';
+import { RoomStore } from './roomStore';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -31,9 +32,19 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT) || 3000;
 
-const rooms = new Map<string, GameState>();
+const rooms = new RoomStore(process.env.CATAN_ROOMS_FILE || path.resolve(__dirname, '../.rekatan/rooms.json'));
+const LOBBY_RECONNECT_GRACE_MS = 30 * 60 * 1000;
+process.once('exit', () => rooms.flush());
+for (const signal of ['SIGINT', 'SIGTERM'] as const) process.once(signal, () => { rooms.flush(); process.exit(0); });
 const socketToSession = new Map<string, { roomCode: string; playerId: string }>();
+const lobbyExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const runningBotRooms = new Set<string>();
+
+function cancelLobbyExpiry(roomCode: string, playerId: string) {
+  const key = `${roomCode}:${playerId}`;
+  clearTimeout(lobbyExpiryTimers.get(key));
+  lobbyExpiryTimers.delete(key);
+}
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -129,6 +140,7 @@ async function startServer() {
 
         if (!room) {
           socket.emit('ACTION_ERROR', {
+            code: 'ROOM_NOT_FOUND', roomCode,
             message: `No existe ninguna sala con el código "${roomCode}". Verifica el código.`,
           });
           return;
@@ -148,6 +160,7 @@ async function startServer() {
           existingPlayer.connected = true;
           existingPlayer.isBot = false;
           existingPlayer.status = 'ACTIVE';
+          cancelLobbyExpiry(roomCode, playerId);
           if (payload.playerName) {
             existingPlayer.name = getPublicPlayerName(payload.playerName) || existingPlayer.name;
           }
@@ -175,6 +188,7 @@ async function startServer() {
 
           socketToSession.set(socket.id, { roomCode, playerId });
           socket.join(roomCode);
+          rooms.set(roomCode, room);
 
           socket.emit('ROOM_JOINED', { roomCode, playerId, state: room });
           io.to(roomCode).emit('ROOM_STATE', room);
@@ -222,6 +236,7 @@ async function startServer() {
 
             socketToSession.set(socket.id, { roomCode, playerId: disconnectedMatch.id });
             socket.join(roomCode);
+            rooms.set(roomCode, room);
             socket.emit('ROOM_JOINED', {
               roomCode,
               playerId: disconnectedMatch.id,
@@ -274,6 +289,7 @@ async function startServer() {
 
         room.players.push(newPlayer);
         addLog(room, `${newPlayer.name} se unió a la sala.`, 'SYSTEM', newPlayer.id);
+        rooms.set(roomCode, room);
 
         socketToSession.set(socket.id, { roomCode, playerId });
         socket.join(roomCode);
@@ -289,15 +305,19 @@ async function startServer() {
         const roomCode = (payload.roomCode || '').toUpperCase();
         const room = rooms.get(roomCode);
         if (!room) {
-          socket.emit('ACTION_ERROR', { message: 'Sala no encontrada.' });
+          socket.emit('ACTION_ERROR', { code: 'ROOM_NOT_FOUND', roomCode, message: 'Sala no encontrada.' });
           return;
         }
-
-        const { state: updatedState, error } = applyGameAction(
-          room,
-          payload.playerId,
-          payload.action
-        );
+        let result: ReturnType<typeof applyGameAction>;
+        try {
+          result = applyGameAction(room, payload.playerId, payload.action);
+        } catch (error) {
+          console.error('[GAME_ACTION]', roomCode, payload.action.type, error);
+          socket.emit('ACTION_ERROR', { code: 'ACTION_FAILED', roomCode, message: 'No se pudo aplicar esa opción. Se conserva la sala y el tablero anterior.' });
+          socket.emit('ROOM_STATE', room);
+          return;
+        }
+        const { state: updatedState, error } = result;
 
         if (error) {
           socket.emit('ACTION_ERROR', { message: error });
@@ -307,6 +327,7 @@ async function startServer() {
         rooms.set(roomCode, updatedState);
 
         if (payload.action.type === 'ABANDON_GAME') {
+          cancelLobbyExpiry(roomCode, payload.playerId);
           socket.leave(roomCode);
           socketToSession.delete(socket.id);
           if (updatedState.players.filter((p) => !p.isBot && p.connected).length === 0) {
@@ -325,6 +346,8 @@ async function startServer() {
       socketToSession.delete(socket.id);
 
       const { roomCode, playerId } = session;
+      // An old transport may close after the replacement socket has already joined.
+      if ([...socketToSession.values()].some(s => s.roomCode === roomCode && s.playerId === playerId)) return;
       const room = rooms.get(roomCode);
       if (!room) return;
 
@@ -334,8 +357,10 @@ async function startServer() {
       player.connected = false;
 
       if (room.phase === 'LOBBY') {
-        // Give 4 seconds grace period in case of page reload in lobby
-        setTimeout(() => {
+        // Preserve the seat and configuration across reloads and slow reconnects.
+        cancelLobbyExpiry(roomCode, playerId);
+        const expiry = setTimeout(() => {
+          lobbyExpiryTimers.delete(`${roomCode}:${playerId}`);
           const currentRoom = rooms.get(roomCode);
           if (!currentRoom || currentRoom.phase !== 'LOBBY') return;
           const p = currentRoom.players.find((pl) => pl.id === playerId);
@@ -349,9 +374,12 @@ async function startServer() {
               const firstHuman = currentRoom.players.find((pl) => !pl.isBot);
               if (firstHuman) firstHuman.isHost = true;
             }
+            rooms.set(roomCode, currentRoom);
             io.to(roomCode).emit('ROOM_STATE', currentRoom);
           }
-        }, 4000);
+        }, LOBBY_RECONNECT_GRACE_MS);
+        lobbyExpiryTimers.set(`${roomCode}:${playerId}`, expiry);
+        expiry.unref();
       } else if (room.phase !== 'GAME_OVER') {
         player.status = 'DISCONNECTED_WAITING';
         if (player.isHost) {
@@ -371,6 +399,7 @@ async function startServer() {
         );
         io.to(roomCode).emit('ROOM_STATE', room);
       }
+      rooms.set(roomCode, room);
     });
   });
 
@@ -538,6 +567,8 @@ async function startServer() {
               // Main phase actions (trade offer or end turn)
               await delay(2800);
             }
+          } catch (error) {
+            console.error('[BOT_STEP]', roomCode, error);
           } finally {
             runningBotRooms.delete(roomCode);
           }

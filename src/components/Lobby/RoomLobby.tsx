@@ -32,6 +32,7 @@ import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 import { SEAFARERS_PLAYER_LIMITS } from '../../shared/seafarersConfig';
 import { getVariableSetupDescription } from '../../shared/engine/seafarersSetup';
+import { OriginalWonderCards } from '../Game/WondersPanel';
 
 export const RoomLobby: React.FC = () => {
   const { gameState, playerId, dispatchAction, leaveRoomClient, lowEndPcMode, setLowEndPcMode } =
@@ -639,7 +640,19 @@ export const RoomLobby: React.FC = () => {
                       <span key={terrain}>{TERRAIN_META[terrain].name}: <strong>{terrainCounts[terrain]}</strong></span>
                     ) : null)}
                   </div>
+                  <p className="text-[11px] text-sky-200" aria-live="polite">
+                    {selectedScenario.id === 'NEW_WORLD' || selectedScenario.id === 'PROCEDURAL_ARCHIPELAGO' ? 'Distribución libre' : board.seafarersSetup === 'VARIABLE' ? 'Montaje opcional' : 'Montaje inicial del reglamento'}.
+                    {' '}El mar situado fuera del borde azul es decorativo.
+                  </p>
+                  {selectedScenario.id === 'THROUGH_THE_DESERT' && effectiveSeafarersSize === '4P' && (
+                    <details className="text-[11px] text-slate-300">
+                      <summary className="cursor-pointer text-sky-300">Ver montaje original del reglamento (página 11)</summary>
+                      <img src="/assets/scenarios/through_desert_4p_reference.png" alt="Montaje original de A través del desierto para cuatro jugadores, página 11 del reglamento" className="mt-2 w-full rounded" />
+                      <p className="mt-1">La esquina inferior derecha contiene el trigo 12, junto al mineral 6. En el tablero se aplica la sustitución de desiertos por terrenos productivos de esta sala.</p>
+                    </details>
+                  )}
 
+                  {selectedScenario.id === 'WONDERS_OF_CATAN' && effectiveSeafarersSize === '5_6P' && <OriginalWonderCards />}
                   {/* Apartados detallados de Puntos de Victoria, Montaje variable y Fichas Catán */}
                   <div className="space-y-1.5 pt-2 border-t border-sky-500/20 text-[11px]">
                     <div className="text-slate-200">

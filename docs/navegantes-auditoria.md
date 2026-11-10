@@ -1,5 +1,21 @@
 **Auditoría de Navegantes — 10 de noviembre de 2026**
 
+Revisión del 11 de noviembre: se ha contrastado de nuevo el montaje inicial de
+«A través del desierto» de cuatro jugadores con la página 11, confirmada por el
+usuario. Su esquina jugable inferior derecha contiene trigo 12, junto a mineral 6;
+la capa exterior de mar se distingue con el borde azul del marco jugable. El lobby
+indica si está mostrando el montaje inicial o el opcional, permite restaurar el
+inicial y ofrece el dibujo original para compararlo.
+
+Se han añadido las dos cartas originales de la ampliación 5/6, extraídas del PDF:
+Gran Puente del norte y Gran Biblioteca. Son maravillas independientes del puente
+del sur; tienen sus costes por fase y sus requisitos impresos, y se pueden elegir
+y construir desde «Maravillas» durante la partida.
+
+La revisión incluye pruebas de reconexión real con WebSockets, recuperación de
+salas tras reiniciar el servidor, recuperación del zoom después de un SVG de
+tamaño cero y construcción de ambas cartas con sus costes originales en Chromium.
+
 Se han contrastado los diagramas, tablas de materiales, puertos y apartados de montaje de los dos PDF aportados. Las coordenadas axiales se transcriben por filas en `src/shared/engine/seafarersBoardsData.ts`; el inventario independiente utilizado por las pruebas está en `src/shared/__tests__/fixtures/seafarers-pdf-audit.json`.
 
 La modalidad del mapa es una regla de la sala: 2/3 admite hasta 3 jugadores, 4 admite hasta 4, y 5/6 hasta 6. Se puede empezar con menos ocupantes. Añadir, retirar o conectar jugadores no cambia el tablero ni el montaje opcional escogido.

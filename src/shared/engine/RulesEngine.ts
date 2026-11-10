@@ -11,7 +11,7 @@ import {
   PLAYER_COLORS,
   RESOURCE_META,
   TERRAIN_META,
-  WONDER_STAGE_COST,
+  getWonderStageCost,
   WONDERS_CATALOG,
 } from '../constants';
 import {
@@ -1237,9 +1237,43 @@ function checkNativeVillageConnection(state: GameState, edge: Edge, actor: Playe
   }
 }
 
-/**
- * Authoritative reducer that validates and applies a GameAction for `playerId`.
- */
+export function canStartWonder(state: GameState, playerId: string, wonderId: WonderId): { allowed: boolean; reason?: string } {
+  if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') return { allowed: false, reason: 'Las maravillas solo están disponibles en el escenario 8.' };
+  if (state.phase !== 'MAIN_PHASE' || state.turn.activePlayerId !== playerId || !state.turn.hasRolledDice || state.turn.isPausedByHost) {
+    return { allowed: false, reason: 'Elige una maravilla en la fase principal de tu turno, después de tirar los dados.' };
+  }
+  const player = state.players.find(p => p.id === playerId);
+  if (!player || !Object.hasOwn(WONDERS_CATALOG, wonderId)) return { allowed: false, reason: 'Maravilla no válida.' };
+  const meta = WONDERS_CATALOG[wonderId];
+  const size = state.board.seafarersBoardSize || state.config.seafarersBoardSize;
+  if (meta.onlyExtended && size !== '5_6P') return { allowed: false, reason: 'Esta carta pertenece a la modalidad de 5/6 jugadores.' };
+  if (player.activeWonderId) return { allowed: false, reason: 'Ya has elegido una maravilla.' };
+  if (state.board.wondersState?.[wonderId]) return { allowed: false, reason: 'Esa maravilla ya ha sido reclamada.' };
+  const buildings = Object.values(state.board.vertices).filter(v => v.playerId === playerId && v.building !== null);
+  const cities = buildings.filter(v => v.building === 'CITY').length;
+  if ((wonderId === 'GREAT_LIBRARY' || wonderId === 'GREAT_THEATRE') && cities < 2) return { allowed: false, reason: 'Se requieren dos ciudades construidas.' };
+  if (wonderId === 'CATHEDRAL' && (cities < 1 || player.totalVictoryPoints < 6)) return { allowed: false, reason: 'La Catedral requiere una ciudad y seis puntos de victoria.' };
+  let requiredVertices: string[] | undefined;
+  if (wonderId === 'GREAT_WALL') requiredVertices = state.board.wonderMarkers?.greatWallVertexIds || [];
+  if (wonderId === 'GREAT_BRIDGE') requiredVertices = state.board.wonderMarkers?.greatBridgeVertexIds || [];
+  if (wonderId === 'GREAT_BRIDGE_NORTH') requiredVertices = state.board.wonderMarkers?.greatNorthBridgeVertexIds || [];
+  if (requiredVertices && !buildings.some(v => requiredVertices!.includes(v.id))) return { allowed: false, reason: meta.prerequisiteDescription };
+  return { allowed: true };
+}
+
+export function canBuildWonderStage(state: GameState, playerId: string): { allowed: boolean; reason?: string } {
+  if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') return { allowed: false, reason: 'Las maravillas solo están disponibles en el escenario 8.' };
+  const turnPermission = canSpendOrBuildThisTurn(state, playerId, false);
+  if (!turnPermission.allowed) return turnPermission;
+  if (state.turn.isPausedByHost) return { allowed: false, reason: 'La partida está en pausa.' };
+  const player = state.players.find(p => p.id === playerId);
+  if (!player?.activeWonderId) return { allowed: false, reason: 'Elige primero una maravilla.' };
+  if ((player.wonderStage || 0) >= 4) return { allowed: false, reason: 'Tu maravilla ya está terminada.' };
+  if (!hasResources(player.resources, getWonderStageCost(player.activeWonderId))) return { allowed: false, reason: 'Te faltan recursos para el coste indicado en esta carta.' };
+  return { allowed: true };
+}
+
+/** Authoritative reducer that validates and applies a GameAction for `playerId`. */
 export function applyGameAction(
   prevState: GameState,
   playerId: string,
@@ -3667,48 +3701,9 @@ export function applyGameAction(
     }
 
     case 'START_WONDER': {
-      if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') {
-        return { state: prevState, error: 'Las maravillas solo están disponibles en el Escenario 8.' };
-      }
-      if (actor.activeWonderId) {
-        return { state: prevState, error: 'Ya has elegido una maravilla.' };
-      }
+      const permission = canStartWonder(state, playerId, action.wonderId);
+      if (!permission.allowed) return { state: prevState, error: permission.reason };
       state.board.wondersState = state.board.wondersState || {};
-      if (state.board.wondersState[action.wonderId]) {
-        return { state: prevState, error: 'Esa maravilla ya ha sido reclamada por otro jugador.' };
-      }
-
-      // Check prerequisites
-      if (action.wonderId === 'CATHEDRAL') {
-        const hasCity = Object.values(state.board.vertices).some(
-          (v) => v.playerId === playerId && v.building === 'CITY'
-        );
-        if (!hasCity || actor.totalVictoryPoints < 6) {
-          return { state: prevState, error: 'La Catedral requiere al menos 1 Ciudad y 6 Puntos de Victoria.' };
-        }
-      } else if (action.wonderId === 'GREAT_THEATRE') {
-        const citiesCount = Object.values(state.board.vertices).filter(
-          (v) => v.playerId === playerId && v.building === 'CITY'
-        ).length;
-        if (citiesCount < 2) {
-          return { state: prevState, error: 'El Gran Teatro requiere al menos 2 Ciudades construidas.' };
-        }
-      } else if (action.wonderId === 'GREAT_WALL') {
-        const touchesWallMarker = Object.values(state.board.vertices).some(
-          (v) =>
-            v.playerId === playerId &&
-            v.building !== null &&
-            Boolean(state.board.wonderMarkers?.greatWallVertexIds.includes(v.id))
-        );
-        if (!touchesWallMarker) {
-          return { state: prevState, error: 'La Gran Muralla requiere un poblado o ciudad en uno de los marcadores marrones.' };
-        }
-      } else if (action.wonderId === 'GREAT_BRIDGE') {
-        const atBridge = state.board.wonderMarkers?.greatBridgeVertexIds.some(id =>
-          state.board.vertices[id]?.playerId === playerId && state.board.vertices[id]?.building !== null);
-        if (!atBridge) return { state: prevState, error: 'El Gran Puente requiere un poblado o ciudad en un marcador violeta.' };
-      }
-
       actor.activeWonderId = action.wonderId;
       actor.wonderStage = 0;
       state.board.wondersState[action.wonderId] = {
@@ -3726,30 +3721,19 @@ export function applyGameAction(
     }
 
     case 'BUILD_WONDER_STAGE': {
-      if (state.config.seafarersScenario !== 'WONDERS_OF_CATAN') {
-        return { state: prevState, error: 'Acción no permitida fuera del Escenario 8.' };
-      }
-      if (!actor.activeWonderId) {
-        return { state: prevState, error: 'Debes iniciar una maravilla antes de construir sus fases.' };
-      }
-      if ((actor.wonderStage || 0) >= 4) {
-        return { state: prevState, error: 'Tu maravilla ya está completada al máximo.' };
-      }
-      if (!hasResources(actor.resources, WONDER_STAGE_COST)) {
-        return {
-          state: prevState,
-          error: 'Construir una fase de maravilla cuesta 1 de cada recurso (Madera, Arcilla, Oveja, Trigo, Piedra).',
-        };
-      }
-
-      deductResources(actor.resources, state.bank, WONDER_STAGE_COST);
+      const permission = canBuildWonderStage(state, playerId);
+      if (!permission.allowed) return { state: prevState, error: permission.reason };
+      const wonderId = actor.activeWonderId!;
+      const cost = getWonderStageCost(wonderId);
+      deductResources(actor.resources, state.bank, cost);
+      state.turn.hasSpentOrBuiltThisTurn = true;
       actor.wonderStage = (actor.wonderStage || 0) + 1;
-      if (state.board.wondersState && state.board.wondersState[actor.activeWonderId]) {
-        state.board.wondersState[actor.activeWonderId].stage = actor.wonderStage;
+      if (state.board.wondersState && state.board.wondersState[wonderId]) {
+        state.board.wondersState[wonderId].stage = actor.wonderStage;
       }
       addLog(
         state,
-        `¡Avance colosal! ${actor.name} completó la Fase ${actor.wonderStage} de ${WONDERS_CATALOG[actor.activeWonderId].name}.`,
+        `¡Avance colosal! ${actor.name} completó la Fase ${actor.wonderStage} de ${WONDERS_CATALOG[wonderId].name}.`,
         'BUILD',
         actor.id
       );

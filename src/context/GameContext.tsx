@@ -67,6 +67,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const socketRef = useRef<Socket | null>(null);
   const activeRoomRef = useRef<string | null>(null);
+  const joinedRoomRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (playerName) sessionStorage.setItem('catan_player_name', playerName);
@@ -113,9 +114,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      setConnected(true);
       // If we were in a room, automatically rejoin on reconnect!
       const savedRoom = activeRoomRef.current || sessionStorage.getItem('catan_active_room');
+      joinedRoomRef.current = null;
+      setConnected(!savedRoom);
       if (savedRoom) {
         socket.emit('JOIN_ROOM', {
           roomCode: savedRoom,
@@ -130,6 +132,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('disconnect', (reason) => {
       console.warn('[Socket] Disconnected from server. Reason:', reason);
       setConnected(false);
+      joinedRoomRef.current = null;
     });
 
     socket.on('connect_error', (err) => {
@@ -137,23 +140,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setConnected(false);
     });
 
-    socket.on('reconnect', (attemptNumber) => {
-      console.log(`[Socket] Reconnected successfully on attempt #${attemptNumber}`);
-      setConnected(true);
-      const savedRoom = activeRoomRef.current || sessionStorage.getItem('catan_active_room');
-      if (savedRoom) {
-        socket.emit('JOIN_ROOM', {
-          roomCode: savedRoom,
-          playerId,
-          playerName: sessionStorage.getItem('catan_player_name') || 'Jugador',
-          color: (sessionStorage.getItem('catan_player_color') as PlayerColor) || 'RED',
-          avatar: sessionStorage.getItem('catan_player_avatar') || '👑',
-        });
-      }
-    });
-
     socket.on('ROOM_JOINED', (payload: { roomCode: string; playerId: string; state: GameState }) => {
       activeRoomRef.current = payload.roomCode;
+      joinedRoomRef.current = payload.roomCode;
+      setConnected(true);
+      setErrorToast(null);
       sessionStorage.setItem('catan_active_room', payload.roomCode);
       setGameState(payload.state);
       // Update URL query without reloading
@@ -163,14 +154,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socket.on('ROOM_STATE', (state: GameState) => {
-      setGameState(state);
+      if (state.roomCode === joinedRoomRef.current && state.roomCode === activeRoomRef.current) setGameState(state);
     });
 
-    socket.on('ACTION_ERROR', (payload: { message: string }) => {
+    socket.on('ACTION_ERROR', (payload: { message: string; code?: string; roomCode?: string }) => {
+      const missingRoom = payload.code === 'ROOM_NOT_FOUND' || payload.message === 'Sala no encontrada.' || payload.message.startsWith('No existe ninguna sala');
+      const currentRoom = activeRoomRef.current || sessionStorage.getItem('catan_active_room');
+      if (missingRoom && currentRoom && (!payload.roomCode || payload.roomCode === currentRoom)) {
+        activeRoomRef.current = null;
+        joinedRoomRef.current = null;
+        sessionStorage.removeItem('catan_active_room');
+        setGameState(null);
+        setConnected(socket.connected);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, '', url.toString());
+      }
       setErrorToast(payload.message);
     });
 
     return () => {
+      joinedRoomRef.current = null;
       socket.disconnect();
     };
   }, [playerId, serverUrl]);
@@ -246,6 +250,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     if (!gameState) return;
+    if (joinedRoomRef.current !== gameState.roomCode) {
+      setErrorToast('Recuperando la sala y sus opciones. Espera a que termine la reconexión.');
+      return;
+    }
     socketRef.current.emit('GAME_ACTION', {
       roomCode: gameState.roomCode,
       playerId,
@@ -254,6 +262,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const leaveRoomClient = () => {
+    activeRoomRef.current = null;
+    joinedRoomRef.current = null;
     if (gameState && socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('GAME_ACTION', {
         roomCode: gameState.roomCode,
@@ -261,7 +271,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         action: { type: 'ABANDON_GAME' },
       });
     }
-    activeRoomRef.current = null;
     sessionStorage.removeItem('catan_active_room');
     setGameState(null);
     const url = new URL(window.location.href);

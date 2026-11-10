@@ -52,7 +52,7 @@ export interface ScenarioBoardData {
   nativeVillages?: Array<{ hexCoord: { q: number; r: number }; topNum: number; bottomNum: number }>;
   pirateFleetRoute?: Array<{ q: number; r: number }>;
   pirateFortresses?: Array<RawVertexSpec & { color: PlayerColor }>;
-  wonderMarkers?: { greatBridge: RawVertexSpec[]; greatWall: RawVertexSpec[]; forbiddenSetup: RawVertexSpec[] };
+  wonderMarkers?: { greatBridge: RawVertexSpec[]; greatBridgeNorth?: RawVertexSpec[]; greatWall: RawVertexSpec[]; forbiddenSetup: RawVertexSpec[] };
   variableSetup: { groups: VariableHexGroup[]; shufflePorts: boolean };
 }
 
@@ -364,7 +364,9 @@ export const SEAFARERS_BOARDS_DATA: Record<string, ScenarioBoardData> = {
       ],
     },
   }, "1,-2 0,-1 1,-1 -1,0 0,0 -3,1 -2,1 -1,1 0,1 -3,2 -2,2 -1,2 -3,3 -2,3", "", ["0,-3 -1,-2 -2,-1", "3,-3 3,-2", "1,-2 0,-1 1,-1 -1,0 0,0 -3,1 -2,1 -1,1 0,1 -3,2 -2,2 -1,2 -3,3 -2,3", "2,0", "1,2 0,3"]),
-  // base PDF, páginas [11].
+  // Montaje inicial de la página 11, vuelto a contrastar con el PDF:
+  // noreste: mineral 9, trigo 4, arcilla 2; extremo sur: mineral 6 y trigo 12.
+  // La capa de mar decorativo se añade aparte y no desplaza ninguna casilla.
   "THROUGH_THE_DESERT__4P": defineBoard({
     scenarioId: "THROUGH_THE_DESERT",
     boardSize: "4P",
@@ -895,7 +897,7 @@ export const SEAFARERS_BOARDS_DATA: Record<string, ScenarioBoardData> = {
       {"type": "ORE", "landQ": 2, "landR": 1, "seaQ": 2, "seaR": 2},
       {"type": "SHEEP", "landQ": -1, "landR": 0, "seaQ": -1, "seaR": 1},
     ],
-    wonderMarkers: {"greatBridge": [{"hexCoord": {"q": -2, "r": 2}, "corner": 1}, {"hexCoord": {"q": 0, "r": -3}, "corner": 1}, {"hexCoord": {"q": 1, "r": -2}, "corner": 4}, {"hexCoord": {"q": -1, "r": 3}, "corner": 4}], "greatWall": [{"hexCoord": {"q": 4, "r": -2}, "corner": 3}, {"hexCoord": {"q": 4, "r": -2}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 5}, {"hexCoord": {"q": 4, "r": -1}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 1}], "forbiddenSetup": [{"hexCoord": {"q": -2, "r": 2}, "corner": 1}, {"hexCoord": {"q": 0, "r": -3}, "corner": 1}, {"hexCoord": {"q": 1, "r": -2}, "corner": 4}, {"hexCoord": {"q": -1, "r": 3}, "corner": 4}, {"hexCoord": {"q": 4, "r": -2}, "corner": 3}, {"hexCoord": {"q": 4, "r": -2}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 5}, {"hexCoord": {"q": 4, "r": -1}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 1}, {"hexCoord": {"q": -2, "r": 2}, "corner": 0}, {"hexCoord": {"q": 0, "r": -3}, "corner": 0}, {"hexCoord": {"q": -1, "r": -2}, "corner": 0}, {"hexCoord": {"q": 0, "r": -1}, "corner": 5}, {"hexCoord": {"q": 1, "r": -2}, "corner": 5}, {"hexCoord": {"q": -2, "r": 2}, "corner": 2}, {"hexCoord": {"q": -1, "r": 3}, "corner": 3}, {"hexCoord": {"q": 0, "r": 2}, "corner": 3}]},
+    wonderMarkers: {"greatBridge": [{"hexCoord": {"q": -2, "r": 2}, "corner": 1}, {"hexCoord": {"q": -1, "r": 3}, "corner": 4}], "greatWall": [{"hexCoord": {"q": 4, "r": -2}, "corner": 3}, {"hexCoord": {"q": 4, "r": -2}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 5}, {"hexCoord": {"q": 4, "r": -1}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 1}], "forbiddenSetup": [{"hexCoord": {"q": -2, "r": 2}, "corner": 1}, {"hexCoord": {"q": 0, "r": -3}, "corner": 1}, {"hexCoord": {"q": 1, "r": -2}, "corner": 4}, {"hexCoord": {"q": -1, "r": 3}, "corner": 4}, {"hexCoord": {"q": 4, "r": -2}, "corner": 3}, {"hexCoord": {"q": 4, "r": -2}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 5}, {"hexCoord": {"q": 4, "r": -1}, "corner": 2}, {"hexCoord": {"q": 3, "r": 0}, "corner": 1}, {"hexCoord": {"q": -2, "r": 2}, "corner": 0}, {"hexCoord": {"q": 0, "r": -3}, "corner": 0}, {"hexCoord": {"q": -1, "r": -2}, "corner": 0}, {"hexCoord": {"q": 0, "r": -1}, "corner": 5}, {"hexCoord": {"q": 1, "r": -2}, "corner": 5}, {"hexCoord": {"q": -2, "r": 2}, "corner": 2}, {"hexCoord": {"q": -1, "r": 3}, "corner": 3}, {"hexCoord": {"q": 0, "r": 2}, "corner": 3}], "greatBridgeNorth": [{"hexCoord": {"q": 0, "r": -3}, "corner": 1}, {"hexCoord": {"q": 1, "r": -2}, "corner": 4}]},
     variableSetup: {
       shufflePorts: false,
       groups: [

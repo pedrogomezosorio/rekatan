@@ -97,6 +97,13 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
    ```
    La aplicación estará disponible localmente en `http://localhost:3000`.
 
+   Las salas se guardan automáticamente en `.rekatan/rooms.json`, con escritura atómica.
+   Se conserva la configuración durante una reconexión del lobby de hasta 30 minutos y
+   los jugadores pueden recuperar su sala después de reiniciar el proceso del servidor.
+   Una partida restaurada espera a que regresen sus jugadores antes de continuar.
+   En un alojamiento externo, configura `CATAN_ROOMS_FILE` con una ruta de disco
+   persistente para conservar también las salas cuando se sustituye el contenedor.
+
 4. (Opcional) Ejecutar la versión de escritorio de Electron sobre el entorno en marcha:
    ```bash
    npm run electron

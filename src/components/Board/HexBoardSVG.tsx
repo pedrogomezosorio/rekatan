@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, ShieldAlert } from 'lucide-react';
 import {
@@ -22,6 +22,7 @@ import {
   getRedNumberConflictHexIds,
 } from '../../shared/engine/HexGrid';
 import { Hexagon } from './Hexagon';
+import { BoardCamera, normalizeBoardCamera, zoomBoardCamera } from '../../shared/boardCamera';
 
 export interface EditorToolState {
   active: boolean;
@@ -106,6 +107,15 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     y: 0,
     zoom: 1,
   });
+  const applyCamera = useCallback((camera: BoardCamera) => {
+    const next = normalizeBoardCamera(camera);
+    targetCamRef.current = { ...next };
+    currentCamRef.current = { ...next };
+    cameraGroupRef.current?.setAttribute('transform', `translate(${next.x}, ${next.y}) scale(${next.zoom})`);
+  }, []);
+  useEffect(() => {
+    applyCamera({ x: 0, y: 0, zoom: 1 });
+  }, [applyCamera, board.mode, board.seafarersScenario, board.seafarersBoardSize]);
   const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
   const isDraggingRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number; time: number }>({
@@ -155,9 +165,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     let rafId: number;
 
     const tick = () => {
-      const target = targetCamRef.current;
-      const cur = currentCamRef.current;
+      const target = targetCamRef.current = normalizeBoardCamera(targetCamRef.current);
+      const cur = currentCamRef.current = normalizeBoardCamera(currentCamRef.current);
       const vel = velocityRef.current;
+      if (!Number.isFinite(vel.vx) || !Number.isFinite(vel.vy)) { vel.vx = 0; vel.vy = 0; }
 
       // Apply momentum when not actively dragging
       if (!isDraggingRef.current && (Math.abs(vel.vx) > 0.05 || Math.abs(vel.vy) > 0.05)) {
@@ -230,26 +241,19 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     const onWheelNative = (e: WheelEvent) => {
       e.preventDefault();
       const rect = svgEl.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
+      if (rect.width <= 0 || rect.height <= 0 || !Number.isFinite(e.deltaY)) return;
 
       // Convert client cursor position to SVG viewBox coordinates
       const svgX = ((e.clientX - rect.left) / rect.width) * vbWidth + vbMinX;
       const svgY = ((e.clientY - rect.top) / rect.height) * vbHeight + vbMinY;
 
-      const target = targetCamRef.current;
       const zoomIntensity = Math.exp(-e.deltaY * 0.0016);
-      const nextZoom = Math.min(2.6, Math.max(0.48, target.zoom * zoomIntensity));
-      const scaleRatio = nextZoom / target.zoom;
-
-      // Adjust target pan so zoom is anchored on the cursor focal point
-      target.x = svgX - (svgX - target.x) * scaleRatio;
-      target.y = svgY - (svgY - target.y) * scaleRatio;
-      target.zoom = nextZoom;
+      applyCamera(zoomBoardCamera(targetCamRef.current, zoomIntensity, { x: svgX, y: svgY }));
     };
 
     svgEl.addEventListener('wheel', onWheelNative, { passive: false });
     return () => svgEl.removeEventListener('wheel', onWheelNative);
-  }, [vbMinX, vbMinY, vbWidth, vbHeight]);
+  }, [vbMinX, vbMinY, vbWidth, vbHeight, applyCamera]);
 
   const playerMap = useMemo(() => {
     const map = new Map<string, PlayerState>();
@@ -310,8 +314,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!isDraggingRef.current || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
-    const scaleX = 960 / rect.width;
-    const scaleY = 840 / rect.height;
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const scaleX = vbWidth / rect.width;
+    const scaleY = vbHeight / rect.height;
 
     const totalDx = e.clientX - dragStartClientRef.current.x;
     const totalDy = e.clientY - dragStartClientRef.current.y;
@@ -376,8 +381,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     if (e.touches.length === 1 && isDraggingRef.current) {
       const touch = e.touches[0];
       const rect = svgRef.current.getBoundingClientRect();
-      const scaleX = 960 / rect.width;
-      const scaleY = 840 / rect.height;
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const scaleX = vbWidth / rect.width;
+      const scaleY = vbHeight / rect.height;
 
       const totalDx = touch.clientX - dragStartClientRef.current.x;
       const totalDy = touch.clientY - dragStartClientRef.current.y;
@@ -431,17 +437,12 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const zoomByStep = (factor: number) => {
     velocityRef.current = { vx: 0, vy: 0 };
-    const oldZoom = targetCamRef.current.zoom;
-    const newZoom = Math.min(2.6, Math.max(0.45, oldZoom * factor));
-    const ratio = newZoom / oldZoom;
-    targetCamRef.current.x *= ratio;
-    targetCamRef.current.y *= ratio;
-    targetCamRef.current.zoom = newZoom;
+    applyCamera(zoomBoardCamera(targetCamRef.current, factor, { x: vbMinX + vbWidth / 2, y: vbMinY + vbHeight / 2 }));
   };
 
   const resetView = () => {
     velocityRef.current = { vx: 0, vy: 0 };
-    targetCamRef.current = { x: 0, y: 0, zoom: 1 };
+    applyCamera({ x: 0, y: 0, zoom: 1 });
   };
 
   const handleHexInteraction = (hex: Hex) => {
@@ -534,6 +535,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
         }`}
       >
         <button
+          type="button"
           onClick={() => zoomByStep(1.18)}
           className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
           title="Acercar Zoom (Suave)"
@@ -541,6 +543,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={() => zoomByStep(1 / 1.18)}
           className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
           title="Alejar Zoom (Suave)"
@@ -548,6 +551,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
+          type="button"
           onClick={resetView}
           className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
           title="Centrar Tablero"
@@ -628,7 +632,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           </marker>
         </defs>
 
-        <g ref={cameraGroupRef} transform="translate(0, 0) scale(1)">
+        <g ref={cameraGroupRef} data-board-camera transform="translate(0, 0) scale(1)">
           {/* 1. HEXAGONS LAYER (3D Cardboard + High-Res Texture Images) */}
           {hexList.map((hex) => {
             const isSea = hex.terrain === 'SEA';
@@ -659,6 +663,13 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             );
           })}
 
+          {board.seafarersScenario && (
+            <g className="pointer-events-none" aria-label="Borde del mapa jugable" stroke="#7eb5cf" strokeWidth={1.6} strokeOpacity={0.6}>
+              {edgeList.filter(edge => edge.hexIds.length === 1).map(edge => (
+                <line key={edge.id} x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2} />
+              ))}
+            </g>
+          )}
           {board.pirateFleetRouteHexIds && (
             <g className="pointer-events-none" aria-label="Recorrido de la flota pirata">
               {board.pirateFleetRouteHexIds.map((id, index, route) => {
@@ -676,7 +687,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               {board.wonderMarkers.forbiddenSetupVertexIds.map(id => {
                 const v = board.vertices[id];
                 if (!v) return null;
-                const bridge = board.wonderMarkers!.greatBridgeVertexIds.includes(id);
+                const bridge = board.wonderMarkers!.greatBridgeVertexIds.includes(id) || board.wonderMarkers!.greatNorthBridgeVertexIds?.includes(id);
                 const wall = board.wonderMarkers!.greatWallVertexIds.includes(id);
                 return bridge || wall ? (
                   <rect key={id} x={v.x - 6} y={v.y - 6} width={12} height={12} fill={bridge ? '#b9328b' : '#8b6537'} stroke="#1e293b" strokeWidth={1.5} />
