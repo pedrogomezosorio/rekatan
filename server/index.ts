@@ -1,4 +1,5 @@
 import { getAvatarNameError, getPublicPlayerName, normalizeAvatar } from '../src/shared/playerIdentity';
+import { getRoomPlayerLimit } from '../src/shared/seafarersConfig';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -74,7 +75,7 @@ async function startServer() {
       roomCode: room.roomCode,
       phase: room.phase,
       playerCount: room.players.length,
-      maxPlayers: room.config.maxPlayers,
+      maxPlayers: getRoomPlayerLimit(room.config),
     });
   });
 
@@ -236,9 +237,9 @@ async function startServer() {
           return;
         }
 
-        if (room.players.length >= room.config.maxPlayers) {
+        if (room.players.length >= getRoomPlayerLimit(room.config)) {
           socket.emit('ACTION_ERROR', {
-            message: `La sala "${roomCode}" está llena (${room.config.maxPlayers}/${room.config.maxPlayers}).`,
+            message: `La sala "${roomCode}" está llena (${getRoomPlayerLimit(room.config)}/${getRoomPlayerLimit(room.config)}). Selecciona una modalidad de mapa mayor para ampliar las plazas.`,
           });
           return;
         }

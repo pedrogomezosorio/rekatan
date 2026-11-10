@@ -83,8 +83,12 @@ export type WonderId =
 
 export interface BoardState {
   mode: BoardMode;
+  seafarersScenario?: SeafarersScenario;
+  seafarersBoardSize?: SeafarersBoardSize;
   hexSize: number;
   hexes: Record<string, Hex>;
+  /** Visual frame only: never creates navigable edges or pirate targets. */
+  decorativeSeaHexes?: Hex[];
   vertices: Record<string, Vertex>;
   edges: Record<string, Edge>;
   ports: PortInfo[];
@@ -107,6 +111,8 @@ export interface BoardState {
       vertexId: string;
       type: 'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT';
       portType?: PortType;
+      edgeId?: string;
+      dockCenter?: { x: number; y: number };
       claimed: boolean;
       claimedByPlayerId?: string;
     }

@@ -352,7 +352,7 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     description: 'Los colonos parten de su isla madre hacia el horizonte marítimo en busca de islas exteriores con ricos yacimientos de oro.',
     specialVPRule: '+2 PV (2 Fichas Catán) bajo el primer poblado que construyas en cada uno de los islotes exteriores.',
     variableSetupRule: 'Se barajan por separado los terrenos, números y puertos de la Isla Principal y los terrenos/números de los islotes exteriores.',
-    catanChitsCount: { '3P': 10, '4P': 10, '5_6P': 18 },
+    catanChitsCount: { '3P': 18, '4P': 24, '5_6P': 48 },
   },
   {
     id: 'THE_FOUR_ISLANDS',
@@ -365,7 +365,7 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     description: 'Un archipiélago de cuatro (o seis) islas separadas por canales de mar donde la expansión hacia islas extrañas otorga +2 PV.',
     specialVPRule: '+2 PV (2 Fichas Catán) bajo el primer poblado que construyas en cada isla "extraña" (donde no hayas fundado en la fase inicial).',
     variableSetupRule: 'Se mantiene intacta la silueta de las 4 (o 6) islas y se barajan sus terrenos, fichas numeradas y puertos (evitando 2 y 12 en bosque/pasto).',
-    catanChitsCount: { '3P': 12, '4P': 12, '5_6P': 20 },
+    catanChitsCount: { '3P': 18, '4P': 24, '5_6P': 60 },
   },
   {
     id: 'OCEANIA',
@@ -377,7 +377,7 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     category: 'BÁSICO',
     description: 'Dos franjas insulares en los extremos del tablero separadas por mar de la Tierra Ignota central. Al llegar con un barco o carretera a la niebla, se revela el terreno y recibes 1 recurso gratis.',
     specialVPRule: 'No se usan Fichas Catán; cada terreno fértil o río aurífero descubierto en la niebla otorga 1 materia prima inmediata.',
-    variableSetupRule: 'Se barajan únicamente los terrenos, números y puertos dentro de las 2 islas principales de los extremos y la pila oculta de Tierra Ignota.',
+    variableSetupRule: 'Solo cambian terrenos, números y tipos de puerto de las islas conocidas. La zona de descubrimiento se conserva. Se permiten números rojos contiguos.',
     catanChitsCount: { '3P': 0, '4P': 0, '5_6P': 0 },
   },
   {
@@ -391,7 +391,7 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     description: 'Los colonos inician en la isla principal. Al otro lado del cinturón de desiertos y en los islotes orientales esperan tierras vírgenes y ríos auríferos.',
     specialVPRule: '+2 PV (2 Fichas Catán) por el primer poblado en cada islote exterior y +2 PV por el primer poblado en la franja al otro lado del desierto.',
     variableSetupRule: 'Los desiertos quedan fijos; se barajan por un lado los terrenos/números/puertos de la Isla Principal y por otro los de la franja noroeste e islotes (sin 6 ni 8 en ríos de oro).',
-    catanChitsCount: { '3P': 20, '4P': 20, '5_6P': 24 },
+    catanChitsCount: { '3P': 24, '4P': 32, '5_6P': 60 },
   },
   {
     id: 'THE_FORGOTTEN_TRIBE',
@@ -416,7 +416,7 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     category: 'AVANZADO',
     description: 'Cada aldea indígena comienza con 5 Fichas Catán (balas de tela). Al conectar con barco recibes 1 tela y cada vez que sale el número de la aldea produce telas.',
     specialVPRule: 'Cada 2 Fichas Catán (balas de tela) valen 1 Punto de Victoria. Termina a 14 PV o cuando solo queden fichas en 3 aldeas.',
-    variableSetupRule: 'Solo se barajan los terrenos, números y puertos de las dos islas principales; los islotes centrales y las fichas de las aldeas permanecen fijos.',
+    variableSetupRule: 'Solo se barajan los terrenos y números de las dos islas principales; los puertos, islotes centrales y fichas de las aldeas permanecen fijos.',
     catanChitsCount: { '3P': 50, '4P': 50, '5_6P': 70 },
   },
   {
@@ -442,8 +442,8 @@ export const SEAFARERS_SCENARIOS: SeafarersScenarioMeta[] = [
     category: 'AVANZADO',
     description: 'Gran Isla con estrechos para el Gran Puente, desiertos para la Gran Muralla e islotes exteriores (+1 PV con Ficha Catán al colonizarlos).',
     specialVPRule: '1 Ficha Catán marca el nivel (1..4) de tu Maravilla; además recibes +1 PV (1 Ficha Catán) por cada poblado construido en un islote exterior.',
-    variableSetupRule: 'Se barajan los terrenos fértiles, números y puertos de la Isla Principal manteniendo su silueta y procurando que junto a los desiertos no haya 6 ni 8.',
-    catanChitsCount: { '3P': 12, '4P': 12, '5_6P': 15 },
+    variableSetupRule: 'Se barajan los terrenos fértiles y números de la isla principal; los puertos, islotes y franja que sustituye a los desiertos quedan fijos y junto a ella no hay 6 ni 8.',
+    catanChitsCount: { '3P': 10, '4P': 10, '5_6P': 18 },
   },
   {
     id: 'NEW_WORLD',
@@ -486,14 +486,14 @@ export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
     id: 'GREAT_BRIDGE',
     name: 'El Gran Puente',
     description: 'Un monumental viaducto que une dos islas a través de un canal estrecho.',
-    prerequisiteDescription: 'Requiere tener un asentamiento en la orilla de un estrecho marítimo.',
+    prerequisiteDescription: 'Requiere tener un poblado o ciudad en uno de los marcadores violetas del estrecho.',
     icon: '🌉',
   },
   GREAT_WALL: {
     id: 'GREAT_WALL',
     name: 'La Gran Muralla',
     description: 'Una colosal fortificación de piedra que protege las fronteras de Catán.',
-    prerequisiteDescription: 'Requiere tener un asentamiento adyacente al desierto o tierra baldía.',
+    prerequisiteDescription: 'Requiere tener un poblado o ciudad en uno de los marcadores marrones.',
     icon: '🧱',
   },
   CATHEDRAL: {

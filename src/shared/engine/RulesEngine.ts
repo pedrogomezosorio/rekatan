@@ -1,3 +1,5 @@
+import { getRoomPlayerLimit, SEAFARERS_PLAYER_LIMITS } from '../seafarersConfig';
+import { shuffled } from './seafarersSetup';
 import {
   ALL_RESOURCES,
   AVATAR_LIST,
@@ -517,6 +519,10 @@ export function canBuildSettlement(
     return { allowed: false, reason: 'Intersección inválida u ocupada.' };
   }
 
+  if (isSetup && state.board.wonderMarkers?.forbiddenSetupVertexIds.includes(vertexId)) {
+    return { allowed: false, reason: 'Esta intersección está reservada por los marcadores de las maravillas durante la fundación.' };
+  }
+
   // 1. Regla oficial de islotes inhabitables (El Pueblo Perdido, Telas para Catán, Islas Piratas)
   if (state.board.uninhabitableHexIds && state.board.uninhabitableHexIds.length > 0) {
     const uninhabitableSet = new Set(state.board.uninhabitableHexIds);
@@ -952,11 +958,11 @@ export function getValidShipMoveDestinations(
 }
 
 /**
- * Maps each land hex to an Island ID (connected component of non-SEA hexes).
+ * Maps revealed land hexes to connected islands. Fog has no known land topology.
  */
 export function computeIslandComponents(board: BoardState): Map<string, number> {
   const hexIslandMap = new Map<string, number>();
-  const landHexes = Object.values(board.hexes).filter((h) => h.terrain !== 'SEA');
+  const landHexes = Object.values(board.hexes).filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG');
   let currentIslandId = 0;
 
   const visited = new Set<string>();
@@ -1278,6 +1284,10 @@ export function applyGameAction(
         ...state.config,
         ...action.config,
       };
+      if (action.config.expansionModule !== undefined) {
+        state.config.enabledExpansions = action.config.expansionModule === 'BASE'
+          ? ['BASE'] : ['BASE', action.config.expansionModule];
+      }
 
       // Sync turnActionRestriction with legacy flags
       if (action.config.turnActionRestriction) {
@@ -1293,13 +1303,26 @@ export function applyGameAction(
         }
       }
 
-      if (
-        state.config.boardMode === 'EXPANSION_5_6' ||
-        state.config.boardMode === 'MEGA_RADIUS_3'
-      ) {
+      if (state.config.expansionModule === 'SEAFARERS') {
+        const size = state.config.seafarersBoardSize || '4P';
+        if (!Object.hasOwn(SEAFARERS_PLAYER_LIMITS, size)) {
+          return { state: prevState, error: 'Modalidad de Navegantes inválida.' };
+        }
+        state.config.seafarersBoardSize = size;
+        const limit = SEAFARERS_PLAYER_LIMITS[size];
+        if (state.players.length > limit) {
+          return { state: prevState, error: `Este mapa admite como máximo ${limit} jugadores. Retira jugadores antes de reducir la modalidad.` };
+        }
+        if (action.config.maxPlayers !== undefined && action.config.maxPlayers > limit) {
+          return { state: prevState, error: `Para admitir ${action.config.maxPlayers} jugadores debes escoger una modalidad de mapa mayor.` };
+        }
+        state.config.maxPlayers = limit;
+        state.config.boardMode = size === '5_6P' ? 'EXPANSION_5_6' : 'STANDARD_3_4';
+        state.config.desertInCenter = false;
+      } else if (state.config.boardMode === 'EXPANSION_5_6' || state.config.boardMode === 'MEGA_RADIUS_3') {
         state.config.maxPlayers = 6;
       } else if (action.config.maxPlayers === undefined && state.players.length <= 4) {
-        state.config.maxPlayers = Math.max(4, state.players.length);
+        state.config.maxPlayers = 4;
       }
 
       // If expansionModule, seafarersScenario, or seafarersBoardSize changed, handle Seafarers board setup
@@ -1547,8 +1570,8 @@ export function applyGameAction(
       if (state.phase !== 'LOBBY' || !actor.isHost) {
         return { state: prevState, error: 'Solo el anfitrión puede añadir bots.' };
       }
-      if (state.players.length >= state.config.maxPlayers) {
-        return { state: prevState, error: `La sala ya alcanzó el máximo de ${state.config.maxPlayers} jugadores.` };
+      if (state.players.length >= getRoomPlayerLimit(state.config)) {
+        return { state: prevState, error: `La modalidad seleccionada admite como máximo ${getRoomPlayerLimit(state.config)} jugadores. Escoge un mapa mayor para añadir más.` };
       }
       const usedColors = new Set(state.players.map((p) => p.color));
       const availableColor =
@@ -1584,18 +1607,7 @@ export function applyGameAction(
       };
 
       state.players.push(bot);
-      if (state.config.expansionModule === 'SEAFARERS') {
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE,
-          false,
-          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length,
-          false,
-          state.config.seafarersBoardSize
-        );
-      }
+
       addLog(state, `Se añadió a ${bot.name} (${botDifficulty}) a la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -1604,7 +1616,7 @@ export function applyGameAction(
       if (state.phase !== 'LOBBY' || !actor.isHost) {
         return { state: prevState, error: 'Solo el anfitrión puede rellenar la sala con bots.' };
       }
-      const targetSlots = Math.min(state.config.maxPlayers, 4);
+      const targetSlots = getRoomPlayerLimit(state.config);
       const needed = targetSlots - state.players.length;
       if (needed <= 0) {
         return { state: prevState, error: 'La sala ya tiene el número necesario de jugadores.' };
@@ -1645,18 +1657,7 @@ export function applyGameAction(
         };
         state.players.push(bot);
       }
-      if (state.config.expansionModule === 'SEAFARERS') {
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE,
-          false,
-          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length,
-          false,
-          state.config.seafarersBoardSize
-        );
-      }
+
       addLog(state, `Se rellenó la sala con ${needed} Bot(s) (${botDifficulty}).`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -1695,18 +1696,7 @@ export function applyGameAction(
         return { state: prevState, error: 'No puedes expulsarte a ti mismo.' };
       }
       state.players = state.players.filter((p) => p.id !== action.targetPlayerId);
-      if (state.config.expansionModule === 'SEAFARERS') {
-        state.board = generateBoard(
-          state.config.boardMode,
-          state.config.preventAdjacentRedNumbers,
-          DEFAULT_HEX_SIZE,
-          false,
-          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-          state.players.length,
-          false,
-          state.config.seafarersBoardSize
-        );
-      }
+
       return { state };
     }
 
@@ -1721,7 +1711,11 @@ export function applyGameAction(
         };
       }
 
-      if (state.config.expansionModule === 'SEAFARERS') {
+      if (state.players.length > getRoomPlayerLimit(state.config)) {
+        return { state: prevState, error: 'Hay más jugadores de los que permite la modalidad del mapa.' };
+      }
+      if (state.config.expansionModule === 'SEAFARERS' &&
+          (state.board.seafarersScenario !== state.config.seafarersScenario || state.board.seafarersBoardSize !== state.config.seafarersBoardSize)) {
         state.board = generateBoard(
           state.config.boardMode,
           state.config.preventAdjacentRedNumbers,
@@ -1734,7 +1728,13 @@ export function applyGameAction(
         );
       }
 
-      const isExpansion = state.players.length > 4 || state.config.boardMode === 'EXPANSION_5_6';
+      const isExpansion = state.players.length > 4 || state.config.boardMode === 'EXPANSION_5_6' || state.config.seafarersBoardSize === '5_6P' && state.config.expansionModule === 'SEAFARERS';
+      if (state.board.fogDeck) {
+        const terrains = shuffled(state.board.fogDeck.map(h => h.terrain));
+        const numbers = shuffled(state.board.fogDeck.flatMap(h => h.numberToken === null ? [] : [h.numberToken]));
+        let index = 0;
+        state.board.fogDeck = terrains.map(terrain => ({ terrain, numberToken: terrain === 'SEA' ? null : numbers[index++] }));
+      }
       state.devDeck = createDevDeck(isExpansion);
       state.bank = isExpansion
         ? { WOOD: 24, BRICK: 24, SHEEP: 24, WHEAT: 24, ORE: 24 }
@@ -3694,15 +3694,19 @@ export function applyGameAction(
           return { state: prevState, error: 'El Gran Teatro requiere al menos 2 Ciudades construidas.' };
         }
       } else if (action.wonderId === 'GREAT_WALL') {
-        const touchesDesert = Object.values(state.board.vertices).some(
+        const touchesWallMarker = Object.values(state.board.vertices).some(
           (v) =>
             v.playerId === playerId &&
             v.building !== null &&
-            v.hexIds.some((hId) => state.board.hexes[hId]?.terrain === 'DESERT')
+            Boolean(state.board.wonderMarkers?.greatWallVertexIds.includes(v.id))
         );
-        if (!touchesDesert) {
-          return { state: prevState, error: 'La Gran Muralla requiere un poblado o ciudad junto al desierto.' };
+        if (!touchesWallMarker) {
+          return { state: prevState, error: 'La Gran Muralla requiere un poblado o ciudad en uno de los marcadores marrones.' };
         }
+      } else if (action.wonderId === 'GREAT_BRIDGE') {
+        const atBridge = state.board.wonderMarkers?.greatBridgeVertexIds.some(id =>
+          state.board.vertices[id]?.playerId === playerId && state.board.vertices[id]?.building !== null);
+        if (!atBridge) return { state: prevState, error: 'El Gran Puente requiere un poblado o ciudad en un marcador violeta.' };
       }
 
       actor.activeWonderId = action.wonderId;

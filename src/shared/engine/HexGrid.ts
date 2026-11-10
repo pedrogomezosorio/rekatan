@@ -4,7 +4,6 @@ import {
   CubicCoord,
   Edge,
   Hex,
-  PlayerColor,
   PortInfo,
   PortType,
   SeafarersBoardSize,
@@ -12,7 +11,8 @@ import {
   TerrainType,
   Vertex,
 } from '../types';
-import { SEAFARERS_BOARDS_DATA } from './seafarersBoardsData';
+import { RawPortSpec, RawVertexSpec } from './seafarersBoardsData';
+import { getSeafarersScenarioData, prepareScenarioHexes, replaceDeserts, shuffled } from './seafarersSetup';
 import {
   EXPANSION_NUMBERS_28,
   EXPANSION_PORTS_11,
@@ -451,156 +451,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-type SeafarersFrameType = 'FRAME_35' | 'FRAME_42' | 'FRAME_49' | 'FRAME_56' | 'FRAME_63';
-
-function getSeafarersFrameCoords(frameType: SeafarersFrameType): CubicCoord[] {
-  const rowRanges: Record<SeafarersFrameType, Record<number, [number, number]>> = {
-    FRAME_35: {
-      [-3]: [0, 3],
-      [-2]: [-1, 3],
-      [-1]: [-2, 3],
-      [0]: [-2, 2],
-      [1]: [-3, 2],
-      [2]: [-3, 1],
-      [3]: [-3, 0],
-    },
-    FRAME_42: {
-      [-3]: [0, 4],
-      [-2]: [-1, 4],
-      [-1]: [-2, 4],
-      [0]: [-2, 3],
-      [1]: [-3, 3],
-      [2]: [-3, 2],
-      [3]: [-3, 1],
-    },
-    FRAME_49: {
-      [-3]: [-1, 4],
-      [-2]: [-2, 4],
-      [-1]: [-3, 4],
-      [0]: [-3, 3],
-      [1]: [-4, 3],
-      [2]: [-4, 2],
-      [3]: [-4, 1],
-    },
-    FRAME_56: {
-      [-3]: [-1, 5],
-      [-2]: [-2, 5],
-      [-1]: [-3, 5],
-      [0]: [-3, 4],
-      [1]: [-4, 4],
-      [2]: [-4, 3],
-      [3]: [-4, 2],
-    },
-    FRAME_63: {
-      [-3]: [-2, 5],
-      [-2]: [-3, 5],
-      [-1]: [-4, 5],
-      [0]: [-4, 4],
-      [1]: [-5, 4],
-      [2]: [-5, 3],
-      [3]: [-5, 2],
-    },
-  };
-
-  const coords: CubicCoord[] = [];
-  const ranges = rowRanges[frameType];
-  for (let r = -3; r <= 3; r++) {
-    const [qMin, qMax] = ranges[r];
-    for (let q = qMin; q <= qMax; q++) {
-      coords.push({ q, r, s: -q - r });
-    }
-  }
-  return coords;
-}
-
-interface HexConfigItem {
-  q: number;
-  r: number;
-  terrain: TerrainType;
-  num: number | null;
-  hasRobber?: boolean;
-  territoryId?: string;
-  isMainIsland?: boolean;
-  isUninhabitable?: boolean;
-}
-
-function randomizeHexGroup(
-  group: HexConfigItem[],
-  options: {
-    shuffleTerrains?: boolean;
-    shuffleNumbers?: boolean;
-    preventRedAdjacent?: boolean;
-  } = { shuffleTerrains: true, shuffleNumbers: true, preventRedAdjacent: true }
-): HexConfigItem[] {
-  const copy = group.map((g) => ({ ...g }));
-  if (options.shuffleTerrains) {
-    const terrains = shuffle(copy.map((g) => g.terrain));
-    for (let i = 0; i < copy.length; i++) {
-      copy[i].terrain = terrains[i];
-    }
-  }
-  if (options.shuffleNumbers) {
-    const numberBearingIndices = copy
-      .map((g, idx) => (g.terrain !== 'DESERT' && g.terrain !== 'SEA' && g.terrain !== 'FOG' ? idx : -1))
-      .filter((idx) => idx !== -1);
-    const originalNumbers = group
-      .filter((g) => g.num !== null)
-      .map((g) => g.num as number);
-
-    let bestNums = shuffle(originalNumbers);
-    for (let attempt = 0; attempt < 60; attempt++) {
-      const candidate = shuffle(originalNumbers);
-      let redConflict = false;
-      if (options.preventRedAdjacent) {
-        for (let a = 0; a < numberBearingIndices.length; a++) {
-          const nA = candidate[a];
-          if (nA !== 6 && nA !== 8) continue;
-          const hA = copy[numberBearingIndices[a]];
-          for (let b = a + 1; b < numberBearingIndices.length; b++) {
-            const nB = candidate[b];
-            if (nB !== 6 && nB !== 8) continue;
-            const hB = copy[numberBearingIndices[b]];
-            const dq = Math.abs(hA.q - hB.q);
-            const dr = Math.abs(hA.r - hB.r);
-            const ds = Math.abs(-hA.q - hA.r - (-hB.q - hB.r));
-            if (Math.max(dq, dr, ds) === 1) {
-              redConflict = true;
-              break;
-            }
-          }
-          if (redConflict) break;
-        }
-      }
-      if (!redConflict) {
-        bestNums = candidate;
-        break;
-      }
-    }
-
-    for (let i = 0; i < copy.length; i++) {
-      copy[i].num = null;
-      copy[i].hasRobber = false;
-    }
-    for (let i = 0; i < numberBearingIndices.length; i++) {
-      copy[numberBearingIndices[i]].num = bestNums[i] ?? null;
-    }
-    const desertItem = copy.find((g) => g.terrain === 'DESERT');
-    if (desertItem) {
-      desertItem.hasRobber = true;
-    } else {
-      const twelveItem = copy.find((g) => g.num === 12);
-      if (twelveItem) twelveItem.hasRobber = true;
-    }
-  }
-  return copy;
-}
-
-/**
- * Generates an authentic Seafarers scenario board for 2-3, 4, or 5-6 players
- * matching 100% the exact island and sea shapes of the official manuals
- * (`CatanNavegantes-Reglas1.pdf` and `CatanNavegantes56-Reglas.pdf`),
- * plus scenario-specific Section 4 ("4. MONTAJE VARIABLE") when `randomizeVariableSetup === true`.
- */
+/** Builds the playable frame from the PDF transcription; the outer sea is visual only. */
 export function generateSeafarersBoard(
   scenario: SeafarersScenario = 'HEADING_FOR_NEW_SHORES',
   preventAdjacentRedNumbers: boolean = true,
@@ -609,564 +460,165 @@ export function generateSeafarersBoard(
   randomizeVariableSetup: boolean = false,
   boardSizeOverride?: SeafarersBoardSize
 ): BoardState {
+  const size = boardSizeOverride || (playerCount <= 3 ? '3P' : playerCount >= 5 ? '5_6P' : '4P');
+  const data = getSeafarersScenarioData(scenario, size);
+  const freeWorld = scenario === 'NEW_WORLD' || scenario === 'PROCEDURAL_ARCHIPELAGO';
+  const specs = prepareScenarioHexes(data, randomizeVariableSetup || freeWorld, preventAdjacentRedNumbers);
+  const idOf = (c: { q: number; r: number }) => coordToId(c.q, c.r, -c.q - c.r);
   const hexes: Record<string, Hex> = {};
-  let robberHexId = '';
-  let pirateHexId = '';
-
-  const effectiveSize: SeafarersBoardSize =
-    boardSizeOverride ||
-    (playerCount <= 3 ? '3P' : playerCount >= 5 ? '5_6P' : '4P');
-  const is56 = effectiveSize === '5_6P';
-  const is3P = effectiveSize === '3P';
-
-  // Choose the exact frame size from the official manuals
-  let frameType: SeafarersFrameType = 'FRAME_49';
-  if (is56) {
-    frameType =
-      scenario === 'HEADING_FOR_NEW_SHORES' || scenario === 'THE_FOUR_ISLANDS'
-        ? 'FRAME_56'
-        : 'FRAME_63';
-  } else if (is3P) {
-    frameType =
-      scenario === 'HEADING_FOR_NEW_SHORES' || scenario === 'THE_FOUR_ISLANDS'
-        ? 'FRAME_35'
-        : 'FRAME_49';
-  } else {
-    frameType =
-      scenario === 'HEADING_FOR_NEW_SHORES' ? 'FRAME_42' : 'FRAME_49';
-  }
-
-  const allCoords = getSeafarersFrameCoords(frameType);
-  for (const c of allCoords) {
-    const id = coordToId(c.q, c.r, c.s);
+  for (const spec of specs) {
+    const id = idOf(spec);
     hexes[id] = {
-      id,
-      q: c.q,
-      r: c.r,
-      s: c.s,
-      terrain: 'SEA',
-      numberToken: null,
-      hasRobber: false,
-      center: hexToPixel(c.q, c.r, hexSize),
+      id, q: spec.q, r: spec.r, s: -spec.q - spec.r, terrain: spec.terrain,
+      numberToken: spec.num, hasRobber: false, center: hexToPixel(spec.q, spec.r, hexSize),
     };
   }
 
-  const mainIslandHexIds: string[] = [];
-  const uninhabitableHexIds: string[] = [];
-  const foreignTerritoryMap: Record<string, string> = {};
-  const portEligibleHexIds = new Set<string>();
-
-  let fogDeck: Array<{ terrain: TerrainType; numberToken: number | null }> | undefined;
-  let nativeVillages: Record<string, { id: string; hexId: string; vertexId: string; numberToken: number; clothRemaining: number }> | undefined;
-  let forgottenGifts: Record<string, { id: string; vertexId: string; type: 'CATAN_CHIT_1VP' | 'DEV_CARD' | 'PORT'; portType?: PortType; claimed: boolean; claimedByPlayerId?: string }> | undefined;
-  let pirateFleetHexId: string | undefined;
-  let pirateFleetRouteHexIds: string[] | undefined;
-  let pirateFortresses: Record<string, { id: string; hexId: string; vertexId: string; targetPlayerColor: PlayerColor; chitsRemaining: number }> | undefined;
-  let safePirateHexId: string | undefined;
-
-  let rawPortsToPlace: Array<{ type: PortType; landQ: number; landR: number; seaQ: number; seaR: number }> = [];
-
-  const scenarioKey = `${scenario}__${effectiveSize}`;
-  const boardData = SEAFARERS_BOARDS_DATA[scenarioKey] || SEAFARERS_BOARDS_DATA[`${scenario}__4P`];
-
-  if (scenario === 'NEW_WORLD' || !boardData) {
-    // Escenario 9: Un nuevo mundo
-    const isLarge = is56;
-    let archConfigs: HexConfigItem[] = !isLarge
-      ? [
-          { q: -1, r: -2, terrain: 'WOOD', num: 4, territoryId: 'NW_CLUSTER_1' },
-          { q: 0, r: -2, terrain: 'SHEEP', num: 9, territoryId: 'NW_CLUSTER_1' },
-          { q: -2, r: -1, terrain: 'BRICK', num: 5, territoryId: 'NW_CLUSTER_1' },
-          { q: -1, r: -1, terrain: 'WHEAT', num: 8, territoryId: 'NW_CLUSTER_1' },
-          { q: 2, r: -2, terrain: 'GOLD', num: 10, territoryId: 'NW_CLUSTER_2' },
-          { q: 3, r: -2, terrain: 'WHEAT', num: 6, territoryId: 'NW_CLUSTER_2' },
-          { q: 2, r: -1, terrain: 'SHEEP', num: 3, territoryId: 'NW_CLUSTER_2' },
-          { q: 3, r: -1, terrain: 'BRICK', num: 11, territoryId: 'NW_CLUSTER_2' },
-          { q: 0, r: 0, terrain: 'DESERT', num: null, hasRobber: true, territoryId: 'NW_CLUSTER_3' },
-          { q: 1, r: 0, terrain: 'WOOD', num: 8, territoryId: 'NW_CLUSTER_3' },
-          { q: -1, r: 1, terrain: 'SHEEP', num: 4, territoryId: 'NW_CLUSTER_3' },
-          { q: 0, r: 1, terrain: 'WHEAT', num: 10, territoryId: 'NW_CLUSTER_3' },
-          { q: -3, r: 1, terrain: 'ORE', num: 3, territoryId: 'NW_CLUSTER_4' },
-          { q: -2, r: 1, terrain: 'WOOD', num: 9, territoryId: 'NW_CLUSTER_4' },
-          { q: -3, r: 2, terrain: 'GOLD', num: 2, territoryId: 'NW_CLUSTER_4' },
-          { q: -2, r: 2, terrain: 'SHEEP', num: 12, territoryId: 'NW_CLUSTER_4' },
-          { q: 2, r: 1, terrain: 'GOLD', num: 11, territoryId: 'NW_CLUSTER_5' },
-          { q: 3, r: 1, terrain: 'WHEAT', num: 4, territoryId: 'NW_CLUSTER_5' },
-          { q: 0, r: 3, terrain: 'ORE', num: 5, territoryId: 'NW_CLUSTER_5' },
-          { q: 1, r: 3, terrain: 'BRICK', num: 10, territoryId: 'NW_CLUSTER_5' },
-        ]
-      : [
-          { q: -1, r: -3, terrain: 'WOOD', num: 5, territoryId: 'NW_CLUSTER_1' },
-          { q: 0, r: -3, terrain: 'SHEEP', num: 9, territoryId: 'NW_CLUSTER_1' },
-          { q: -2, r: -2, terrain: 'BRICK', num: 4, territoryId: 'NW_CLUSTER_1' },
-          { q: -1, r: -2, terrain: 'WHEAT', num: 8, territoryId: 'NW_CLUSTER_1' },
-          { q: -3, r: -1, terrain: 'ORE', num: 10, territoryId: 'NW_CLUSTER_1' },
-          { q: -2, r: -1, terrain: 'WOOD', num: 3, territoryId: 'NW_CLUSTER_1' },
-          { q: 2, r: -3, terrain: 'GOLD', num: 11, territoryId: 'NW_CLUSTER_2' },
-          { q: 3, r: -3, terrain: 'WHEAT', num: 6, territoryId: 'NW_CLUSTER_2' },
-          { q: 4, r: -3, terrain: 'WOOD', num: 10, territoryId: 'NW_CLUSTER_2' },
-          { q: 2, r: -2, terrain: 'SHEEP', num: 4, territoryId: 'NW_CLUSTER_2' },
-          { q: 3, r: -2, terrain: 'BRICK', num: 9, territoryId: 'NW_CLUSTER_2' },
-          { q: 4, r: -2, terrain: 'ORE', num: 5, territoryId: 'NW_CLUSTER_2' },
-          { q: 0, r: 0, terrain: 'DESERT', num: null, hasRobber: true, territoryId: 'NW_CLUSTER_3' },
-          { q: 1, r: 0, terrain: 'WOOD', num: 8, territoryId: 'NW_CLUSTER_3' },
-          { q: 2, r: 0, terrain: 'SHEEP', num: 3, territoryId: 'NW_CLUSTER_3' },
-          { q: -1, r: 1, terrain: 'SHEEP', num: 10, territoryId: 'NW_CLUSTER_3' },
-          { q: 0, r: 1, terrain: 'WHEAT', num: 11, territoryId: 'NW_CLUSTER_3' },
-          { q: 1, r: 1, terrain: 'BRICK', num: 6, territoryId: 'NW_CLUSTER_3' },
-          { q: -4, r: 1, terrain: 'ORE', num: 3, territoryId: 'NW_CLUSTER_4' },
-          { q: -3, r: 1, terrain: 'WOOD', num: 9, territoryId: 'NW_CLUSTER_4' },
-          { q: -5, r: 2, terrain: 'GOLD', num: 5, territoryId: 'NW_CLUSTER_4' },
-          { q: -4, r: 2, terrain: 'SHEEP', num: 12, territoryId: 'NW_CLUSTER_4' },
-          { q: -3, r: 2, terrain: 'WHEAT', num: 4, territoryId: 'NW_CLUSTER_4' },
-          { q: 3, r: 1, terrain: 'GOLD', num: 2, territoryId: 'NW_CLUSTER_5' },
-          { q: 4, r: 1, terrain: 'WHEAT', num: 9, territoryId: 'NW_CLUSTER_5' },
-          { q: 1, r: 3, terrain: 'ORE', num: 5, territoryId: 'NW_CLUSTER_5' },
-          { q: 2, r: 3, terrain: 'BRICK', num: 10, territoryId: 'NW_CLUSTER_5' },
-        ];
-
-    if (randomizeVariableSetup) {
-      archConfigs = randomizeHexGroup(archConfigs, {
-        shuffleTerrains: true,
-        shuffleNumbers: true,
-        preventRedAdjacent: preventAdjacentRedNumbers,
-      });
+  const decorativeSeaHexes: Hex[] = getSurroundingSeaCoords(Object.values(hexes)).map(coord => ({
+    ...coord, id: idOf(coord), terrain: 'SEA', numberToken: null, hasRobber: false,
+    center: hexToPixel(coord.q, coord.r, hexSize),
+  }));
+  const { vertices, edges, coastalEdgeIdsOrdered } = buildTopologyFromHexes(hexes, hexSize, undefined, undefined, undefined, true);
+  const vertexAt = (spec: RawVertexSpec): Vertex => {
+    const hex = hexes[idOf(spec.hexCoord)];
+    const corner = getHexCornerPoints(hex.center.x, hex.center.y, hexSize)[spec.corner];
+    const vertex = Object.values(vertices).find(v => Math.hypot(v.x - corner.x, v.y - corner.y) < 1);
+    if (!vertex) throw new Error(`Marcador sin intersección en ${scenario}/${size}.`);
+    return vertex;
+  };
+  const portEdge = (spec: RawPortSpec): Edge => {
+    const landId = coordToId(spec.landQ, spec.landR, -spec.landQ - spec.landR);
+    const land = hexes[landId];
+    const seaId = coordToId(spec.seaQ, spec.seaR, -spec.seaQ - spec.seaR);
+    const sea = hexes[seaId];
+    const distance = Math.max(Math.abs(spec.landQ - spec.seaQ), Math.abs(spec.landR - spec.seaR), Math.abs(spec.landQ + spec.landR - spec.seaQ - spec.seaR));
+    if (!land || !isRealLand(land.terrain) || (sea && sea.terrain !== 'SEA') || distance !== 1) {
+      throw new Error(`Puerto fuera de su costa oficial: ${scenario}/${size} (${landId} → ${seaId}).`);
     }
-
-    for (const item of archConfigs) {
-      const id = coordToId(item.q, item.r, -item.q - item.r);
-      if (hexes[id]) {
-        hexes[id].terrain = item.terrain;
-        hexes[id].numberToken = item.num;
-        if (item.hasRobber) {
-          hexes[id].hasRobber = true;
-          robberHexId = id;
-        }
-        mainIslandHexIds.push(id);
-        portEligibleHexIds.add(id);
-        if (item.territoryId) foreignTerritoryMap[id] = item.territoryId;
-      }
-    }
-    pirateHexId = '1,-1,0';
-  } else {
-    // 100% Authentic scenario from official PDFs
-    let hexSpecs: HexConfigItem[] = boardData.hexes.map((h) => ({
-      q: h.q,
-      r: h.r,
-      terrain: h.terrain,
-      num: h.num,
-      hasRobber: h.hasRobber,
-      territoryId: h.territoryId,
-      isMainIsland: h.isMainIsland,
-      isUninhabitable: h.isUninhabitable,
-    }));
-
-    // Section 4 "Montaje variable": only randomize what the scenario allows!
-    if (randomizeVariableSetup && boardData.variableSetup) {
-      if (scenario === 'HEADING_FOR_NEW_SHORES') {
-        let main = hexSpecs.filter((h) => h.isMainIsland && h.terrain !== 'SEA');
-        let islets = hexSpecs.filter((h) => !h.isMainIsland && h.terrain !== 'SEA');
-        main = randomizeHexGroup(main, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        islets = randomizeHexGroup(islets, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        const sea = hexSpecs.filter((h) => h.terrain === 'SEA');
-        hexSpecs = [...main, ...islets, ...sea];
-      } else if (scenario === 'THE_FOUR_ISLANDS') {
-        let land = hexSpecs.filter((h) => h.terrain !== 'SEA');
-        land = randomizeHexGroup(land, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        const sea = hexSpecs.filter((h) => h.terrain === 'SEA');
-        hexSpecs = [...land, ...sea];
-      } else if (scenario === 'OCEANIA') {
-        let land = hexSpecs.filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG');
-        land = randomizeHexGroup(land, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        const other = hexSpecs.filter((h) => h.terrain === 'SEA' || h.terrain === 'FOG');
-        hexSpecs = [...land, ...other];
-      } else if (scenario === 'THROUGH_THE_DESERT') {
-        const fixed = hexSpecs.filter((h) => h.terrain === 'DESERT' || h.terrain === 'SEA');
-        let main = hexSpecs.filter((h) => h.isMainIsland && h.terrain !== 'DESERT' && h.terrain !== 'SEA');
-        let islets = hexSpecs.filter((h) => !h.isMainIsland && h.terrain !== 'DESERT' && h.terrain !== 'SEA');
-        main = randomizeHexGroup(main, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        islets = randomizeHexGroup(islets, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        hexSpecs = [...fixed, ...main, ...islets];
-      } else if (scenario === 'THE_FORGOTTEN_TRIBE') {
-        const fixed = hexSpecs.filter((h) => !h.isMainIsland || h.terrain === 'SEA');
-        let main = hexSpecs.filter((h) => h.isMainIsland && h.terrain !== 'SEA');
-        main = randomizeHexGroup(main, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        hexSpecs = [...fixed, ...main];
-      } else if (scenario === 'CLOTH_FOR_CATAN') {
-        // Village islets are fixed
-        const fixed = hexSpecs.filter((h) => !h.isMainIsland || h.terrain === 'SEA');
-        let main = hexSpecs.filter((h) => h.isMainIsland && h.terrain !== 'SEA');
-        main = randomizeHexGroup(main, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        hexSpecs = [...fixed, ...main];
-      } else if (scenario === 'THE_PIRATE_ISLANDS') {
-        // Terrains fixed; ports will be shuffled
-      } else if (scenario === 'WONDERS_OF_CATAN') {
-        const fixed = hexSpecs.filter((h) => h.terrain === 'DESERT' || h.terrain === 'SEA' || !h.isMainIsland);
-        let main = hexSpecs.filter((h) => h.isMainIsland && h.terrain !== 'DESERT' && h.terrain !== 'SEA');
-        main = randomizeHexGroup(main, {
-          shuffleTerrains: true,
-          shuffleNumbers: true,
-          preventRedAdjacent: preventAdjacentRedNumbers,
-        });
-        hexSpecs = [...fixed, ...main];
-      }
-    }
-
-    // Apply hexes to board
-    for (const item of hexSpecs) {
-      const id = coordToId(item.q, item.r, -item.q - item.r);
-      if (!hexes[id]) {
-        hexes[id] = {
-          id,
-          q: item.q,
-          r: item.r,
-          s: -item.q - item.r,
-          terrain: 'SEA',
-          numberToken: null,
-          hasRobber: false,
-          center: hexToPixel(item.q, item.r, hexSize),
-        };
-      }
-      hexes[id].terrain = item.terrain;
-      hexes[id].numberToken = item.num;
-      if (item.hasRobber) {
-        hexes[id].hasRobber = true;
-        robberHexId = id;
-      }
-      if (item.isMainIsland && item.terrain !== 'SEA' && item.terrain !== 'FOG') {
-        mainIslandHexIds.push(id);
-      }
-      if (item.terrain !== 'SEA' && item.terrain !== 'FOG' && !item.isUninhabitable) {
-        portEligibleHexIds.add(id);
-      }
-      if (item.isUninhabitable) {
-        uninhabitableHexIds.push(id);
-      }
-      if (item.territoryId) {
-        foreignTerritoryMap[id] = item.territoryId;
-      }
-    }
-
-    // Robber & Pirate
-    if (!robberHexId && boardData.robberCoord) {
-      const rId = coordToId(boardData.robberCoord.q, boardData.robberCoord.r, -boardData.robberCoord.q - boardData.robberCoord.r);
-      if (hexes[rId]) {
-        hexes[rId].hasRobber = true;
-        robberHexId = rId;
-      }
-    }
-    if (!robberHexId && scenario !== 'THE_PIRATE_ISLANDS') {
-      const desert = Object.values(hexes).find((h) => h.terrain === 'DESERT');
-      if (desert) {
-        desert.hasRobber = true;
-        robberHexId = desert.id;
-      } else {
-        const twelve = Object.values(hexes).find((h) => h.numberToken === 12);
-        if (twelve) {
-          twelve.hasRobber = true;
-          robberHexId = twelve.id;
-        }
-      }
-    }
-
-    if (boardData.pirateCoord) {
-      const pId = coordToId(boardData.pirateCoord.q, boardData.pirateCoord.r, -boardData.pirateCoord.q - boardData.pirateCoord.r);
-      if (hexes[pId]) {
-        pirateHexId = pId;
-      }
-    }
-    if (!pirateHexId) {
-      pirateHexId = Object.values(hexes).find((h) => h.terrain === 'SEA')?.id || '';
-    }
-
-    if (boardData.safePirateCoord) {
-      safePirateHexId = coordToId(boardData.safePirateCoord.q, boardData.safePirateCoord.r, -boardData.safePirateCoord.q - boardData.safePirateCoord.r);
-    }
-
-    rawPortsToPlace = boardData.ports ? [...boardData.ports] : [];
-
-    // Entities
-    if (boardData.fogDeck) {
-      fogDeck = boardData.fogDeck.map((f) => ({ terrain: f.terrain, numberToken: f.num }));
-      if (randomizeVariableSetup) {
-        fogDeck = shuffle(fogDeck);
-      }
-    }
-
-    if (boardData.pirateFleetRoute) {
-      pirateFleetRouteHexIds = boardData.pirateFleetRoute.map((c) => coordToId(c.q, c.r, -c.q - c.r));
-      pirateFleetHexId = pirateFleetRouteHexIds[0];
-    }
-  }
-
-  // Build Seafarers Topology
-  const { vertices, edges, coastalEdgeIdsOrdered } = buildTopologyFromHexes(
-    hexes,
-    hexSize,
-    undefined,
-    undefined,
-    undefined,
-    true
-  );
-
+    const seaCenter = hexToPixel(spec.seaQ, spec.seaR, hexSize);
+    const mid = { x: (land.center.x + seaCenter.x) / 2, y: (land.center.y + seaCenter.y) / 2 };
+    const edge = Object.values(edges).find(e => e.hexIds.includes(landId) && e.isCoastal &&
+      Math.hypot((e.x1 + e.x2) / 2 - mid.x, (e.y1 + e.y2) / 2 - mid.y) < 1);
+    if (!edge) throw new Error(`Arista de puerto ausente en ${scenario}/${size}.`);
+    return edge;
+  };
   const ports: PortInfo[] = [];
-  const usedVertices = new Set<string>();
-
-  if (rawPortsToPlace.length > 0) {
-    let portTypes = rawPortsToPlace.map((p) => p.type);
-    if (randomizeVariableSetup && boardData?.variableSetup?.shuffleMainPorts) {
-      portTypes = shuffle(portTypes);
+  const usedPortVertices = new Set<string>();
+  const attachPort = (edge: Edge, type: PortType, seaHexId?: string) => {
+    if (edge.vertexIds.some(id => usedPortVertices.has(id))) throw new Error(`Puertos superpuestos en ${scenario}/${size}.`);
+    const ratio: 2 | 3 = type === 'GENERIC' ? 3 : 2;
+    ports.push({ id: `PORT_${ports.length}_${edge.id}`, type, ratio, edgeId: edge.id,
+      vertexIds: edge.vertexIds, seaHexId, dockCenter: computeDockCenter(edge, hexes, hexSize) });
+    for (const id of edge.vertexIds) {
+      vertices[id].port = { type, ratio };
+      usedPortVertices.add(id);
     }
-
-    for (let i = 0; i < rawPortsToPlace.length; i++) {
-      const pSpec = rawPortsToPlace[i];
-      const pType = portTypes[i];
-      const ratio: 2 | 3 = pType === 'GENERIC' ? 3 : 2;
-      const landId = coordToId(pSpec.landQ, pSpec.landR, -pSpec.landQ - pSpec.landR);
-      const seaId = coordToId(pSpec.seaQ, pSpec.seaR, -pSpec.seaQ - pSpec.seaR);
-
-      let edge = Object.values(edges).find(
-        (e) => e.hexIds.includes(landId) && e.hexIds.includes(seaId)
-      );
-
-      // If exact edge with seaId not found (e.g. sea coordinate is off-board frame boundary),
-      // search for the coastal edge of landId whose midpoint is closest to the sea coordinate.
-      if (!edge || usedVertices.has(edge.vertexIds[0]) || usedVertices.has(edge.vertexIds[1])) {
-        const seaPixel = hexToPixel(pSpec.seaQ, pSpec.seaR, hexSize);
-        // First try candidate coastal edges that have no used vertices
-        let candidates = Object.values(edges).filter(
-          (e) =>
-            e.hexIds.includes(landId) &&
-            (e.isCoastal || e.hexIds.length === 1 || e.hexIds.some((h) => hexes[h]?.terrain === 'SEA')) &&
-            e.hexIds.filter((h) => hexes[h] && isRealLand(hexes[h].terrain)).length === 1 &&
-            !usedVertices.has(e.vertexIds[0]) &&
-            !usedVertices.has(e.vertexIds[1])
-        );
-
-        // If no candidate without used vertices, allow an edge where at least one vertex is not used yet
-        if (candidates.length === 0) {
-          candidates = Object.values(edges).filter(
-            (e) =>
-              e.hexIds.includes(landId) &&
-              (e.isCoastal || e.hexIds.length === 1 || e.hexIds.some((h) => hexes[h]?.terrain === 'SEA')) &&
-              e.hexIds.filter((h) => hexes[h] && isRealLand(hexes[h].terrain)).length === 1 &&
-              (!usedVertices.has(e.vertexIds[0]) || !usedVertices.has(e.vertexIds[1]))
-          );
-        }
-
-        candidates.sort((a, b) => {
-          const vA0 = vertices[a.vertexIds[0]];
-          const vA1 = vertices[a.vertexIds[1]];
-          const midAx = ((vA0?.x || 0) + (vA1?.x || 0)) / 2;
-          const midAy = ((vA0?.y || 0) + (vA1?.y || 0)) / 2;
-          const distA = Math.hypot(midAx - seaPixel.x, midAy - seaPixel.y);
-
-          const vB0 = vertices[b.vertexIds[0]];
-          const vB1 = vertices[b.vertexIds[1]];
-          const midBx = ((vB0?.x || 0) + (vB1?.x || 0)) / 2;
-          const midBy = ((vB0?.y || 0) + (vB1?.y || 0)) / 2;
-          const distB = Math.hypot(midBx - seaPixel.x, midBy - seaPixel.y);
-          return distA - distB;
-        });
-
-        if (candidates.length > 0) {
-          edge = candidates[0];
-        }
-      }
-
-      if (edge) {
-        const dockCenter = computeDockCenter(edge, hexes, hexSize);
-        ports.push({
-          id: `PORT_${i}_${edge.id}`,
-          type: pType,
-          ratio,
-          edgeId: edge.id,
-          vertexIds: edge.vertexIds,
-          dockCenter,
-        });
-        usedVertices.add(edge.vertexIds[0]);
-        usedVertices.add(edge.vertexIds[1]);
-        if (vertices[edge.vertexIds[0]]) vertices[edge.vertexIds[0]].port = { type: pType, ratio };
-        if (vertices[edge.vertexIds[1]]) vertices[edge.vertexIds[1]].port = { type: pType, ratio };
-      }
+  };
+  if (freeWorld) {
+    const types: PortType[] = ['WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE', ...Array<PortType>(5).fill('GENERIC'), ...(size === '5_6P' ? ['SHEEP' as const] : [])];
+    const candidates = shuffled(coastalEdgeIdsOrdered.filter(id => !edges[id].hexIds.some(h => hexes[h]?.terrain === 'FOG')));
+    for (const type of shuffled(types)) {
+      const edgeId = candidates.find(id => edges[id].vertexIds.every(v => !usedPortVertices.has(v)));
+      if (!edgeId) throw new Error('No hay suficiente costa para los puertos de Un nuevo mundo.');
+      attachPort(edges[edgeId], type);
     }
   } else {
-    // Fallback port placement along eligible coastal edges (e.g. NEW_WORLD)
-    const eligibleCoastalEdges = coastalEdgeIdsOrdered.filter((eId) => {
-      const edge = edges[eId];
-      if (!edge) return false;
-      return edge.hexIds.some((hId) => portEligibleHexIds.has(hId));
-    });
-    const fallbackPorts: PortType[] = is56
-      ? ['GENERIC', 'GENERIC', 'GENERIC', 'GENERIC', 'GENERIC', 'WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE', 'SHEEP']
-      : ['GENERIC', 'GENERIC', 'GENERIC', 'GENERIC', 'WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE'];
-    const portsToPlace = randomizeVariableSetup ? shuffle(fallbackPorts) : fallbackPorts;
-    if (portsToPlace.length > 0 && eligibleCoastalEdges.length > 0) {
-      const step = Math.max(1, Math.floor(eligibleCoastalEdges.length / portsToPlace.length));
-      for (let i = 0; i < portsToPlace.length; i++) {
-        const pType = portsToPlace[i];
-        const ratio: 2 | 3 = pType === 'GENERIC' ? 3 : 2;
-        const startIdx = (i * step) % eligibleCoastalEdges.length;
-        for (let offset = 0; offset < eligibleCoastalEdges.length; offset++) {
-          const cEdgeId = eligibleCoastalEdges[(startIdx + offset) % eligibleCoastalEdges.length];
-          const edge = edges[cEdgeId];
-          if (edge && !usedVertices.has(edge.vertexIds[0]) && !usedVertices.has(edge.vertexIds[1])) {
-            const dockCenter = computeDockCenter(edge, hexes, hexSize);
-            ports.push({
-              id: `PORT_SEA_${i}_${cEdgeId}`,
-              type: pType,
-              ratio,
-              edgeId: cEdgeId,
-              vertexIds: edge.vertexIds,
-              dockCenter,
-            });
-            usedVertices.add(edge.vertexIds[0]);
-            usedVertices.add(edge.vertexIds[1]);
-            if (vertices[edge.vertexIds[0]]) vertices[edge.vertexIds[0]].port = { type: pType, ratio };
-            if (vertices[edge.vertexIds[1]]) vertices[edge.vertexIds[1]].port = { type: pType, ratio };
-            break;
-          }
-        }
+    const types = randomizeVariableSetup && data.variableSetup.shufflePorts
+      ? shuffled(data.ports.map(p => p.type)) : data.ports.map(p => p.type);
+    data.ports.forEach((spec, i) => attachPort(portEdge(spec), types[i], coordToId(spec.seaQ, spec.seaR, -spec.seaQ - spec.seaR)));
+  }
+
+  let robberHexId = '';
+  if (scenario !== 'THE_PIRATE_ISLANDS') {
+    if (data.robberCoord) {
+      robberHexId = idOf(data.robberCoord);
+      const original = data.hexes.find(h => idOf(h) === robberHexId);
+      if (randomizeVariableSetup && original?.num !== null && original?.num !== undefined) {
+        const group = data.variableSetup.groups.find(g => g.coords.some(c => idOf(c) === robberHexId));
+        const positions = group && new Set(group.coords.map(idOf));
+        const moved = specs.find(h => h.num === original.num && (!positions || positions.has(idOf(h))));
+        if (moved) robberHexId = idOf(moved);
+      }
+    } else {
+      robberHexId = Object.values(hexes).find(h => h.numberToken === 12)?.id || '';
+    }
+    if (hexes[robberHexId] && isRealLand(hexes[robberHexId].terrain)) hexes[robberHexId].hasRobber = true;
+    else throw new Error(`Posición del ladrón inválida en ${scenario}/${size}.`);
+  }
+  const pirateHexId = scenario === 'WONDERS_OF_CATAN' ? undefined : data.pirateCoord ? idOf(data.pirateCoord) : Object.values(hexes).find(h => h.terrain === 'SEA')?.id;
+
+  // Separate the northern territory from the mother island even with productive
+  // replacements for the desert belt. Other islands follow their current coasts.
+  const belt = new Set(scenario === 'THROUGH_THE_DESERT' ? data.hexes.filter(h => h.terrain === 'DESERT').map(idOf) : []);
+  const remaining = new Set(Object.values(hexes).filter(h => isRealLand(h.terrain) && !belt.has(h.id)).map(h => h.id));
+  const foreignTerritoryMap: Record<string, string> = {};
+  let component = 0;
+  while (remaining.size) {
+    const start = remaining.values().next().value!;
+    const queue = [start];
+    remaining.delete(start);
+    const territory = `ISLAND_${++component}`;
+    while (queue.length) {
+      const id = queue.pop()!;
+      foreignTerritoryMap[id] = territory;
+      for (const coord of getHexNeighbors(hexes[id])) {
+        const neighbor = idOf(coord);
+        if (remaining.delete(neighbor)) queue.push(neighbor);
       }
     }
   }
 
-  // Entities: native villages, forgotten gifts, pirate fortresses
-  if (scenario === 'CLOTH_FOR_CATAN' && boardData?.nativeVillages) {
+  let nativeVillages: BoardState['nativeVillages'];
+  if (data.nativeVillages) {
     nativeVillages = {};
-    let vIdx = 0;
-    for (const nv of boardData.nativeVillages) {
-      const hexId = coordToId(nv.hexCoord.q, nv.hexCoord.r, -nv.hexCoord.q - nv.hexCoord.r);
-      const hexVerts = Object.values(vertices)
-        .filter((v) => v.hexIds.includes(hexId))
-        .sort((a, b) => a.y - b.y);
-      if (hexVerts.length >= 2) {
-        const topV = hexVerts[0];
-        const botV = hexVerts[hexVerts.length - 1];
-        nativeVillages[`VILLAGE_${vIdx}`] = {
-          id: `VILLAGE_${vIdx}`,
-          hexId,
-          vertexId: topV.id,
-          numberToken: nv.topNum,
-          clothRemaining: 5,
-        };
-        vIdx++;
-        nativeVillages[`VILLAGE_${vIdx}`] = {
-          id: `VILLAGE_${vIdx}`,
-          hexId,
-          vertexId: botV.id,
-          numberToken: nv.bottomNum,
-          clothRemaining: 5,
-        };
-        vIdx++;
-      }
-    }
-  } else if (scenario === 'THE_FORGOTTEN_TRIBE' && boardData?.forgottenGifts) {
-    forgottenGifts = {};
-    let giftSpecs = [...boardData.forgottenGifts];
-    if (randomizeVariableSetup) {
-      const types = shuffle(giftSpecs.map((g) => ({ type: g.type, portType: g.portType })));
-      giftSpecs = giftSpecs.map((g, idx) => ({
-        ...g,
-        type: types[idx].type,
-        portType: types[idx].portType,
-      }));
-    }
-    const usedGiftVerts = new Set<string>();
-    let gIdx = 0;
-    for (const spec of giftSpecs) {
-      const hexId = coordToId(spec.hexCoord.q, spec.hexCoord.r, -spec.hexCoord.q - spec.hexCoord.r);
-      const coastalVerts = Object.values(vertices)
-        .filter((v) => v.hexIds.includes(hexId) && !usedGiftVerts.has(v.id))
-        .sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
-      const targetV = coastalVerts[0];
-      if (targetV) {
-        usedGiftVerts.add(targetV.id);
-        forgottenGifts[`GIFT_${gIdx}`] = {
-          id: `GIFT_${gIdx}`,
-          vertexId: targetV.id,
-          type: spec.type,
-          portType: spec.portType,
-          claimed: false,
-        };
-        gIdx++;
-      }
-    }
-  } else if (scenario === 'THE_PIRATE_ISLANDS' && boardData?.pirateFortresses) {
-    pirateFortresses = {};
-    for (const fc of boardData.pirateFortresses) {
-      if (playerCount === 5 && fc.color === 'PURPLE') continue;
-      if (playerCount < 4 && fc.color === 'WHITE') continue;
-      const hexId = coordToId(fc.hexCoord.q, fc.hexCoord.r, -fc.hexCoord.q - fc.hexCoord.r);
-      const hexVerts = Object.values(vertices)
-        .filter((v) => v.hexIds.includes(hexId))
-        .sort((a, b) => b.x - a.x);
-      const v = hexVerts[0];
-      if (v) {
-        pirateFortresses[`FORTRESS_${fc.color}`] = {
-          id: `FORTRESS_${fc.color}`,
-          hexId,
-          vertexId: v.id,
-          targetPlayerColor: fc.color,
-          chitsRemaining: 3,
-        };
+    for (const spec of data.nativeVillages) {
+      for (const [corner, numberToken] of [[5, spec.topNum], [2, spec.bottomNum]]) {
+        const id = `VILLAGE_${Object.keys(nativeVillages).length}`;
+        nativeVillages[id] = { id, hexId: idOf(spec.hexCoord), vertexId: vertexAt({ hexCoord: spec.hexCoord, corner }).id, numberToken, clothRemaining: 5 };
       }
     }
   }
-
+  let forgottenGifts: BoardState['forgottenGifts'];
+  if (data.forgottenGifts) {
+    forgottenGifts = {};
+    for (const spec of data.forgottenGifts) {
+      const id = `GIFT_${Object.keys(forgottenGifts).length}`;
+      const edge = spec.portEdge ? portEdge(spec.portEdge) : undefined;
+      forgottenGifts[id] = { id, vertexId: vertexAt(spec).id, type: spec.type, portType: spec.portType,
+        edgeId: edge?.id, dockCenter: edge ? computeDockCenter(edge, hexes, hexSize) : undefined, claimed: false };
+    }
+  }
+  let pirateFortresses: BoardState['pirateFortresses'];
+  if (data.pirateFortresses) {
+    pirateFortresses = {};
+    for (const spec of data.pirateFortresses) {
+      if (size === '3P' && spec.color === 'WHITE') continue;
+      const id = `FORTRESS_${spec.color}`;
+      pirateFortresses[id] = { id, hexId: idOf(spec.hexCoord), vertexId: vertexAt(spec).id, targetPlayerColor: spec.color, chitsRemaining: 3 };
+    }
+  }
+  let fogDeck: BoardState['fogDeck'];
+  if (data.fogDeck) {
+    const adapted = replaceDeserts(data.fogDeck.map((h, i) => ({ ...h, q: i, r: 0 })));
+    // Section 4 changes known islands only. Shuffle discovery piles at game start.
+    fogDeck = adapted.map(h => ({ terrain: h.terrain, numberToken: h.num }));
+  }
+  const wonderMarkers = data.wonderMarkers ? {
+    greatBridgeVertexIds: data.wonderMarkers.greatBridge.map(s => vertexAt(s).id),
+    greatWallVertexIds: data.wonderMarkers.greatWall.map(s => vertexAt(s).id),
+    forbiddenSetupVertexIds: [...new Set(data.wonderMarkers.forbiddenSetup.map(s => vertexAt(s).id))],
+  } : undefined;
+  const pirateFleetRouteHexIds = data.pirateFleetRoute?.map(idOf);
   return {
-    mode: is56 ? 'EXPANSION_5_6' : 'STANDARD_3_4',
-    hexSize,
-    hexes,
-    vertices,
-    edges,
-    ports,
-    robberHexId,
-    pirateHexId,
-    safePirateHexId,
+    mode: size === '5_6P' ? 'EXPANSION_5_6' : 'STANDARD_3_4', hexSize, hexes, decorativeSeaHexes,
+    seafarersScenario: scenario, seafarersBoardSize: size,
+    vertices, edges, ports, robberHexId, pirateHexId,
+    safePirateHexId: data.safePirateCoord ? idOf(data.safePirateCoord) : undefined,
     clothCommonReserve: scenario === 'CLOTH_FOR_CATAN' ? 10 : undefined,
-    fogDeck,
-    revealedHexIds: [],
-    nativeVillages,
-    forgottenGifts,
-    pirateFleetHexId,
-    pirateFleetRouteHexIds,
-    pirateFortresses,
-    wondersState: {},
-    mainIslandHexIds,
-    uninhabitableHexIds,
+    fogDeck, revealedHexIds: [], nativeVillages, forgottenGifts, pirateFortresses,
+    pirateFleetRouteHexIds, pirateFleetHexId: pirateFleetRouteHexIds?.[0], wonderMarkers, wondersState: {},
+    mainIslandHexIds: specs.filter(h => h.isMainIsland && isRealLand(h.terrain)).map(idOf),
+    uninhabitableHexIds: specs.filter(h => h.isUninhabitable && isRealLand(h.terrain)).map(idOf),
     foreignTerritoryMap,
   };
 }

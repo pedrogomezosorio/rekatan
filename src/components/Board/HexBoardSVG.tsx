@@ -82,6 +82,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const showCoords = false;
   const [swapSourceHexId, setSwapSourceHexId] = useState<string | null>(null);
   const [robberImpact, setRobberImpact] = useState<boolean>(false);
+  const visibleHexes = useMemo(
+    () => [...(board.decorativeSeaHexes || []), ...Object.values(board.hexes)],
+    [board.hexes, board.decorativeSeaHexes]
+  );
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const cameraGroupRef = useRef<SVGGElement | null>(null);
@@ -192,7 +196,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   // Dynamic SVG viewBox computation based on active board bounding box (fits 19, 35, 37, 42 and 49 hex layouts)
   const { vbMinX, vbMinY, vbWidth, vbHeight, viewBoxStr } = useMemo(() => {
-    const hexList = Object.values(board.hexes);
+    const hexList = visibleHexes;
     if (hexList.length === 0) {
       return { vbMinX: -480, vbMinY: -420, vbWidth: 960, vbHeight: 840, viewBoxStr: '-480 -420 960 840' };
     }
@@ -216,7 +220,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       vbHeight: height,
       viewBoxStr: `${vx} ${vy} ${width} ${height}`,
     };
-  }, [board.hexes]);
+  }, [visibleHexes]);
 
   // Native non-passive wheel listener for smooth focal-point zoom
   useEffect(() => {
@@ -264,8 +268,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   }, [players]);
 
   const redConflictHexIds = useMemo(
-    () => new Set(getRedNumberConflictHexIds(board.hexes)),
-    [board.hexes]
+    () => new Set(board.seafarersScenario === 'OCEANIA' ? [] : getRedNumberConflictHexIds(board.hexes)),
+    [board.hexes, board.seafarersScenario]
   );
 
   const validSettlementSet = useMemo(() => new Set(validSettlementIds), [validSettlementIds]);
@@ -494,11 +498,18 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     }
   };
 
-  const hexList = Object.values(board.hexes);
+  const hexList = visibleHexes;
   const edgeList = Object.values(board.edges);
   const vertexList = Object.values(board.vertices);
   const robberHex = board.hexes[board.robberHexId];
-  const pirateHex = (board.pirateFleetHexId ? board.hexes[board.pirateFleetHexId] : undefined) || (board.pirateHexId ? board.hexes[board.pirateHexId] : undefined);
+  const pirateHex = (board.pirateFleetHexId ? board.hexes[board.pirateFleetHexId] : undefined) || visibleHexes.find(h => h.id === board.pirateHexId);
+  const portsToRender = [...board.ports, ...Object.values(board.forgottenGifts || {}).flatMap(gift => {
+    const edge = gift.edgeId && board.edges[gift.edgeId];
+    return gift.type === 'PORT' && !gift.claimed && edge && gift.dockCenter ? [{
+      id: gift.id, type: gift.portType || 'GENERIC' as PortType, edgeId: edge.id,
+      vertexIds: edge.vertexIds, dockCenter: gift.dockCenter, ratio: gift.portType === 'GENERIC' ? 3 : 2,
+    }] : [];
+  })];
 
   return (
     <motion.div
@@ -612,6 +623,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             <stop offset="0%" stopColor="#0c4a6e" stopOpacity="0.75" />
             <stop offset="100%" stopColor="#082f49" stopOpacity="0.45" />
           </radialGradient>
+          <marker id="pirate-route-arrow" markerWidth={5} markerHeight={5} refX={4} refY={2.5} orient="auto">
+            <path d="M 0 0 L 5 2.5 L 0 5 z" fill="#526b7e" />
+          </marker>
         </defs>
 
         <g ref={cameraGroupRef} transform="translate(0, 0) scale(1)">
@@ -619,8 +633,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {hexList.map((hex) => {
             const isSea = hex.terrain === 'SEA';
             const isProducing = producingSet.has(hex.id);
-            const isRobberTarget = isMovingRobber && !isSea;
-            const isPirateTarget = (isMovingPirate || (isMovingRobber && board.pirateHexId !== undefined)) && isSea;
+            const isPlayable = Boolean(board.hexes[hex.id]);
+            const isRobberTarget = isPlayable && isMovingRobber && !isSea && hex.terrain !== 'FOG';
+            const isPirateTarget = isPlayable && (isMovingPirate || (isMovingRobber && board.pirateHexId !== undefined)) && isSea;
             const isSwapSelected = swapSourceHexId === hex.id;
             const isRedConflict = redConflictHexIds.has(hex.id);
             const isInteractive = Boolean(
@@ -639,13 +654,41 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 showCoords={showCoords}
                 isInteractive={isInteractive}
                 lowEndPcMode={lowEndPcMode}
-                onSelect={handleHexInteraction}
+                onSelect={isPlayable ? handleHexInteraction : () => {}}
               />
             );
           })}
 
+          {board.pirateFleetRouteHexIds && (
+            <g className="pointer-events-none" aria-label="Recorrido de la flota pirata">
+              {board.pirateFleetRouteHexIds.map((id, index, route) => {
+                const from = board.hexes[id]?.center;
+                const to = board.hexes[route[(index + 1) % route.length]]?.center;
+                if (!from || !to) return null;
+                return <line key={id} x1={from.x * 0.7 + to.x * 0.3} y1={from.y * 0.7 + to.y * 0.3}
+                  x2={from.x * 0.3 + to.x * 0.7} y2={from.y * 0.3 + to.y * 0.7}
+                  stroke="#526b7e" strokeWidth={4} markerEnd="url(#pirate-route-arrow)" />;
+              })}
+            </g>
+          )}
+          {board.wonderMarkers && (
+            <g className="pointer-events-none" aria-label="Lugares reservados para las maravillas">
+              {board.wonderMarkers.forbiddenSetupVertexIds.map(id => {
+                const v = board.vertices[id];
+                if (!v) return null;
+                const bridge = board.wonderMarkers!.greatBridgeVertexIds.includes(id);
+                const wall = board.wonderMarkers!.greatWallVertexIds.includes(id);
+                return bridge || wall ? (
+                  <rect key={id} x={v.x - 6} y={v.y - 6} width={12} height={12} fill={bridge ? '#b9328b' : '#8b6537'} stroke="#1e293b" strokeWidth={1.5} />
+                ) : (
+                  <text key={id} x={v.x} y={v.y + 5} textAnchor="middle" fontSize={18} fontWeight="bold" fill="#fde047">!</text>
+                );
+              })}
+            </g>
+          )}
+
           {/* 2. MARITIME PORTS LAYER (Wooden Docks, Vertex Harbor Rings & Medallions) */}
-          {board.ports.map((port) => {
+          {portsToRender.map((port) => {
             const vA = board.vertices[port.vertexIds[0]];
             const vB = board.vertices[port.vertexIds[1]];
             if (!vA || !vB) return null;
@@ -1156,7 +1199,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 {!vertex.building &&
                   (() => {
                     const gift = Object.values(board.forgottenGifts || {}).find(
-                      (g) => g.vertexId === vertex.id && !g.claimed
+                      (g) => g.vertexId === vertex.id && !g.claimed && g.type !== 'PORT'
                     );
                     if (!gift) return null;
                     return (

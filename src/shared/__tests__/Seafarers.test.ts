@@ -18,7 +18,7 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
   it('generates the official scenarios with gold hexes, sea hexes, and pirate', () => {
     const headingBoard = generateSeafarersBoard('HEADING_FOR_NEW_SHORES');
     expect(headingBoard.pirateHexId).toBeDefined();
-    expect(headingBoard.hexes[headingBoard.pirateHexId!].terrain).toBe('SEA');
+    expect([...Object.values(headingBoard.hexes), ...(headingBoard.decorativeSeaHexes || [])].find(h => h.id === headingBoard.pirateHexId)?.terrain).toBe('SEA');
     expect(Object.values(headingBoard.hexes).some((h) => h.terrain === 'GOLD')).toBe(true);
 
     const fourIslandsBoard = generateSeafarersBoard('THE_FOUR_ISLANDS');
@@ -46,9 +46,8 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     // 4 jugadores: 19 isla principal + 9 islotes = 28 hexes terrestres, desierto con ladrón
     const s1_4p_land = Object.values(s1_4p.hexes).filter((h) => h.terrain !== 'SEA');
     expect(s1_4p_land.length).toBe(28);
-    expect(s1_4p_land.some((h) => h.terrain === 'DESERT')).toBe(true);
-    const desert4p = Object.values(s1_4p.hexes).find((h) => h.terrain === 'DESERT');
-    expect(desert4p?.hasRobber).toBe(true); // Desierto central con ladrón
+    expect(s1_4p_land.some((h) => h.terrain === 'DESERT')).toBe(false);
+    expect(s1_4p.hexes['-1,1,0'].hasRobber).toBe(true); // Terreno productivo que sustituye al desierto
 
     // Escenario 2: Las cuatro islas
     const s2_3p = generateSeafarersBoard('THE_FOUR_ISLANDS', true, 62, 3);
@@ -511,7 +510,7 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     // Escenario 4: A través del desierto
     const s4 = generateSeafarersBoard('THROUGH_THE_DESERT');
     const desertCount = Object.values(s4.hexes).filter((h) => h.terrain === 'DESERT').length;
-    expect(desertCount).toBeGreaterThanOrEqual(3);
+    expect(desertCount).toBe(0); // Adaptación solicitada: desiertos productivos
 
     // Escenario 5: El pueblo perdido (8 Fichas Catán, 4 cartas desarrollo, 6 puertos = 18 dones)
     const s5 = generateSeafarersBoard('THE_FORGOTTEN_TRIBE');
@@ -536,7 +535,7 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
 
     // Escenario 9: Un nuevo mundo
     const s9 = generateSeafarersBoard('NEW_WORLD');
-    expect(Object.values(s9.hexes).some((h) => h.terrain === 'GOLD')).toBe(true);
+    expect(Object.values(s9.hexes).filter(h => h.terrain !== 'SEA')).toHaveLength(23); // Tabla oficial de 3/4 jugadores
   });
 
   it('uncovers fog and awards free resource upon reaching a fog hex in Oceania', () => {
@@ -631,9 +630,8 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
     state.turn.activePlayerId = 'P1';
     state.turn.hasRolledDice = true;
 
-    // Place a settlement touching desert for GREAT_WALL
-    const desertHex = Object.values(state.board.hexes).find((h) => h.terrain === 'DESERT')!;
-    const desertVertex = Object.values(state.board.vertices).find((v) => v.hexIds.includes(desertHex.id))!;
+    // The brown markers remain valid after replacing deserts with productive tiles.
+    const desertVertex = state.board.vertices[state.board.wonderMarkers!.greatWallVertexIds[0]];
     desertVertex.building = 'SETTLEMENT';
     desertVertex.playerId = 'P1';
 

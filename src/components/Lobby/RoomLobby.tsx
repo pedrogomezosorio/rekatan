@@ -30,6 +30,8 @@ import {
 import { BoardMode, BotDifficulty, ExpansionModule, PortType, SeafarersBoardSize, SeafarersScenario, TerrainType } from '../../shared/types';
 import { EditorToolState, HexBoardSVG } from '../Board/HexBoardSVG';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
+import { SEAFARERS_PLAYER_LIMITS } from '../../shared/seafarersConfig';
+import { getVariableSetupDescription } from '../../shared/engine/seafarersSetup';
 
 export const RoomLobby: React.FC = () => {
   const { gameState, playerId, dispatchAction, leaveRoomClient, lowEndPcMode, setLowEndPcMode } =
@@ -52,6 +54,9 @@ export const RoomLobby: React.FC = () => {
   const isHost = Boolean(me?.isHost);
   const { config, board, players } = gameState;
   const enabledExpansions = config.enabledExpansions || ['BASE'];
+  const allowsAdjacentReds = config.expansionModule === 'SEAFARERS' && config.seafarersScenario === 'OCEANIA';
+  const requiresSeparatedReds = config.expansionModule === 'SEAFARERS' &&
+    ['HEADING_FOR_NEW_SHORES', 'THROUGH_THE_DESERT', 'NEW_WORLD', 'PROCEDURAL_ARCHIPELAGO'].includes(config.seafarersScenario || 'HEADING_FOR_NEW_SHORES');
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(gameState.roomCode);
@@ -360,6 +365,11 @@ export const RoomLobby: React.FC = () => {
                 );
               })}
             </div>
+            {config.expansionModule === 'SEAFARERS' && players.length >= config.maxPlayers && config.maxPlayers < 6 && (
+              <p className="text-[11px] text-sky-300">
+                Modalidad completa. Selecciona un mapa mayor en «Regla de jugadores y mapa» para ampliar la sala.
+              </p>
+            )}
           </section>
 
           {/* 2. Selector de Juego y Expansiones (Exclusivo: 1 expansión o Juego Base) */}
@@ -514,7 +524,7 @@ export const RoomLobby: React.FC = () => {
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Wrench className="w-4 h-4 text-amber-400" />
-                <span>Tamaño del Mapa y Constructor</span>
+                <span>{config.expansionModule === 'SEAFARERS' ? 'Regla de jugadores y mapa' : 'Tamaño del Mapa y Constructor'}</span>
               </h3>
               {!isHost && (
                 <span className="text-[10px] text-slate-500 font-medium">Solo lectura</span>
@@ -528,6 +538,10 @@ export const RoomLobby: React.FC = () => {
               const selectedScenario =
                 SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario) ||
                 SEAFARERS_SCENARIOS[0];
+              const terrainCounts = Object.values(board.hexes).reduce<Partial<Record<TerrainType, number>>>((counts, hex) => {
+                counts[hex.terrain] = (counts[hex.terrain] || 0) + 1;
+                return counts;
+              }, {});
 
               return (
                 <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 text-xs space-y-3">
@@ -564,7 +578,7 @@ export const RoomLobby: React.FC = () => {
                         {
                           size: '5_6P' as const,
                           label: '5-6 Jugadores',
-                          desc: 'Gran marco 56/63',
+                          desc: 'Marco ampliado',
                           badge: 'Ampliación 5-6J',
                         },
                       ]
@@ -574,22 +588,19 @@ export const RoomLobby: React.FC = () => {
                         <button
                           key={item.size}
                           type="button"
-                          disabled={!isHost}
+                          disabled={!isHost || players.length > SEAFARERS_PLAYER_LIMITS[item.size]}
+                          title={players.length > SEAFARERS_PLAYER_LIMITS[item.size] ? `Retira jugadores para seleccionar un mapa de hasta ${SEAFARERS_PLAYER_LIMITS[item.size]}.` : `Admite hasta ${SEAFARERS_PLAYER_LIMITS[item.size]} jugadores.`}
+                          aria-pressed={isSelected}
                           onClick={() => {
                             dispatchAction({
                               type: 'UPDATE_CONFIG',
                               config: {
                                 seafarersBoardSize: item.size,
-                                maxPlayers:
-                                  item.size === '5_6P'
-                                    ? 6
-                                    : config.maxPlayers > 4
-                                    ? 4
-                                    : config.maxPlayers,
+                                maxPlayers: SEAFARERS_PLAYER_LIMITS[item.size],
                               },
                             });
                           }}
-                          className={`p-2 rounded-xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                          className={`p-2 rounded-xl text-left border transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex flex-col justify-between ${
                             isSelected
                               ? 'bg-sky-500/25 border-sky-400 text-sky-100 shadow-md shadow-sky-500/10'
                               : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
@@ -617,9 +628,17 @@ export const RoomLobby: React.FC = () => {
                       {selectedScenario.title}
                     </strong>.
                     <span className="block mt-0.5 text-[10px] text-sky-300/80">
-                      Topología y marco extraídos 100% de los manuales oficiales de Klaus Teuber.
+                      Este mapa admite hasta {SEAFARERS_PLAYER_LIMITS[effectiveSeafarersSize]} jugadores. Puedes empezar con menos; para añadir más, escoge una modalidad mayor.
+                    </span>
+                    <span className="block mt-1 text-[10px] text-slate-400">
+                      Formas y costas según los PDF. Los escenarios 5–8 comparten el dibujo de 3 y 4 jugadores. Adaptación de la sala: desiertos sustituidos por terrenos productivos y una capa exterior de mar decorativo.
                     </span>
                   </p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-300" aria-label="Inventario del mapa">
+                    {([...ALL_RESOURCES, 'GOLD', 'SEA', 'FOG'] as TerrainType[]).map(terrain => terrainCounts[terrain] ? (
+                      <span key={terrain}>{TERRAIN_META[terrain].name}: <strong>{terrainCounts[terrain]}</strong></span>
+                    ) : null)}
+                  </div>
 
                   {/* Apartados detallados de Puntos de Victoria, Montaje variable y Fichas Catán */}
                   <div className="space-y-1.5 pt-2 border-t border-sky-500/20 text-[11px]">
@@ -629,7 +648,7 @@ export const RoomLobby: React.FC = () => {
                     </div>
                     <div className="text-slate-300">
                       <strong className="text-sky-300 font-extrabold">🎲 Montaje variable (Sección 4):</strong>{' '}
-                      {selectedScenario.variableSetupRule}
+                      {getVariableSetupDescription(selectedScenario.id, effectiveSeafarersSize)}
                     </div>
                     <div className="text-slate-400 text-[10px]">
                       <strong className="text-slate-300 font-bold">🪙 Fichas Catán:</strong>{' '}
@@ -691,7 +710,7 @@ export const RoomLobby: React.FC = () => {
                   <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 px-3 py-2 rounded-xl border border-slate-800">
                     <span>Desierto en el Centro (q:0, r:0, s:0)</span>
                     <span className="text-[10px] font-semibold text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/30">
-                      ✕ Desactivado en Navegantes (Canal marítimo libre)
+                      Desiertos sustituidos por terrenos productivos
                     </span>
                   </div>
                 ) : (
@@ -712,10 +731,11 @@ export const RoomLobby: React.FC = () => {
                 )}
 
                 <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
-                  <span>Restricción: No juntar 6 y 8 rojos al generar</span>
+                  <span>{allowsAdjacentReds ? 'Oceanía permite 6 y 8 contiguos (apartado 4)' : `No juntar 6 y 8 rojos al generar${requiresSeparatedReds ? ' (regla del escenario)' : ''}`}</span>
                   <input
                     type="checkbox"
-                    checked={config.preventAdjacentRedNumbers}
+                    checked={requiresSeparatedReds || (!allowsAdjacentReds && config.preventAdjacentRedNumbers)}
+                    disabled={!isHost || allowsAdjacentReds || requiresSeparatedReds}
                     onChange={(e) =>
                       dispatchAction({
                         type: 'UPDATE_CONFIG',
@@ -727,6 +747,15 @@ export const RoomLobby: React.FC = () => {
                 </label>
 
                 <div className="flex gap-2">
+                  {config.expansionModule === 'SEAFARERS' && (
+                    <button
+                      type="button"
+                      onClick={() => dispatchAction({ type: 'GENERATE_BOARD', randomizeVariableSetup: false })}
+                      className="py-2 px-3 rounded-xl bg-sky-950 border border-sky-700 text-sky-200 text-xs font-bold cursor-pointer"
+                    >
+                      Montaje inicial
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() =>
