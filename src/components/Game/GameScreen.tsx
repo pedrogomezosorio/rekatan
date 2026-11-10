@@ -506,7 +506,11 @@ export const GameScreen: React.FC = () => {
 
   const validShipIds = useMemo(() => {
     if (!gameState || !isMyTurn || isPausedByHost) return [];
-    if (gameState.phase === 'SETUP_ROAD_1' || gameState.phase === 'SETUP_ROAD_2') {
+    if (
+      gameState.phase === 'SETUP_ROAD_1' ||
+      gameState.phase === 'SETUP_ROAD_2' ||
+      gameState.phase === 'ROAD_BUILDING_DEV'
+    ) {
       return isSeafarers ? getValidShipEdges(gameState, playerId) : [];
     }
     if (gameState.phase === 'MAIN_PHASE' && buildMode === 'SHIP') {
@@ -962,7 +966,8 @@ export const GameScreen: React.FC = () => {
                 validShipIds.includes(edgeId) &&
                 (buildMode === 'SHIP' ||
                   gameState.phase === 'SETUP_ROAD_1' ||
-                  gameState.phase === 'SETUP_ROAD_2')
+                  gameState.phase === 'SETUP_ROAD_2' ||
+                  gameState.phase === 'ROAD_BUILDING_DEV')
               ) {
                 dispatchAction({ type: 'PLACE_SHIP', edgeId });
                 setBuildMode(null);
@@ -1538,7 +1543,7 @@ export const GameScreen: React.FC = () => {
               className="tablet-end-turn-btn px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 border border-amber-200 text-stone-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.55)] cursor-pointer active:scale-95 transition"
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>Finalizar Carreteras</span>
+              <span>{isSeafarers ? 'Finalizar Rutas' : 'Finalizar Carreteras'}</span>
             </button>
           )}
 

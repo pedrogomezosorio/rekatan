@@ -4,6 +4,7 @@ import {
   canBuildShip,
   createInitialGameState,
   getMovableShipEdges,
+  getValidRoadEdges,
   getValidShipEdges,
   getValidShipMoveDestinations,
   computeIslandComponents,
@@ -14,7 +15,7 @@ import { BUILDING_COSTS } from '../constants';
 import { GameState } from '../types';
 
 describe('Navegantes de Catán (Seafarers Expansion)', () => {
-  it('generates the 3 official scenarios with gold hexes, sea hexes, and pirate', () => {
+  it('generates the official scenarios with gold hexes, sea hexes, and pirate', () => {
     const headingBoard = generateSeafarersBoard('HEADING_FOR_NEW_SHORES');
     expect(headingBoard.pirateHexId).toBeDefined();
     expect(headingBoard.hexes[headingBoard.pirateHexId!].terrain).toBe('SEA');
@@ -22,11 +23,135 @@ describe('Navegantes de Catán (Seafarers Expansion)', () => {
 
     const fourIslandsBoard = generateSeafarersBoard('THE_FOUR_ISLANDS');
     expect(fourIslandsBoard.pirateHexId).toBeDefined();
-    expect(Object.values(fourIslandsBoard.hexes).some((h) => h.terrain === 'GOLD')).toBe(true);
+    // In official rules, The Four Islands has 4 balanced resource islands without gold rivers
+    expect(Object.values(fourIslandsBoard.hexes).filter((h) => h.terrain !== 'SEA').length).toBe(23);
 
     const proceduralBoard = generateSeafarersBoard('PROCEDURAL_ARCHIPELAGO');
     expect(proceduralBoard.pirateHexId).toBeDefined();
     expect(Object.values(proceduralBoard.hexes).some((h) => h.terrain === 'GOLD')).toBe(true);
+  });
+
+  it('differentiates 3-player vs 4-player layouts according to the official manual', () => {
+    // Escenario 1: Rumbo a nuevas orillas
+    const s1_3p = generateSeafarersBoard('HEADING_FOR_NEW_SHORES', true, 62, 3);
+    const s1_4p = generateSeafarersBoard('HEADING_FOR_NEW_SHORES', true, 62, 4);
+    // 3 jugadores: 14 isla principal + 8 islotes = 22 hexes terrestres, sin desierto, ladrón en cerro 12
+    const s1_3p_land = Object.values(s1_3p.hexes).filter((h) => h.terrain !== 'SEA');
+    expect(s1_3p_land.length).toBe(22);
+    expect(s1_3p_land.some((h) => h.terrain === 'DESERT')).toBe(false);
+    expect(s1_3p_land.filter((h) => h.terrain === 'GOLD').length).toBe(2);
+    expect(s1_3p.hexes['-3,0,3'].hasRobber).toBe(true); // Cerro 12
+
+    // 4 jugadores: 19 isla principal + 9 islotes = 28 hexes terrestres, desierto con ladrón
+    const s1_4p_land = Object.values(s1_4p.hexes).filter((h) => h.terrain !== 'SEA');
+    expect(s1_4p_land.length).toBe(28);
+    expect(s1_4p_land.some((h) => h.terrain === 'DESERT')).toBe(true);
+    expect(s1_4p.hexes['-1,0,1'].hasRobber).toBe(true); // Desierto central
+
+    // Escenario 2: Las cuatro islas
+    const s2_3p = generateSeafarersBoard('THE_FOUR_ISLANDS', true, 62, 3);
+    const s2_4p = generateSeafarersBoard('THE_FOUR_ISLANDS', true, 62, 4);
+    // 3 jugadores: 4 islas de 5 hexes = 20 hexes terrestres
+    expect(Object.values(s2_3p.hexes).filter((h) => h.terrain !== 'SEA').length).toBe(20);
+    expect(s2_3p.hexes['-2,3,-1'].hasRobber).toBe(true); // Bosque 12 en SO
+    // 4 jugadores: 23 hexes terrestres
+    expect(Object.values(s2_4p.hexes).filter((h) => h.terrain !== 'SEA').length).toBe(23);
+    expect(s2_4p.hexes['1,-1,0'].hasRobber).toBe(true); // Sembrado 12 en NE
+
+    // Escenario 3: Oceanía
+    const s3_3p = generateSeafarersBoard('OCEANIA', true, 62, 3);
+    const s3_4p = generateSeafarersBoard('OCEANIA', true, 62, 4);
+    expect(Object.values(s3_3p.hexes).filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG').length).toBe(14);
+    expect(Object.values(s3_4p.hexes).filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG').length).toBe(17);
+
+    // Escenario 7: Las islas de los piratas
+    const s7_3p = generateSeafarersBoard('THE_PIRATE_ISLANDS', true, 62, 3);
+    const s7_4p = generateSeafarersBoard('THE_PIRATE_ISLANDS', true, 62, 4);
+    expect(s7_3p.pirateFortresses?.['FORTRESS_WHITE']).toBeUndefined();
+    expect(s7_4p.pirateFortresses?.['FORTRESS_WHITE']).toBeDefined();
+  });
+
+  it('allows building ships with Road Building dev card (Carta Construcción de Carreteras)', () => {
+    let state = createInitialGameState('ROOM_ROAD_DEV', {
+      id: 'P1',
+      name: 'Explorador',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state = applyGameAction(state, 'P1', {
+      type: 'UPDATE_CONFIG',
+      config: {
+        expansionModule: 'SEAFARERS',
+        seafarersScenario: 'HEADING_FOR_NEW_SHORES',
+      },
+    }).state;
+
+    state.phase = 'ROAD_BUILDING_DEV';
+    state.turn.activePlayerId = 'P1';
+    state.turn.freeRoadsRemaining = 2;
+
+    const p1 = state.players.find((p) => p.id === 'P1')!;
+    p1.resources = { WOOD: 0, BRICK: 0, SHEEP: 0, WHEAT: 0, ORE: 0 }; // 0 recursos!
+
+    // Find a coastal edge to place a settlement for connectivity
+    const coastalEdge = Object.values(state.board.edges).find((e) => e.isCoastal)!;
+    const vertex = state.board.vertices[coastalEdge.vertexIds[0]];
+    vertex.building = 'SETTLEMENT';
+    vertex.playerId = 'P1';
+
+    // Player should be able to build a ship for FREE
+    const validShips = getValidShipEdges(state, 'P1');
+    expect(validShips.includes(coastalEdge.id)).toBe(true);
+
+    const res = applyGameAction(state, 'P1', {
+      type: 'PLACE_SHIP',
+      edgeId: coastalEdge.id,
+    });
+
+    expect(res.error).toBeUndefined();
+    expect(res.state.board.edges[coastalEdge.id].building).toBe('SHIP');
+    expect(res.state.turn.freeRoadsRemaining).toBe(1);
+    expect(res.state.phase).toBe('ROAD_BUILDING_DEV');
+  });
+
+  it('enforces that roads cannot branch directly from ships without a settlement', () => {
+    let state = createInitialGameState('ROOM_ROAD_SHIP', {
+      id: 'P1',
+      name: 'Navegante',
+      color: 'BLUE',
+      avatar: 'I',
+    });
+
+    state = applyGameAction(state, 'P1', {
+      type: 'UPDATE_CONFIG',
+      config: {
+        expansionModule: 'SEAFARERS',
+        seafarersScenario: 'HEADING_FOR_NEW_SHORES',
+      },
+    }).state;
+
+    state.phase = 'MAIN_PHASE';
+    state.turn.activePlayerId = 'P1';
+    const p1 = state.players.find((p) => p.id === 'P1')!;
+    p1.resources = { WOOD: 10, BRICK: 10, SHEEP: 10, WHEAT: 10, ORE: 10 };
+
+    // Place an isolated ship on a coastal edge without a settlement
+    const coastalEdge = Object.values(state.board.edges).find((e) => e.isCoastal)!;
+    coastalEdge.building = 'SHIP';
+    coastalEdge.playerId = 'P1';
+
+    // Check adjacent land edge
+    const v0 = state.board.vertices[coastalEdge.vertexIds[0]];
+    v0.building = null;
+    v0.playerId = null;
+
+    const adjLandEdgeId = v0.adjacentEdgeIds.find((id) => id !== coastalEdge.id && state.board.edges[id]?.isLand);
+    if (adjLandEdgeId) {
+      // Trying to place a road directly off the ship without a settlement should NOT be in valid road edges
+      const validRoads = getValidRoadEdges(state, 'P1');
+      expect(validRoads.includes(adjLandEdgeId)).toBe(false);
+    }
   });
 
   it('correctly configures Seafarers in lobby with 13 VP default and scenario board', () => {

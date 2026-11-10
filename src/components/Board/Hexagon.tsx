@@ -135,28 +135,13 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               fill="url(#tile-vignette-grad)"
             />
 
-            {/* Río de Oro (Gold River & Nuggets Overlay for Seafarers) */}
+            {/* Río de Oro (Gold River subtle glint/sparkle overlay) */}
             {hex.terrain === 'GOLD' && (
               <g className="pointer-events-none">
-                <path
-                  d={`M ${-hexSize * 0.7} ${-hexSize * 0.4} Q ${-hexSize * 0.1} ${-hexSize * 0.1}, 0 0 T ${hexSize * 0.7} ${hexSize * 0.4}`}
-                  fill="none"
-                  stroke="#fbbf24"
-                  strokeWidth={14}
-                  strokeLinecap="round"
-                  opacity={0.65}
-                />
-                <path
-                  d={`M ${-hexSize * 0.7} ${-hexSize * 0.4} Q ${-hexSize * 0.1} ${-hexSize * 0.1}, 0 0 T ${hexSize * 0.7} ${hexSize * 0.4}`}
-                  fill="none"
-                  stroke="#fef08a"
-                  strokeWidth={6}
-                  strokeLinecap="round"
-                  opacity={0.9}
-                />
-                <circle cx={-14} cy={-10} r={3.2} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
-                <circle cx={14} cy={12} r={3.5} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
-                <circle cx={-2} cy={2} r={2.8} fill="#fef08a" stroke="#b45309" strokeWidth={1} />
+                {/* Subtle golden shimmer sparkle along the river canyon */}
+                <circle cx={-12} cy={-16} r={2.2} fill="#fef08a" opacity={0.8} />
+                <circle cx={8} cy={14} r={2.5} fill="#fde047" opacity={0.85} />
+                <circle cx={-4} cy={22} r={2.0} fill="#fef08a" opacity={0.75} />
               </g>
             )}
           </g>

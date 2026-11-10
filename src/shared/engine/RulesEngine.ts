@@ -694,7 +694,7 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
       return v.adjacentEdgeIds.some((adjEdgeId) => {
         if (adjEdgeId === edge.id) return false;
         const adjEdge = state.board.edges[adjEdgeId];
-        return adjEdge && adjEdge.playerId === playerId && adjEdge.building !== null;
+        return adjEdge && adjEdge.playerId === playerId && adjEdge.building === 'ROAD';
       });
     });
 
@@ -718,8 +718,9 @@ export function canBuildShip(
   const isSetup =
     state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
   const isMain = state.phase === 'MAIN_PHASE';
+  const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
 
-  if (!isSetup && !isMain) {
+  if (!isSetup && !isMain && !isRoadBuilding) {
     return { allowed: false, reason: 'Fase inválida para construir un barco.' };
   }
 
@@ -804,10 +805,15 @@ export function getValidShipEdges(state: GameState, playerId: string): string[] 
 
   const isSetup = state.phase === 'SETUP_ROAD_1' || state.phase === 'SETUP_ROAD_2';
   const isMain = state.phase === 'MAIN_PHASE';
-  if (!isSetup && !isMain) return [];
+  const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
+  if (!isSetup && !isMain && !isRoadBuilding) return [];
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player || (player.shipsLeft ?? 15) <= 0) return [];
+
+  if (isRoadBuilding && state.turn.freeRoadsRemaining <= 0) {
+    return [];
+  }
 
   if (isMain) {
     const check = canSpendOrBuildThisTurn(state, playerId, true);
@@ -817,7 +823,7 @@ export function getValidShipEdges(state: GameState, playerId: string): string[] 
 
   const valid: string[] = [];
   for (const edge of Object.values(state.board.edges)) {
-    if (canBuildShip(state, playerId, edge.id, true).allowed) {
+    if (canBuildShip(state, playerId, edge.id, isRoadBuilding).allowed) {
       valid.push(edge.id);
     }
   }
@@ -1294,7 +1300,8 @@ export function applyGameAction(
             state.config.preventAdjacentRedNumbers,
             DEFAULT_HEX_SIZE,
             false,
-            state.config.seafarersScenario
+            state.config.seafarersScenario,
+            state.players.length
           );
         } else if (action.config.expansionModule === 'BASE') {
           state.config.expansionModule = 'BASE';
@@ -1373,7 +1380,8 @@ export function applyGameAction(
         preventRed,
         DEFAULT_HEX_SIZE,
         isSeaf ? false : desertCenter,
-        isSeaf ? (state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') : undefined
+        isSeaf ? (state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') : undefined,
+        state.players.length
       );
       if (!isSeaf) {
         state.board = enforceDesertInCenterRule(state.board, desertCenter);
@@ -1544,6 +1552,16 @@ export function applyGameAction(
       };
 
       state.players.push(bot);
+      if (state.config.expansionModule === 'SEAFARERS') {
+        state.board = generateBoard(
+          state.config.boardMode,
+          state.config.preventAdjacentRedNumbers,
+          DEFAULT_HEX_SIZE,
+          false,
+          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
+          state.players.length
+        );
+      }
       addLog(state, `Se añadió a ${bot.name} (${botDifficulty}) a la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -1593,6 +1611,16 @@ export function applyGameAction(
         };
         state.players.push(bot);
       }
+      if (state.config.expansionModule === 'SEAFARERS') {
+        state.board = generateBoard(
+          state.config.boardMode,
+          state.config.preventAdjacentRedNumbers,
+          DEFAULT_HEX_SIZE,
+          false,
+          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
+          state.players.length
+        );
+      }
       addLog(state, `Se rellenó la sala con ${needed} Bot(s) (${botDifficulty}).`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -1631,6 +1659,16 @@ export function applyGameAction(
         return { state: prevState, error: 'No puedes expulsarte a ti mismo.' };
       }
       state.players = state.players.filter((p) => p.id !== action.targetPlayerId);
+      if (state.config.expansionModule === 'SEAFARERS') {
+        state.board = generateBoard(
+          state.config.boardMode,
+          state.config.preventAdjacentRedNumbers,
+          DEFAULT_HEX_SIZE,
+          false,
+          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
+          state.players.length
+        );
+      }
       return { state };
     }
 
@@ -1643,6 +1681,17 @@ export function applyGameAction(
           state: prevState,
           error: 'Se necesitan al menos 2 jugadores (humanos o bots) para comenzar la partida.',
         };
+      }
+
+      if (state.config.expansionModule === 'SEAFARERS') {
+        state.board = generateBoard(
+          state.config.boardMode,
+          state.config.preventAdjacentRedNumbers,
+          DEFAULT_HEX_SIZE,
+          false,
+          state.config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
+          state.players.length
+        );
       }
 
       const isExpansion = state.players.length > 4 || state.config.boardMode === 'EXPANSION_5_6';
@@ -2165,6 +2214,28 @@ export function applyGameAction(
             'SYSTEM',
             firstPlayer.id
           );
+        }
+      } else if (state.phase === 'ROAD_BUILDING_DEV') {
+        state.turn.freeRoadsRemaining -= 1;
+        state.turn.infrastructureBuiltThisTurn += 1;
+        state.turn.hasSpentOrBuiltThisTurn = true;
+        state.lastEvent = {
+          nonce: nextNonce,
+          type: 'BUILDING_PLACED',
+          builtItem: {
+            type: 'SHIP',
+            edgeId: edge.id,
+            playerId: actor.id,
+          },
+        };
+        addLog(
+          state,
+          `${actor.name} construyó un Barco gratis con la carta de Construcción de Carreteras (${state.turn.freeRoadsRemaining} restantes).`,
+          'DEV',
+          actor.id
+        );
+        if (state.turn.freeRoadsRemaining <= 0) {
+          state.phase = 'MAIN_PHASE';
         }
       } else if (state.phase === 'MAIN_PHASE') {
         deductResources(actor.resources, state.bank, BUILDING_COSTS.SHIP);

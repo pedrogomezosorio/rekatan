@@ -17,6 +17,7 @@ import {
   RESOURCE_META,
 } from '../../shared/constants';
 import {
+  DEFAULT_HEX_SIZE,
   getHexCornerPoints,
   getRedNumberConflictHexIds,
 } from '../../shared/engine/HexGrid';
@@ -189,6 +190,34 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // Dynamic SVG viewBox computation based on active board bounding box (fits 19, 35, 37, 42 and 49 hex layouts)
+  const { vbMinX, vbMinY, vbWidth, vbHeight, viewBoxStr } = useMemo(() => {
+    const hexList = Object.values(board.hexes);
+    if (hexList.length === 0) {
+      return { vbMinX: -480, vbMinY: -420, vbWidth: 960, vbHeight: 840, viewBoxStr: '-480 -420 960 840' };
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const h of hexList) {
+      minX = Math.min(minX, h.center.x - DEFAULT_HEX_SIZE * 1.15);
+      maxX = Math.max(maxX, h.center.x + DEFAULT_HEX_SIZE * 1.15);
+      minY = Math.min(minY, h.center.y - DEFAULT_HEX_SIZE * 1.15);
+      maxY = Math.max(maxY, h.center.y + DEFAULT_HEX_SIZE * 1.15);
+    }
+    const width = Math.max(960, Math.round(maxX - minX + 80));
+    const height = Math.max(840, Math.round(maxY - minY + 80));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const vx = Math.round(cx - width / 2);
+    const vy = Math.round(cy - height / 2);
+    return {
+      vbMinX: vx,
+      vbMinY: vy,
+      vbWidth: width,
+      vbHeight: height,
+      viewBoxStr: `${vx} ${vy} ${width} ${height}`,
+    };
+  }, [board.hexes]);
+
   // Native non-passive wheel listener for smooth focal-point zoom
   useEffect(() => {
     const svgEl = svgRef.current;
@@ -199,9 +228,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       const rect = svgEl.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      // Convert client cursor position to SVG viewBox coordinates (-480..480, -420..420)
-      const svgX = ((e.clientX - rect.left) / rect.width) * 960 - 480;
-      const svgY = ((e.clientY - rect.top) / rect.height) * 840 - 420;
+      // Convert client cursor position to SVG viewBox coordinates
+      const svgX = ((e.clientX - rect.left) / rect.width) * vbWidth + vbMinX;
+      const svgY = ((e.clientY - rect.top) / rect.height) * vbHeight + vbMinY;
 
       const target = targetCamRef.current;
       const zoomIntensity = Math.exp(-e.deltaY * 0.0016);
@@ -216,7 +245,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
     svgEl.addEventListener('wheel', onWheelNative, { passive: false });
     return () => svgEl.removeEventListener('wheel', onWheelNative);
-  }, []);
+  }, [vbMinX, vbMinY, vbWidth, vbHeight]);
 
   const playerMap = useMemo(() => {
     const map = new Map<string, PlayerState>();
@@ -526,7 +555,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
       <svg
         ref={svgRef}
-        viewBox="-480 -420 960 840"
+        viewBox={viewBoxStr}
         className={`w-full h-full select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{ touchAction: 'none' }}
         onMouseDown={handleMouseDown}

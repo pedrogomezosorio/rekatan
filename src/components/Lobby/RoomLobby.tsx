@@ -523,15 +523,23 @@ export const RoomLobby: React.FC = () => {
 
             {config.expansionModule === 'SEAFARERS' ? (
               <div className="p-3 rounded-xl bg-sky-950/30 border border-sky-500/30 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-sky-300 font-extrabold">
-                  <span>⛵</span>
-                  <span>Geografía Insular de Navegantes (37 Hexágonos)</span>
+                <div className="flex items-center justify-between gap-2 text-sky-300 font-extrabold">
+                  <div className="flex items-center gap-2">
+                    <span>⛵</span>
+                    <span>Geografía Oficial de Navegantes</span>
+                  </div>
+                  <span className="text-[10px] bg-sky-900/80 border border-sky-400/50 text-sky-200 px-2 py-0.5 rounded-full font-bold">
+                    {players.length <= 3 ? 'Mapa 2-3 Jugadores' : 'Mapa 4 Jugadores'}
+                  </span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-snug">
-                  El mapa marítimo está gobernado por el escenario activo:{' '}
-                  <strong>
+                  Escenario:{' '}
+                  <strong className="text-white">
                     {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.title || 'Rumbo a nuevas orillas'}
                   </strong>.
+                  <span className="block mt-0.5 text-[10px] text-sky-300/80">
+                    Adaptado con precisión al número de hexágonos y componentes oficiales para {players.length <= 3 ? '3' : '4'} jugadores del reglamento de Klaus Teuber.
+                  </span>
                 </p>
                 <div className="text-[10px] text-sky-400/90 bg-sky-950/60 p-2 rounded-lg border border-sky-500/20">
                   {SEAFARERS_SCENARIOS.find((s) => s.id === config.seafarersScenario)?.subtitle ||

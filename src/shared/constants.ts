@@ -47,7 +47,7 @@ export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
   ORE: '/assets/terrains/mountains.png?v=3',
   DESERT: '/assets/terrains/desert.png?v=3',
   SEA: '/assets/terrains/ocean.jpg?v=3',
-  GOLD: '/assets/terrains/hills.png?v=3',
+  GOLD: '/assets/terrains/gold_river.png?v=4',
   FOG: '/assets/terrains/ocean.jpg?v=3',
 };
 
