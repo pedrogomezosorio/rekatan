@@ -1,7 +1,7 @@
 {
   "name": "catan-online-tabletop",
   "private": true,
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Catan Online Tabletop — Edición de Escritorio Multijugador 3D",
   "author": "Catan Studio Clone",
   "main": "electron/main.cjs",
@@ -60,11 +60,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ]
     },
@@ -72,11 +76,15 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     }
