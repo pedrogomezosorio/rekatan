@@ -1,21 +1,21 @@
 # Rekatan — Catan Tabletop
 
-Implementación digital de Catan para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas y la experiencia del juego de mesa.
+Implementación digital de Catan y su expansión **Los Navegantes** para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas, tableros y escenarios oficiales del juego de mesa para 2 a 6 jugadores.
 
 Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
 ---
 
-## Descargas (v1.2)
+## Descargas (v2.0 — Expansión Navegantes)
 
 Las versiones ejecutables para escritorio se encuentran disponibles en la sección de [Releases de GitHub](https://github.com/pedrogomezosorio/rekatan/releases/latest).
 
 | Sistema Operativo | Tipo de Paquete | Archivo | Enlace de Descarga |
 | :--- | :--- | :--- | :--- |
-| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-1.1.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-1.1.0-arm64.dmg) |
-| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-1.1.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-1.1.0-arm64-mac.zip) |
-| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 1.1.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.1.1.0.exe) |
-| **Windows** | Ejecutable Portable | `Catan Tabletop 1.1.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.1.1.0.exe) |
+| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.0.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.0.0-arm64.dmg) |
+| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.0.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.0.0-arm64-mac.zip) |
+| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.0.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.0.0.exe) |
+| **Windows** | Ejecutable Portable | `Catan Tabletop 2.0.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.0.0.exe) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
 
 > 💡 **Todas las versiones y notas de la actualización:**  
@@ -45,6 +45,24 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
   - Restricciones de acciones por turno (libre, limitada o estricta).
 - **Editor de tablero integrado en el lobby:** Capacidad para alterar manualmente el terreno de cada casilla, su número de probabilidad o reubicar puertos marítimos antes de iniciar la partida.
 
+### Expansión: Los Navegantes de Catán (3, 4 y 5-6 Jugadores)
+- **Selector de tamaño de isla en el lobby:** Alternancia directa entre **2-3 Jugadores**, **4 Jugadores** y **5-6 Jugadores**, ajustando automáticamente los marcos oficiales (`35`, `42`, `49`, `56` y `63` hexágonos), el número de jugadores y los componentes de escenario.
+- **9 escenarios oficiales fieles a los manuales (`3-4J` y `5-6J`):**
+  1. *Rumbo a nuevas orillas*
+  2. *Las cuatro islas / Las seis islas*
+  3. *Oceanía (Tierra Ignota)*
+  4. *A través del desierto*
+  5. *El pueblo perdido*
+  6. *Telas para Catán*
+  7. *Las islas de los piratas*
+  8. *Las maravillas catanas* (incluyendo panel dedicado y *La Gran Biblioteca* para 5-6 jugadores)
+  9. *Un nuevo mundo*
+- **Mecánicas náuticas y fichas Catán:**
+  - Construcción y desplazamiento de **barcos**, rutas comerciales marítimas y control de **El Pirata**.
+  - Casillas de **Río de Oro** (elección libre de recurso) y hexágonos de **Niebla** explorable.
+  - Sistema íntegro de **Fichas Catán**: bonificaciones de colonización insular (`+2 PV`), dones tribales (`+1 PV`, cartas y puertos), fardos de tela indígena, resistencia de fortalezas pirata frente a buques de guerra y fases de construcción de Maravillas.
+- **Montaje Variable (Sección 4):** El botón *Regenerar Escenario de Navegantes* conserva intacta la silueta de las islas y el mar, barajando exclusivamente los terrenos, números o puertos permitidos por el reglamento de cada escenario.
+
 ### Dinámica de Juego y Notificaciones Visuales
 - **Animación secuencial de recursos:** Al arrojar los dados, los materiales se distribuyen paulatinamente desde el hexágono productor hacia el casillero individual de cada jugador beneficiado en la interfaz.
 - **Lanzamiento de dados central:** Ventana informativa en el eje central de la pantalla con visualización en gran escala de los resultados numéricos y tiempo de retención legible sin bloqueo de la vista de cartas.
@@ -68,7 +86,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 - **Backend:** Node.js, Express, Socket.io, Vite (en modo middleware para desarrollo).
 - **Entorno de Escritorio:** Electron, Electron Builder.
-- **Pruebas Unitarias:** Vitest (suite con validación del motor de reglas, caminos continuos y topología).
+- **Pruebas Unitarias:** Vitest (166 tests validando el motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
 
 ---
 
