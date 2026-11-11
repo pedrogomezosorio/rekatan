@@ -37,7 +37,9 @@ import {
   ALL_RESOURCES,
   ALL_TRADE_CARDS,
   BUILDING_COSTS,
+  CARD_BACK_PATHS,
   countTotalResources,
+  RESOURCE_CARD_PATHS,
   RESOURCE_META,
 } from '../../shared/constants';
 import {
@@ -1290,7 +1292,7 @@ export const GameScreen: React.FC = () => {
               {/* Top card of the deck with original reverse illustration */}
               <div className="relative w-16 h-24 rounded-xl overflow-hidden border-2 border-[#d4af37]/75 bg-[#16110d] shadow-[0_8px_25px_rgba(0,0,0,0.85)] group-hover:border-amber-300 group-hover:scale-105 transition-all">
                 <img
-                  src="/assets/cards/devcard_back.png"
+                  src={CARD_BACK_PATHS.development}
                   alt="Mazo de Desarrollo"
                   className="w-full h-full object-cover select-none"
                   draggable={false}
@@ -1551,7 +1553,28 @@ export const GameScreen: React.FC = () => {
               }
             }}
           /></div>
-          <div className="game-mobile-hand hidden w-full" aria-label="Tus recursos y mercancías">{(hasCitiesKnights(config) ? ALL_TRADE_CARDS : ALL_RESOURCES).map(r => <button key={r} type="button" title={`${RESOURCE_META[r].name}: ${me.resources[r] || 0}`} onClick={() => { setTradeModalInitialTab('BANK'); setShowTradeModal(true); }} className="flex flex-col items-center gap-0.5 min-w-0 rounded-lg bg-stone-950/60 py-1"><ResourceIcon resource={r} size={20}/><span className="text-xs font-bold">{me.resources[r] || 0}</span></button>)}</div>
+          <div className="game-mobile-hand hidden w-full" aria-label="Tus recursos y mercancías">
+            {(hasCitiesKnights(config) ? ALL_TRADE_CARDS : ALL_RESOURCES).map(resource => (
+              <button
+                key={resource}
+                type="button"
+                title={`${RESOURCE_META[resource].name}: ${me.resources[resource] || 0}`}
+                aria-label={`${RESOURCE_META[resource].name}: ${me.resources[resource] || 0}`}
+                onClick={() => { setTradeModalInitialTab('BANK'); setShowTradeModal(true); }}
+                className="relative flex items-center justify-center min-w-0 min-h-[54px] rounded-lg py-0.5 transition-transform active:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-200"
+              >
+                <img
+                  src={RESOURCE_CARD_PATHS[resource]}
+                  alt=""
+                  draggable={false}
+                  className="w-full max-w-[34px] aspect-[2/3] object-contain drop-shadow-md"
+                />
+                <span className="absolute bottom-0 right-0 rounded px-1 bg-stone-950/95 border border-amber-500/60 text-amber-100 text-xs font-bold">
+                  {me.resources[resource] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* RIGHT: Pasar Turno / Finalizar Carreteras */}
@@ -1800,7 +1823,7 @@ interface PlayerSummaryCardProps {
 
 /**
  * Renders a small horizontal fan opened towards the left (`abanico abierto hacia la izquierda`)
- * using the authentic resource card reverse (`/assets/cards/resource_back.png`) with the number
+ * using the extracted resource card reverse with the number
  * of resource cards held by that player.
  */
 const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards }) => {
@@ -1845,7 +1868,7 @@ const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards
               className="absolute right-0 top-1/2 -mt-[16px] w-[21px] h-[32px] rounded-[3.5px] overflow-hidden border border-stone-300/75 shadow-[0_3px_8px_rgba(0,0,0,0.88)] bg-[#1a1510]"
             >
               <img
-                src="/assets/cards/resource_back.png"
+                src={CARD_BACK_PATHS.resource}
                 alt="Dorso de recurso"
                 draggable={false}
                 className="w-full h-full object-fill select-none pointer-events-none"

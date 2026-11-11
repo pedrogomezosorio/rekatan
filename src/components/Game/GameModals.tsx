@@ -1540,12 +1540,12 @@ export const DevCardModal: React.FC<{
   };
 
   const cardArt: Record<
-    string,
+    DevCard['type'],
     { badge: string; desc: string; border: string; bg: string }
   > = {
     KNIGHT: {
       badge: 'Ejército de Caballería',
-      desc: 'Al jugar esta carta, desplaza (o mantén) al Ladrón en cualquier terreno y roba 1 carta de materia prima a un colono adyacente.',
+      desc: 'Mueve al ladrón y roba una carta al azar a un jugador con un poblado o ciudad junto al terreno elegido.',
       border: 'border-red-500/60',
       bg: 'from-[#281210] to-[#120b08]',
     },
@@ -1557,7 +1557,7 @@ export const DevCardModal: React.FC<{
     },
     ROAD_BUILDING: {
       badge: 'Progreso: Infraestructura',
-      desc: 'En este turno puedes construir inmediatamente hasta 2 carreteras nuevas en el tablero sin entregar recursos.',
+      desc: 'Construye gratis hasta dos carreteras. Con Navegantes también puedes construir barcos, o una carretera y un barco.',
       border: 'border-emerald-500/60',
       bg: 'from-[#102419] to-[#0d140f]',
     },
@@ -1589,7 +1589,10 @@ export const DevCardModal: React.FC<{
       <motion.div
         variants={modalCardVariants}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5 max-h-[92vh] overflow-y-auto cursor-default"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dev-cards-title"
+        className="w-full max-w-4xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-4 sm:p-6 shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5 max-h-[92vh] overflow-y-auto cursor-default"
       >
         <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-3">
           <div className="flex items-center gap-3">
@@ -1597,7 +1600,7 @@ export const DevCardModal: React.FC<{
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="font-display text-lg font-extrabold text-amber-100">
+              <h3 id="dev-cards-title" className="font-display text-lg font-extrabold text-amber-100">
                 Cartas de Desarrollo ({unplayedCards.length} en mano)
               </h3>
               <p className="text-xs text-stone-400">
@@ -1608,6 +1611,7 @@ export const DevCardModal: React.FC<{
           </div>
           <button
             onClick={onClose}
+            aria-label="Cerrar cartas de desarrollo"
             className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-200 cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -1725,10 +1729,14 @@ export const DevCardModal: React.FC<{
                   const cardImgSrc = getDevCardImagePath(card.type, card.title);
                   const isNewest = justBoughtCount > 0 && idx === unplayedCards.length - 1;
 
+                  // These cards unmount when the effect form opens. Layout animations
+                  // retain their presence registrations and can block the modal's exit.
                   return (
                     <motion.div
-                      layout
                       key={card.id}
+                      role="group"
+                      aria-labelledby={`dev-card-${card.id}-name`}
+                      aria-describedby={`dev-card-${card.id}-effect`}
                       whileHover={{ y: -4 }}
                       className={`p-3.5 rounded-2xl bg-gradient-to-b ${meta.bg} border-2 ${
                         isNewest ? 'border-amber-300 ring-2 ring-amber-400/50' : meta.border
@@ -1736,24 +1744,24 @@ export const DevCardModal: React.FC<{
                     >
                       {/* Authentic Illustrated Catan Development Card */}
                       <div className="flex flex-col items-center">
-                        <div className="relative w-full aspect-[400/595] max-w-[210px] rounded-xl overflow-hidden border-2 border-[#d4af37]/75 shadow-[0_10px_28px_rgba(0,0,0,0.9)] bg-[#0c0805]">
+                        <div className="relative w-full aspect-[2/3] max-w-[210px] drop-shadow-[0_10px_14px_rgba(0,0,0,0.9)]">
                           <img
                             src={cardImgSrc}
                             alt={card.title}
-                            className="w-full h-full object-cover select-none"
+                            className="w-full h-full object-contain select-none"
                             draggable={false}
                           />
                         </div>
 
                         {/* Stylized Effect Description Underneath the Card */}
                         <div className="w-full mt-3 text-center px-1">
-                          <div className="font-display text-sm font-black text-amber-100 tracking-wide">
+                          <h4 id={`dev-card-${card.id}-name`} className="font-display text-sm font-black text-amber-100 tracking-wide">
                             {card.title}
-                          </div>
+                          </h4>
                           <span className="inline-block mt-1 text-[10px] px-2.5 py-0.5 rounded-full bg-black/50 border border-[#d4af37]/35 text-amber-300 font-extrabold uppercase tracking-wider">
                             {meta.badge}
                           </span>
-                          <p className="text-xs text-stone-300/95 italic font-serif mt-2 leading-relaxed bg-black/35 p-2.5 rounded-xl border border-white/10">
+                          <p id={`dev-card-${card.id}-effect`} className="text-xs text-stone-300/95 font-serif mt-2 leading-relaxed bg-black/35 p-2.5 rounded-xl border border-white/10">
                             {meta.desc}
                           </p>
                         </div>
@@ -1796,7 +1804,7 @@ export const DevCardModal: React.FC<{
               <img
                 src={getDevCardImagePath(selectedCard.type, selectedCard.title)}
                 alt={selectedCard.title}
-                className="w-20 h-28 rounded-lg object-cover border border-[#d4af37]/60 shadow-md shrink-0"
+                className="w-20 aspect-[2/3] object-contain drop-shadow-md shrink-0"
               />
               <div>
                 <h4 className="font-display text-base font-black text-amber-200">

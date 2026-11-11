@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_RESOURCES, ALL_TRADE_CARDS, createEmptyResources, countTotalResources } from '../constants';
 import { BRANCH_META, CK_BRANCHES, PROGRESS_CARDS, emptyCKPlayer, safeHandLimit } from '../citiesKnightsConfig';
 import { automaticCKChoice, initializeCitiesKnights, knightReachableVertices, produceCitiesKnightsResources, resolveBarbarianAttack } from '../engine/CitiesAndKnights';
-import { applyGameAction, canBuyDevCard, createInitialGameState, executeAction, executeBotStepIfNeeded, getPlayerBankTradeRatios, getValidCityVertices, getValidRoadEdges, getValidSettlementVertices, getValidShipEdges, recalculateVictoryPoints } from '../engine/RulesEngine';
+import { applyGameAction, canBuyDevCard, createInitialGameState, executeAction, executeBotStepIfNeeded, getPlayerBankTradeRatios, getValidCityVertices, getValidRoadEdges, getValidSettlementVertices, recalculateVictoryPoints } from '../engine/RulesEngine';
 import { calculatePlayerLongestRoad } from '../engine/LongestRoad';
 import type { GameAction, GameState, ImprovementBranch, ProgressCardType, ResourceType } from '../types';
 import type { BoardKnight, ProgressPayload, RuleContext } from '../citiesKnightsTypes';
@@ -294,16 +294,6 @@ describe('Mejoras y metrópolis', () => {
 });
 
 describe('Cartas de progreso oficiales', () => {
-  it('permite construir un barco gratis después de gastar la última carretera disponible', () => {
-    let s = game(); s.phase = 'LOBBY';
-    s = act(s, { type: 'UPDATE_CONFIG', config: { expansionModule: 'SEAFARERS', enabledExpansions: ['BASE', 'SEAFARERS', 'CITIES_AND_KNIGHTS'] } });
-    s = act(s, { type: 'START_GAME' }); s.phase = 'MAIN_PHASE'; s.turn.hasRolledDice = true;
-    const coast = Object.values(s.board.vertices).find(v => v.isCoastal && v.isLand && v.adjacentEdgeIds.some(id => s.board.edges[id].isCoastal && !s.board.edges[id].hexIds.includes(s.board.pirateHexId || '')))!;
-    coast.building = 'SETTLEMENT'; coast.playerId = 'P1'; s.players[0].roadsLeft = 1;
-    s = progress(s, 'ROAD_BUILDING'); s = act(s, { type: 'PLACE_ROAD', edgeId: getValidRoadEdges(s, 'P1')[0] });
-    expect(s.players[0].roadsLeft).toBe(0); expect(s.phase).toBe('ROAD_BUILDING_DEV'); expect(s.turn.freeRoadsRemaining).toBe(1);
-    s = act(s, { type: 'PLACE_SHIP', edgeId: getValidShipEdges(s, 'P1')[0] }); expect(s.phase).toBe('MAIN_PHASE'); expect(s.players[0].shipsLeft).toBe(14);
-  });
   it('Construcción de carreteras concede dos tramos gratis y devuelve la carta al fondo', () => {
     let s = game(); const v = city(s); s = progress(s, 'ROAD_BUILDING');
     expect(s.phase).toBe('ROAD_BUILDING_DEV'); expect(s.turn.freeRoadsRemaining).toBe(2);

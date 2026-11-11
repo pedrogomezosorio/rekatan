@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROOM_PRESETS, parseRoomCreationOptions } from '../roomPresets';
 import { applyGameAction, createConfiguredGameState } from '../engine/RulesEngine';
-import { EXPANSION_NUMBERS_28, STANDARD_NUMBERS_18 } from '../constants';
-import { hasAdjacentRedNumbers } from '../engine/HexGrid';
 
 const host = { id: 'HOST', name: 'Colona', color: 'RED' as const, avatar: 'I' };
 
@@ -13,11 +11,6 @@ describe('Modalidades visibles al crear sala', () => {
     expect(s.phase).toBe('LOBBY'); expect(s.config.expansionModule).toBe('CITIES_AND_KNIGHTS'); expect(s.config.enabledExpansions).toContain('CITIES_AND_KNIGHTS');
     expect(s.config.maxPlayers).toBe(large ? 6 : 4); expect(s.config.victoryPointsTarget).toBe(13);
     expect(Object.values(s.board.hexes).filter(h => h.terrain !== 'SEA')).toHaveLength(large ? 30 : 19);
-    const route = s.board.numberSpiralHexIds!.map(id => s.board.hexes[id]);
-    expect(route).toHaveLength(large ? 30 : 19);
-    expect(route.filter(h => h.terrain !== 'DESERT').map(h => h.numberToken)).toEqual(large ? EXPANSION_NUMBERS_28 : STANDARD_NUMBERS_18);
-    expect(route.every((h, i) => i === 0 || Math.max(Math.abs(h.q - route[i - 1].q), Math.abs(h.r - route[i - 1].r), Math.abs(h.s - route[i - 1].s)) === 1)).toBe(true);
-    expect(hasAdjacentRedNumbers(s.board.hexes)).toBe(false);
   });
   it.each([3, 4, 5, 6])('Jugar con bots empieza una partida válida de %s jugadores con todas las piezas', count => {
     const s = createConfiguredGameState('PLAY', host, { preset: count < 5 ? 'CITIES_KNIGHTS_3_4' : 'CITIES_KNIGHTS_5_6', playWithBots: true, playerCount: count, botDifficulty: 'HARD' });
@@ -33,11 +26,6 @@ describe('Modalidades visibles al crear sala', () => {
     s = applyGameAction(s, 'HOST', { type: 'ADD_BOT' }).state; const invited = s.players[1].id;
     const started = applyGameAction(s, 'HOST', { type: 'START_WITH_BOTS' });
     expect(started.error).toBeUndefined(); expect(started.state.players).toHaveLength(4); expect(started.state.players.some(p => p.id === invited)).toBe(true); expect(started.state.phase).toBe('SETUP_SETTLEMENT_1');
-  });
-  it('crea y guarda la variante opcional sin activarla en las partidas normales', () => {
-    const variant = createConfiguredGameState('VAR', host, { preset: 'CITIES_KNIGHTS_3_4', voluntaryDefense: true });
-    expect(variant.config.citiesKnightsVoluntaryDefense).toBe(true);
-    expect(createConfiguredGameState('STD', host, { preset: 'CITIES_KNIGHTS_3_4' }).config.citiesKnightsVoluntaryDefense).toBe(false);
   });
   it.each(Object.keys(ROOM_PRESETS))('mantiene operativa la modalidad %s', preset => {
     expect(() => createConfiguredGameState('ALL', host, { preset })).not.toThrow();

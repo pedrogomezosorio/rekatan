@@ -1,8 +1,14 @@
 # Gráficos de Ciudades y Caballeros
 
-Se incluyen SVG provisionales funcionales. Para sustituirlos por diseños finales, proporciona los archivos de esta lista conservando sus rutas y nombres. SVG es el formato recomendado; admite PNG a doble resolución, pero requiere actualizar el manifiesto de rutas del cliente. Las piezas e iconos necesitan fondo transparente. Las cartas y tableros pueden tener fondo opaco.
+Las cartas de papel, tela y moneda usan ahora `public/assets/resources/{paper,cloth,coin}.png`. Los 25 tipos de progreso y sus tres reversos usan `public/assets/cities-knights/progress/*.png`, extraídos del PDF de componentes. Sus rutas activas están en `src/shared/constants.ts`; la [guía de extracción](catan-assets.md) y `public/assets/catan-assets-manifest.json` registran su procedencia y resolución nativa.
 
-Las dimensiones siguientes son las mínimas recomendadas; para PNG usa 2× o 4×. Los 36 caballeros distinguen seis colores, tres rangos y dos estados. El barco ocupa tres caras idénticas del dado de evento. Cada anverso de progreso es un diseño único, repetido en el mazo según el reglamento (18 cartas por rama, 54 en total).
+Las piezas de caballeros, murallas, metrópolis, dados, mejoras y bárbaros conservan los SVG provisionales. Para sustituirlos, conserva sus rutas y nombres o actualiza el consumidor correspondiente. Las piezas e iconos necesitan fondo transparente.
+
+Los 36 caballeros distinguen seis colores, tres rangos y dos estados. El barco ocupa tres caras idénticas del dado de evento. Cada anverso de progreso es un diseño único, repetido en el mazo según el reglamento (18 cartas por rama, 54 en total).
+
+## Catálogo de SVG conservados
+
+Las filas de cartas y reversos SVG son el inventario anterior, conservado como alternativa; el cliente utiliza los PNG indicados arriba. Las dimensiones de esta tabla corresponden a esos SVG, no a los recortes del PDF.
 
 | Ruta exacta | Resolución / viewBox | Transparencia | Diseño |
 |---|---|---|---|
@@ -108,4 +114,4 @@ Las dimensiones siguientes son las mínimas recomendadas; para PNG usa 2× o 4×
 | `public/assets/cities-knights/barbarians/defender.svg` | 128×128 | Sí | Campeador de Catán |
 | `public/assets/cities-knights/barbarians/track.svg` | 960×128 | Opcional | Ruta de los bárbaros |
 
-El catálogo legible por código está en `public/assets/cities-knights/manifest.json`. Se regeneran los provisionales con `python3 scripts/generate-cities-knights-assets.py`. No ejecutar el generador encima de ilustraciones finales sustituidas.
+El catálogo de SVG está en `public/assets/cities-knights/manifest.json`. Se regeneran los provisionales con `python3 scripts/generate-cities-knights-assets.py`. El generador no sustituye los PNG del PDF. No ejecutarlo encima de ilustraciones finales SVG sustituidas.

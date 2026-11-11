@@ -17,8 +17,7 @@ interface FanCardItem {
 
 /**
  * Renders the player's resource cards in an interactive physical fan layout
- * in the center of the bottom panel using the exact pixel-by-pixel original
- * Catan card textures (/assets/cards/*.jpg).
+ * in the center of the bottom panel using the extracted PNG card faces.
  * On touch / tablet devices, tapping expands and enlarges the cards for clear inspection,
  * and tapping outside smoothly returns the fan to resting size.
  */
@@ -195,7 +194,8 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
             const cardTexturePath = RESOURCE_CARD_PATHS[card.resource];
 
             return (
-              <motion.div
+              <motion.button
+                type="button"
                 key={card.id}
                 layout
                 initial={{ opacity: 0, y: 40, scale: 0.7 }}
@@ -213,6 +213,8 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   damping: 24,
                 }}
                 onMouseEnter={() => setHoveredIndex(idx)}
+                onFocus={() => { setIsFanHovered(true); setHoveredIndex(idx); }}
+                onBlur={() => { setIsFanHovered(false); setHoveredIndex(null); }}
                 onClick={(e) => {
                   e.stopPropagation();
                   const isTabletTouch =
@@ -226,11 +228,12 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   onCardClick?.(card.resource);
                 }}
                 title={`${meta.name}${portRatio < 4 ? ` (Puerto ${portRatio}:1)` : ''}`}
+                aria-label={`${meta.name}${card.stackCount > 1 ? `, ${card.stackCount} cartas` : ''}${portRatio < 4 ? `, puerto ${portRatio}:1` : ''}`}
                 style={{
                   zIndex: isCardHovered ? 60 : 10 + idx,
                   transformOrigin: '50% 115%',
                 }}
-                className={`absolute bottom-0.5 w-[68px] h-[106px] sm:w-[76px] sm:h-[120px] rounded-[9px] overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.9)] cursor-pointer transition-shadow ${
+                className={`absolute bottom-0.5 w-[68px] sm:w-[76px] aspect-[2/3] rounded-[9px] drop-shadow-[0_10px_12px_rgba(0,0,0,0.9)] cursor-pointer transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-200 ${
                   isCardHovered
                     ? 'ring-2 ring-amber-300 shadow-[0_16px_34px_rgba(251,191,36,0.45)]'
                     : isExpandedTouch
@@ -243,7 +246,7 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                   src={cardTexturePath}
                   alt={meta.name}
                   draggable={false}
-                  className="w-full h-full object-fill select-none pointer-events-none"
+                  className="w-full h-full object-contain select-none pointer-events-none"
                 />
 
                 {/* Stack Multiplier Badge (only if >15 cards in hand) */}
@@ -262,7 +265,7 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                     )}
                   </div>
                 )}
-              </motion.div>
+              </motion.button>
             );
           })}
         </AnimatePresence>

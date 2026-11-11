@@ -11,24 +11,29 @@ import {
   TerrainType,
   WonderId,
 } from './types';
+import type { ImprovementBranch, ProgressCardType } from './citiesKnightsTypes';
+
+// Bump when an extracted image changes so previously cached faces are refreshed.
+const CARD_ART_VERSION = 'print1';
+const cardArtPath = (path: string): string => `/assets/${path}.png?v=${CARD_ART_VERSION}`;
 
 /**
  * Rutas de cartas de desarrollo originales extraídas del juego físico.
  */
 export const DEV_CARD_IMAGE_PATHS: Record<DevCardType, string> = {
-  KNIGHT: '/assets/devcards/knight.png',
-  VICTORY_POINT: '/assets/devcards/victory_point.png',
-  ROAD_BUILDING: '/assets/devcards/road_building.png',
-  YEAR_OF_PLENTY: '/assets/devcards/year_of_plenty.png',
-  MONOPOLY: '/assets/devcards/monopoly.png',
+  KNIGHT: cardArtPath('devcards/knight'),
+  VICTORY_POINT: cardArtPath('devcards/victory_point'),
+  ROAD_BUILDING: cardArtPath('devcards/road_building'),
+  YEAR_OF_PLENTY: cardArtPath('devcards/year_of_plenty'),
+  MONOPOLY: cardArtPath('devcards/monopoly'),
 };
 
 export const DEV_CARD_VP_TITLE_IMAGES: Record<string, string> = {
-  Ayuntamiento: '/assets/devcards/vp_town_hall.png',
-  Biblioteca: '/assets/devcards/vp_library.png',
-  Mercado: '/assets/devcards/vp_market.png',
-  'Universidad de Catan': '/assets/devcards/vp_university.png',
-  'Gran Catedral': '/assets/devcards/vp_church.png',
+  Ayuntamiento: cardArtPath('devcards/vp_town_hall'),
+  Biblioteca: cardArtPath('devcards/vp_library'),
+  Mercado: cardArtPath('devcards/vp_market'),
+  'Universidad de Catan': cardArtPath('devcards/vp_university'),
+  'Gran Catedral': cardArtPath('devcards/vp_church'),
 };
 
 export function getDevCardImagePath(type: DevCardType, title?: string): string {
@@ -53,6 +58,51 @@ export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
   FOG: '/assets/terrains/ocean.jpg?v=3',
 };
 
+/** PNG recreados: el PDF de cartas no contiene fichas ni terrenos. */
+export const NUMBER_TOKEN_PATHS: Readonly<Record<number, string>> = Object.fromEntries(
+  Array.from({ length: 11 }, (_, index) => [index + 2, cardArtPath(`tokens/${index + 2}`)]),
+);
+
+export const CARD_BACK_PATHS = {
+  resource: cardArtPath('resources/back'),
+  development: cardArtPath('devcards/back'),
+};
+
+/** Arte de progreso extraído de las páginas 21–23, incluidos los 25 tipos. */
+export const PROGRESS_CARD_IMAGE_PATHS: Record<ProgressCardType, string> = {
+  ALCHEMIST: cardArtPath('cities-knights/progress/alchemist'),
+  ROAD_BUILDING: cardArtPath('cities-knights/progress/road_building'),
+  SMITH: cardArtPath('cities-knights/progress/smith'),
+  CRANE: cardArtPath('cities-knights/progress/crane'),
+  PRINTER: cardArtPath('cities-knights/progress/printer'),
+  ENGINEER: cardArtPath('cities-knights/progress/engineer'),
+  INVENTOR: cardArtPath('cities-knights/progress/inventor'),
+  IRRIGATION: cardArtPath('cities-knights/progress/irrigation'),
+  MEDICINE: cardArtPath('cities-knights/progress/medicine'),
+  MINING: cardArtPath('cities-knights/progress/mining'),
+  WEDDING: cardArtPath('cities-knights/progress/wedding'),
+  CONSTITUTION: cardArtPath('cities-knights/progress/constitution'),
+  DESERTER: cardArtPath('cities-knights/progress/deserter'),
+  DIPLOMAT: cardArtPath('cities-knights/progress/diplomat'),
+  SPY: cardArtPath('cities-knights/progress/spy'),
+  WARLORD: cardArtPath('cities-knights/progress/warlord'),
+  INTRIGUE: cardArtPath('cities-knights/progress/intrigue'),
+  BISHOP: cardArtPath('cities-knights/progress/bishop'),
+  SABOTEUR: cardArtPath('cities-knights/progress/saboteur'),
+  MERCHANT: cardArtPath('cities-knights/progress/merchant'),
+  MERCHANT_FLEET: cardArtPath('cities-knights/progress/merchant_fleet'),
+  MASTER_MERCHANT: cardArtPath('cities-knights/progress/master_merchant'),
+  COMMODITY_MONOPOLY: cardArtPath('cities-knights/progress/commodity_monopoly'),
+  RESOURCE_MONOPOLY: cardArtPath('cities-knights/progress/resource_monopoly'),
+  COMMERCIAL_HARBOR: cardArtPath('cities-knights/progress/commercial_harbor'),
+};
+
+export const PROGRESS_BACK_IMAGE_PATHS: Record<ImprovementBranch, string> = {
+  SCIENCE: cardArtPath('cities-knights/progress/science_back'),
+  POLITICS: cardArtPath('cities-knights/progress/politics_back'),
+  TRADE: cardArtPath('cities-knights/progress/trade_back'),
+};
+
 /**
  * Rutas de logotipos/iconos oficiales para cada recurso en `/assets/icons/`.
  * Puedes sustituir los archivos en `/public/assets/icons/` por `.png`, `.webp` o `.svg`.
@@ -69,18 +119,18 @@ export const RESOURCE_ICON_PATHS: Record<TradeCardType, string> = {
 };
 
 /**
- * Diseños originales de las cartas de recursos en `/assets/cards/` para el abanico pixel-perfect
- * y para las animaciones de recolección.
+ * Cartas de recursos y mercancías extraídas del PDF; comparten proporción 2:3.
+ * Se usan en la mano y en las animaciones de recolección.
  */
 export const RESOURCE_CARD_PATHS: Record<TradeCardType, string> = {
-  PAPER: '/assets/cities-knights/cards/paper.svg',
-  CLOTH: '/assets/cities-knights/cards/cloth.svg',
-  COIN: '/assets/cities-knights/cards/coin.svg',
-  WOOD: '/assets/cards/wood.jpg',
-  BRICK: '/assets/cards/brick.jpg',
-  SHEEP: '/assets/cards/sheep.jpg',
-  WHEAT: '/assets/cards/wheat.jpg',
-  ORE: '/assets/cards/ore.jpg',
+  PAPER: cardArtPath('resources/paper'),
+  CLOTH: cardArtPath('resources/cloth'),
+  COIN: cardArtPath('resources/coin'),
+  WOOD: cardArtPath('resources/wood'),
+  BRICK: cardArtPath('resources/brick'),
+  SHEEP: cardArtPath('resources/sheep'),
+  WHEAT: cardArtPath('resources/wheat'),
+  ORE: cardArtPath('resources/ore'),
 };
 
 export const EXPANSION_CATALOG: Array<{

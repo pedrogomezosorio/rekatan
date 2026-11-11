@@ -9,6 +9,7 @@ import {
   RobberStealEvent,
 } from '../../shared/types';
 import {
+  CARD_BACK_PATHS,
   DEV_CARD_IMAGE_PATHS,
   PLAYER_COLORS,
   RESOURCE_CARD_PATHS,
@@ -820,11 +821,11 @@ const ResourceDistributionFlightCard: React.FC<{
         className="fixed -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 p-2.5 pr-4 rounded-2xl border-2 bg-[#140e0a]/95 shadow-[0_20px_50px_rgba(0,0,0,0.95)]"
         style={{ borderColor: playerColor }}
       >
-        <div className="relative w-12 h-16 rounded-lg overflow-hidden border border-amber-300/70 shadow-md shrink-0">
+        <div className="relative w-12 aspect-[2/3] drop-shadow-md shrink-0">
           <img
             src={cardImg}
             alt={meta.name}
-            className="w-full h-full object-fill"
+            className="w-full h-full object-contain"
           />
           <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-stone-950/90 text-amber-300 font-mono text-[10px] font-black border border-amber-400/50">
             +{flight.amount}
@@ -940,7 +941,7 @@ const DevCardPurchaseFlightCard: React.FC<{
       >
         <div className="w-16 h-24 rounded-xl overflow-hidden border border-amber-300/80 shadow-lg relative bg-stone-900">
           <img
-            src="/assets/cards/devcard_back.png"
+            src={CARD_BACK_PATHS.development}
             alt="Carta de Desarrollo"
             className="w-full h-full object-cover"
           />

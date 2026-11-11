@@ -166,7 +166,7 @@ Los archivos compilados se guardarán dentro de la carpeta `release/`.
 
 Disponible para 3–4 y 5–6 jugadores, con mercancías, tres dados, caballeros sobre el tablero, invasiones, murallas, mejoras, metrópolis y los tres mazos oficiales de progreso. La ampliación utiliza la fase especial de construcción del PDF español aportado. En el menú de creación selecciona **Ciudades y Caballeros → 3–4 jugadores / 5–6 jugadores**. **Jugar con bots** inicia una partida lista para colocar piezas; **Crear sala multijugador** permite invitar amigos. El panel de la expansión y el atajo **D** gestionan sus acciones. La variante opcional **doña Urraca** permite elegir los caballeros defensores. El menú, lobby, tablero y paneles se adaptan a móvil, tablet y escritorio.
 
-Consulta las [reglas implementadas y límites de combinación con Navegantes](docs/ciudades-caballeros.md) y el [catálogo de gráficos sustituibles](docs/ciudades-caballeros-assets.md). Se incluyen SVG provisionales para jugar sin esperar a las ilustraciones finales.
+Consulta las [reglas implementadas y límites de combinación con Navegantes](docs/ciudades-caballeros.md) y el [catálogo de gráficos](docs/ciudades-caballeros-assets.md). Las cartas de recursos, mercancías, desarrollo y progreso usan PNG extraídos del PDF de componentes. La [guía de extracción e integración](docs/catan-assets.md) incluye el script, las procedencias y las fichas numéricas recreadas; los terrenos conservan las texturas transparentes existentes.
 
 ---
 

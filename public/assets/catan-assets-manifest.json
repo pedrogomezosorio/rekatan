@@ -1,0 +1,1078 @@
+{
+  "source": {
+    "filename": "252848213-Cartas-de-Colonos-de-Catan-para-imprimir.pdf",
+    "sha256": "2a6ecd780d5454dd19966532f6eb5d47486715a9be802fc890661c6695fa4a7f",
+    "pages": 28
+  },
+  "notes": [
+    "Card artwork is extracted at its native resolution, never upscaled.",
+    "The supplied PDF contains no terrain hexagons or number chits.",
+    "Terrain PNGs are existing repository assets. Numeric tokens are local recreations.",
+    "7.png is included for completeness; seven does not produce resources in the game."
+  ],
+  "assets": [
+    {
+      "path": "resources/brick.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "e372fe00d344ec93b182cb080e2c329f3744fe4d16502331570ddb3003c7fe23",
+      "origin": "pdf",
+      "page": 1,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "resources/wood.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "b5d658c63faf7d3219b46c4a8b6fc868f52a5005b807a603a523c62476ebbf48",
+      "origin": "pdf",
+      "page": 1,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "resources/sheep.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "2f6d85b583f0e66968d8d5d70f135532f1cfa48dbd8d65d27b0d2da4261dae61",
+      "origin": "pdf",
+      "page": 1,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        303,
+        0,
+        455,
+        227
+      ]
+    },
+    {
+      "path": "resources/wheat.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "f0e1b99d4814b30f17142dbb20b0f0c0b98e30078276e2a7aa5697fd05d64419",
+      "origin": "pdf",
+      "page": 1,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        0,
+        606,
+        227
+      ]
+    },
+    {
+      "path": "resources/ore.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "3c2384ea4238fe268966b5c351a8f283fe218c3eefaab0dfe9a49fe1e4ce92e3",
+      "origin": "pdf",
+      "page": 1,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        0,
+        758,
+        227
+      ]
+    },
+    {
+      "path": "resources/paper.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "0df39c9bacd853b91c36c5559c8545b5c4b92ce3444bc91e63662a19b62b210a",
+      "origin": "pdf",
+      "page": 17,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "resources/coin.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "3f30bb10a42620de6b71c86a9cd2df384bd0f76f7c166873c208889cff54681b",
+      "origin": "pdf",
+      "page": 17,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        303,
+        227,
+        455,
+        454
+      ]
+    },
+    {
+      "path": "resources/cloth.png",
+      "width": 152,
+      "height": 228,
+      "sha256": "46d1d2fb6047346a2bf19bfa0aafbf424636379ba898db8cfcee0b086cb7c528",
+      "origin": "pdf",
+      "page": 17,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        454,
+        758,
+        682
+      ]
+    },
+    {
+      "path": "resources/back.png",
+      "width": 129,
+      "height": 207,
+      "sha256": "f0b6514f5dc3c479a9b11b177ddb2a6a1af7dba789fdebd5647852bba2c49ad7",
+      "origin": "pdf",
+      "page": 6,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "devcards/knight.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "2c35d7e4a2d105eb76c66127462dc5f0527b5583d36b96a4bea8d1b6ebf24526",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        227,
+        152,
+        454
+      ]
+    },
+    {
+      "path": "devcards/vp_library.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "bef5dc5defa68e7e0339f7224487700afdc8e515714aa11059bb108a26531c80",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "devcards/vp_market.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "844b92b0820c988fbf6c22c7c29ca0e2dfc50b6f2544d57c2d97bb912bfac796",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "devcards/vp_university.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "3d5c362892e875eb4ae37ca0f90ded0f824a730b2560891743837ca630caa874",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        303,
+        0,
+        455,
+        227
+      ]
+    },
+    {
+      "path": "devcards/vp_town_hall.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "40a372c00e559dc2ed5d6b71173a516265bfa811392bae5d04bcdc6eca824a53",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        0,
+        606,
+        227
+      ]
+    },
+    {
+      "path": "devcards/vp_church.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "7f3b6eb661e0ab5b4b86f0dfe4c0270b21400875019b541dc6e7c0083766e210",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        0,
+        758,
+        227
+      ]
+    },
+    {
+      "path": "devcards/victory_point.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "bef5dc5defa68e7e0339f7224487700afdc8e515714aa11059bb108a26531c80",
+      "origin": "pdf",
+      "page": 11,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "devcards/year_of_plenty.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "42eb747fe8363392a107cb3c385c9cce66396270465150ba0dcbd92fbf97cb3f",
+      "origin": "pdf",
+      "page": 12,
+      "sheet_size": [
+        744,
+        924
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "devcards/monopoly.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "659f204df29af33a0adbd3651befb8a5627a30f198ce677afd407ffa9b49332a",
+      "origin": "pdf",
+      "page": 12,
+      "sheet_size": [
+        744,
+        924
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "devcards/road_building.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "1509989822c3363be676871b28efb9db13b8c5f7773e140993652d9bb4cd76cf",
+      "origin": "pdf",
+      "page": 12,
+      "sheet_size": [
+        744,
+        924
+      ],
+      "crop": [
+        303,
+        0,
+        455,
+        227
+      ]
+    },
+    {
+      "path": "devcards/back.png",
+      "width": 130,
+      "height": 205,
+      "sha256": "c3d5091cfa58741120b344a9a0f9f395b5247481a38a8c776007bea0ccecb0ac",
+      "origin": "pdf",
+      "page": 13,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "devcards/longest_road.png",
+      "width": 275,
+      "height": 342,
+      "sha256": "1b969b68f698ce8924706fd6901a0560e3190979c4d650cb1480e4ebd982288e",
+      "origin": "pdf",
+      "page": 12,
+      "sheet_size": [
+        744,
+        924
+      ],
+      "crop": [
+        469,
+        0,
+        744,
+        342
+      ]
+    },
+    {
+      "path": "devcards/largest_army.png",
+      "width": 275,
+      "height": 340,
+      "sha256": "1496a225da157b496dc1b0066aad7587492a9432041650c4238501fb8a6320c2",
+      "origin": "pdf",
+      "page": 12,
+      "sheet_size": [
+        744,
+        924
+      ],
+      "crop": [
+        469,
+        343,
+        744,
+        683
+      ]
+    },
+    {
+      "path": "cities-knights/progress/resource_monopoly.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "547ab72977156efc1b50ab1e34c860e92a4966cb3e973a9692ad979099abcb14",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/merchant.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "c26de303dedd4bb77f88ca07feb6a52b64036a63f0e0f028429ff9fb49e204e0",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/commodity_monopoly.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "f3159f520276cc9ddd0c269ae5f2c98c25d911ccce62810de88205221b465f03",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        0,
+        758,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/commercial_harbor.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "bcc5d2e3d18f201f2773f23f3436971936c621d0b81c2f68ccbb0c1082fb381d",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        227,
+        152,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/merchant_fleet.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "708058c433a36d2e964ab855032983b39763cd4abdd863beb62df9ea239da18f",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        227,
+        303,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/master_merchant.png",
+      "width": 151,
+      "height": 228,
+      "sha256": "53fa162691624fe310e5cbe13494f4665195a4c931a50e95898ce95ff0322285",
+      "origin": "pdf",
+      "page": 21,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        454,
+        303,
+        682
+      ]
+    },
+    {
+      "path": "cities-knights/progress/printer.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "52fd8b0c963eeda8092c9613cc5c64cdc7b78a62f8ee36b90a306da2f7f98356",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/mining.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "b6ab34282aa08a39928449c3829e840e9edeebd0ee4b63c816d00008834b0b73",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/medicine.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "e3f9281150f36af0d54bad4482261a4ed55f006c45ed657e257dd1a809eb3b4d",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        303,
+        0,
+        455,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/crane.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "a9f8dae7ebe7741b4ac5235209df85ba40bb3a044f2f9d91f4ac6fea0fda220f",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        0,
+        606,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/alchemist.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "a01eeb8c296590593777b78590d631ba3123af982ba760b564f5ddc38e966632",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        227,
+        152,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/inventor.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "02b5ab280d46517c5bee531da67c181452e9d2caaaf31d9651c7cdc9d519ec00",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        227,
+        303,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/smith.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "26c2da76a4ac1751eeb43be7e3e839599635493ac4a641650d11b1d27a785708",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        227,
+        758,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/irrigation.png",
+      "width": 152,
+      "height": 228,
+      "sha256": "42f5b45ec04f2593b9fcfc709ca8c2eda0fcae53da7a4ef05e3ce55e9457ae4c",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        454,
+        152,
+        682
+      ]
+    },
+    {
+      "path": "cities-knights/progress/road_building.png",
+      "width": 151,
+      "height": 228,
+      "sha256": "fa3767e34f649634687b4da950c2255b632040221f076b326bacfb249c8e5372",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        454,
+        606,
+        682
+      ]
+    },
+    {
+      "path": "cities-knights/progress/engineer.png",
+      "width": 152,
+      "height": 228,
+      "sha256": "c7fefad907cae6ed260017f0f58123b5fd3d6edecfeca3e47101f6867c58bef2",
+      "origin": "pdf",
+      "page": 22,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        454,
+        758,
+        682
+      ]
+    },
+    {
+      "path": "cities-knights/progress/intrigue.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "8fd12a14bbfed9ec8026c80e298c810fe764f9d58ac01c095f02eb15d59dfd02",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/deserter.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "df1c2ecd5ea8c3a1b183fd37655e78e8f5b5f60c0036fdccfece07f57264bb81",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        152,
+        0,
+        303,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/saboteur.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "e9464c394ac9fe69cfe43c8f025794cd165eeaedffb8188bcd337ca2618470e3",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        303,
+        0,
+        455,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/wedding.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "a72b83dcb4bf671ab76352d0c2509aed8188ae5d5460d4106bc17c786fb8225d",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        0,
+        606,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/spy.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "2243a837a5e2e409a5883c3b1104e4a417a3645750361973952041d431ce06dd",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        0,
+        758,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/warlord.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "cf5f9dc75c90da351615da448968e8e1dc9feacce7c67ffef4871de9c4354a0c",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        227,
+        152,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/bishop.png",
+      "width": 151,
+      "height": 227,
+      "sha256": "a192700f19b3bab46462e78f65560631b6bc5506939101abf34fbaa6e35b6c62",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        455,
+        227,
+        606,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/diplomat.png",
+      "width": 152,
+      "height": 227,
+      "sha256": "88e03111a7c6cd97713db5ceacbe835ca4fecab7984d59839012b460fcb6ff40",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        227,
+        758,
+        454
+      ]
+    },
+    {
+      "path": "cities-knights/progress/constitution.png",
+      "width": 152,
+      "height": 228,
+      "sha256": "725ba96b1e37df8346916a3e1688baa77f5fd2ee1156704e499def180639871a",
+      "origin": "pdf",
+      "page": 23,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        606,
+        454,
+        758,
+        682
+      ]
+    },
+    {
+      "path": "cities-knights/progress/trade_back.png",
+      "width": 129,
+      "height": 204,
+      "sha256": "7a88809d1688aafce7cb30cf12a36516c8f7ba139539e097849db0fc694e1166",
+      "origin": "pdf",
+      "page": 24,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/science_back.png",
+      "width": 129,
+      "height": 205,
+      "sha256": "64521fdc1fb7bf425c5e578b6a3f74014b7a7652ff9f190649a31c3d46deeedb",
+      "origin": "pdf",
+      "page": 25,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "cities-knights/progress/politics_back.png",
+      "width": 127,
+      "height": 205,
+      "sha256": "86796c9de9967219f23512d0cb64a4f999342e731445ba04d72dbbd76debcd68",
+      "origin": "pdf",
+      "page": 26,
+      "sheet_size": [
+        758,
+        909
+      ],
+      "crop": [
+        0,
+        0,
+        152,
+        227
+      ]
+    },
+    {
+      "path": "tokens/2.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "024882f2a6addd3fc10a18ed997d104e0a2886c1f9f7dbdad64492d9997a9c27",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 1
+    },
+    {
+      "path": "tokens/3.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "86873ec4494f82b9537353199ab103366c1bb13f658233318ec0f51adcfc0708",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 2
+    },
+    {
+      "path": "tokens/4.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "cf9b66470deb56c648104cd9055d031d6e4a8544eb42ba9d64c8449d0f0726b6",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 3
+    },
+    {
+      "path": "tokens/5.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "309b4d472269440b5d81f3cea7625ed54eba01fa72185838a890bff7a139553c",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 4
+    },
+    {
+      "path": "tokens/6.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "aebc01a96e1907b00a8279c8490ef2b23aa55757c61ccd226a2d258a09b1de1c",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 5
+    },
+    {
+      "path": "tokens/7.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "5ad91f98fc2f89448fc121a668f452783d449cfb008fe518eba6028a6d1c9a01",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 0
+    },
+    {
+      "path": "tokens/8.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "b0091b37bfd1ee1652a103f32da21310441209dca0fdd02d7e8e646229c2c017",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 5
+    },
+    {
+      "path": "tokens/9.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "98f9060128f1c80940aa34bd2ab06008387519d5037f74dd54493377818946b3",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 4
+    },
+    {
+      "path": "tokens/10.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "77406ecc925c4a822dddc8a9cab613bd8ddd0f2dcc5e6f0b00fd2720e2fee9a4",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 3
+    },
+    {
+      "path": "tokens/11.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "b178bf23e02b89e21b5ab4562be30decf5ec928cba5d866ee0eb272999091d83",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 2
+    },
+    {
+      "path": "tokens/12.png",
+      "width": 160,
+      "height": 160,
+      "sha256": "ff73885ef6789d0228870ddc5726c9e101d3a2a1de7f4c453eb182681ab1d887",
+      "origin": "recreated",
+      "method": "Pillow parchment disc, serif number and probability pips",
+      "font": "Georgia Bold.ttf",
+      "font_sha256": "1cfa9abd55be746c798c22ef4eba88fce82257934897404be2dae53ed0a4142a",
+      "pips": 1
+    },
+    {
+      "path": "terrains/forest.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "cbc127584052b6875684bfc33dbf89efa6c1c429f1a522f71e7129b3a068e2e9"
+    },
+    {
+      "path": "terrains/hills.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "dd82cc2300395ae68c2529c69adf8cadfe003ad68288e2ab143ce65021367d73"
+    },
+    {
+      "path": "terrains/pasture.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "332fa7aa3cd5fbf3e0087f6c7888d11ca6716e33de651d87639cb02c50227ab7"
+    },
+    {
+      "path": "terrains/fields.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "feca0159fbe685a756236949ff452056cfad604da641e10ed094af8e86ba3053"
+    },
+    {
+      "path": "terrains/mountains.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "77346778a7f54e8fc587626b142e08c16b292c890084f790ae4382ac9b37de5e"
+    },
+    {
+      "path": "terrains/desert.png",
+      "origin": "existing-repository",
+      "width": 966,
+      "height": 1116,
+      "sha256": "8329b14bb72671f200f96a4855982b9d1b947724560e139e976aca1afc7f145d"
+    }
+  ]
+}
