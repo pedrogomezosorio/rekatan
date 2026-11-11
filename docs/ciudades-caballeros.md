@@ -4,7 +4,7 @@ Implementación para tres a seis jugadores, con el reglamento español de 2010�
 
 ## Uso
 
-En el lobby selecciona **Ciudades y Caballeros**. El tablero estándar admite tres o cuatro jugadores; **Ampliación 5–6** permite hasta seis y añade construcción especial. También puedes activar Navegantes. Su escenario y silueta se conservan al añadir o quitar Ciudades y Caballeros. Cambiar de Navegantes a la isla base restaura el tablero base.
+En **Crear partida** selecciona **Ciudades y Caballeros**, después **3–4 jugadores** o **5–6 jugadores**. **Jugar con bots** crea los participantes, inicializa las mercancías y el progreso, sortea la iniciativa e inicia la fundación en una sola operación. **Crear sala multijugador** conserva esa selección y abre el lobby para invitar jugadores. El lobby permite completar las plazas con bots e iniciar. El tablero estándar admite tres o cuatro jugadores; **Ampliación 5–6** permite hasta seis y añade construcción especial. También puedes activar Navegantes. Su escenario y silueta se conservan al añadir o quitar Ciudades y Caballeros. Cambiar de Navegantes a la isla base restaura el tablero base.
 
 Durante la partida, el panel de la esquina superior izquierda muestra el viaje bárbaro, defensa, ciudades, límite de mano y mejoras. Ábrelo para gestionar caballeros, murallas, metrópolis y progreso. El atajo **D** abre Progreso. Las decisiones de los demás jugadores se resuelven con sus propias sesiones, antes de continuar el evento. La construcción normal sigue usando los controles del tablero.
 
@@ -14,6 +14,7 @@ El material gráfico es provisional, funcional y sustituible. El [catálogo de g
 
 | Tema | Regla aplicada y referencia en el PDF base |
 |---|---|
+| Montaje | Los tableros de 19 y 30 terrenos usan la secuencia de números en espiral antihoraria, saltando los desiertos. La modalidad 5–6 conserva las filas 3–4–5–6–5–4–3, dos desiertos y 28 fichas numeradas. PDF de ampliación, pág. 2. |
 | Fundación | Poblado y después ciudad; recursos iniciales solamente con la ciudad, una materia prima por terreno. Págs. 4–5. |
 | Mercancías | Ciudades: madera+papel, oveja+tela, mineral+moneda; trigo y arcilla siguen produciendo dos. Comercio, descarte y robo incluyen mercancías. Págs. 5–6. |
 | Dados | Rojo y blanco, más tres caras de barco y una por rama. Primero evento/asalto/elecciones; después producción o siete. Págs. 5 y 8–9. |
@@ -22,11 +23,11 @@ El material gráfico es provisional, funcional y sustituible. El [catálogo de g
 | Derrota | Compara contribuciones de jugadores con ciudades ordinarias. **También puede perderse la única ciudad**. Metrópolis y jugadores sin ciudades ordinarias quedan protegidos. Pág. 9. |
 | Última ciudad | Esta edición del PDF indica que se pierden las mejoras al perder todas las ciudades; se aplica esa edición. Pág. 9. |
 | Sin poblados en reserva | La ciudad queda reducida a poblado usando su pieza de ciudad. Debe repararse antes de construir otra ciudad y no puede recibir una metrópolis mientras esté reducida. Pág. 9. |
-| Defensa | Igualar la fuerza bárbara es suficiente. Único máximo: Campeador +1 PV. Empate: cada máximo elige progreso. Se desactivan todos los caballeros activos; no se usa la variante opcional de retirar defensores. Págs. 8–9. |
+| Defensa | Igualar la fuerza bárbara es suficiente. Único máximo: Campeador +1 PV. Empate: cada máximo elige progreso. Por defecto se desactivan todos los caballeros activos. La variante opcional **doña Urraca**, activable antes de empezar, deja elegir participantes en orden de turno; sólo esos caballeros contribuyen y se agotan. Págs. 8–9. |
 | Ladrón y pirata | No se mueven ni roban antes del primer asalto. El siete sigue descartando. Un primer asalto simultáneo al siete habilita el movimiento tras resolver el combate. Págs. 5 y 9. |
 | Mejoras | Costes 1–5. Acueducto con elección de un recurso básico; Fortaleza; mercancías 2:1. Metrópolis en cuatro, robo sólo por superar al dueño con cinco, una ciudad diferente por metrópolis. Págs. 7–8. |
 | Murallas | Dos arcillas, una por ciudad, tres por jugador. Límite de mano 7+2 por muralla; desaparecen si la ciudad se degrada. Pág. 6. |
-| Progreso | 18 cartas por rama, 54 en total, 25 tipos; anexo completo, no la lista abreviada del texto pegado. Puntos inmediatos públicos; demás cartas hasta cuatro al acabar el turno. Cartas jugadas o descartadas vuelven al fondo de su mazo. Págs. 7–11. |
+| Progreso | 18 cartas por rama, 54 en total, 25 tipos; anexo completo, no la lista abreviada del texto pegado. Imprenta y Constitución se muestran descubiertas y no entran en la mano. Puntos inmediatos públicos; demás cartas hasta cuatro al acabar el turno. Cartas jugadas o descartadas vuelven al fondo de su mazo. Págs. 7–11. |
 | Cinco/seis | El PDF de ampliación, pág. 2, especifica **construcción especial**, no turnos emparejados. Prohíbe comercio, progreso y acciones de caballeros; permite construcción, reclutamiento, activación, ascensos y mejoras. |
 | Victoria | Trece PV, en el turno propio. Con Navegantes, objetivo del escenario +2. No hay Gran Ejército ni compras de desarrollo. Pág. 9. |
 
@@ -46,4 +47,8 @@ Las decisiones pendientes y los dados aún sin producir forman parte de `GameSta
 
 `src/shared/__tests__/CitiesAndKnights.test.ts` cubre economía, falta de existencias, fundación, cobertura del dado rojo, orden de eventos, asaltos, agotamiento, protección de metrópolis, ciudades reducidas, pérdida de mejoras, Acueducto, muros y descartes, movimiento y bloqueo por caballeros, ascensos, cartas de progreso, costes de mejoras, metrópolis, construcción especial y persistencia.
 
+El contrato `CREATE_ROOM` recibe una modalidad validada y aplica su configuración antes de emitir el primer `ROOM_JOINED`. `roomCreation.test.ts` prueba las dos modalidades y los cuatro tamaños efectivos de partida, además de entradas inválidas. La prueba de Socket.io comprueba también la creación real de una sala de la expansión y una partida rápida con seis participantes.
+
 Se ejecutan `npm test` y `npm run build`. La comprobación de navegador recorre compra de mejoras, uso de Ingeniero, mercancías en comercio y zoom; comprueba errores de JavaScript y recursos nuevos ausentes.
+
+La interfaz se comprueba a 360, 390, 768 y 1440 píxeles: selección de modalidades, creación rápida real, mercancías, paneles y zoom, sin desbordamiento horizontal ni recursos de la expansión ausentes. Los móviles muestran las ocho cantidades de cartas en una barra propia, reducen el HUD y permiten ocultar jugadores para mantener accesible el tablero.

@@ -1,6 +1,8 @@
+import { withOfficialNumberSpiral } from './citiesKnightsSetup';
 import { applyCitiesKnightsAction, automaticCKChoice, citiesKnightsBotActions, cityCost, initializeCitiesKnights, isRobberUnlocked, queueAqueduct, produceCitiesKnightsResources } from './CitiesAndKnights';
 import { hasCitiesKnights, COMMODITIES, BRANCH_META, safeHandLimit, CK_CONFLICTING_SCENARIOS } from '../citiesKnightsConfig';
 import type { CardBundle, RuleContext } from '../citiesKnightsTypes';
+import { parseRoomCreationOptions, ROOM_PRESETS } from '../roomPresets';
 import { getRoomPlayerLimit, SEAFARERS_PLAYER_LIMITS } from '../seafarersConfig';
 import { shuffled } from './seafarersSetup';
 import {
@@ -177,6 +179,27 @@ export function createInitialGameState(
       },
     ],
   };
+}
+
+/** Creates the requested game atomically, before the first ROOM_JOINED is sent. */
+export function createConfiguredGameState(
+  roomCode: string,
+  host: Parameters<typeof createInitialGameState>[1],
+  rawOptions?: unknown
+): GameState {
+  const options = parseRoomCreationOptions(rawOptions);
+  const preset = ROOM_PRESETS[options.preset];
+  let state = createInitialGameState(roomCode, host);
+  const apply = (action: GameAction) => {
+    const result = applyGameAction(state, host.id, action);
+    if (result.error) throw new Error(result.error);
+    state = result.state;
+  };
+  apply({ type: 'UPDATE_CONFIG', config: { ...preset.config, citiesKnightsVoluntaryDefense: options.voluntaryDefense ?? false } });
+  if (options.playWithBots) {
+    apply({ type: 'START_WITH_BOTS', playerCount: options.playerCount ?? preset.players[0], difficulty: options.botDifficulty || 'MEDIUM' });
+  }
+  return state;
 }
 
 export function addLog(
@@ -1630,7 +1653,7 @@ export function applyGameAction(
     }
   } catch (error) { return { state: prevState, error: error instanceof Error ? error.message : 'Acción inválida.' }; }
 
-  const generateActionBoard = (...args: Parameters<typeof generateBoard>): BoardState => { args[8] = context.random; return generateBoard(...args); };
+  const generateActionBoard = (...args: Parameters<typeof generateBoard>): BoardState => { args[8] = context.random; const board = generateBoard(...args); return hasCitiesKnights(state.config) ? withOfficialNumberSpiral(board, state.config.preventAdjacentRedNumbers) : board; };
   const nextNonce = (state.lastEvent?.nonce || 0) + 1;
 
   switch (action.type) {
@@ -1765,6 +1788,7 @@ export function applyGameAction(
         } else if (nowCK && (!wasCK || prevExpansionModule === 'SEAFARERS')) state.config.victoryPointsTarget = 13;
         else if (wasCK && !nowCK && state.config.expansionModule === 'SEAFARERS') state.config.victoryPointsTarget = prevExpansionModule === 'SEAFARERS' ? prevState.config.victoryPointsTarget - 2 : scenarioTarget;
       }
+      if (hasCitiesKnights(state.config)) state.board = withOfficialNumberSpiral(state.board, state.config.preventAdjacentRedNumbers);
       addLog(state, `${actor.name} actualizó la configuración de la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -2057,6 +2081,22 @@ export function applyGameAction(
       return { state };
     }
 
+    case 'START_WITH_BOTS': {
+      if (state.phase !== 'LOBBY' || !actor.isHost) return { state: prevState, error: 'Solo el anfitrión puede iniciar la sala con bots.' };
+      const count = action.playerCount ?? getRoomPlayerLimit(state.config);
+      const minimum = hasCitiesKnights(state.config) ? 3 : 2;
+      if (!Number.isInteger(count) || count < Math.max(minimum, state.players.length) || count > getRoomPlayerLimit(state.config)) return { state: prevState, error: 'Número de participantes inválido para este mapa.' };
+      let next = state;
+      const actions: GameAction[] = Array.from({ length: count - state.players.length }, () => ({ type: 'ADD_BOT', difficulty: action.difficulty || 'MEDIUM' }));
+      actions.push({ type: 'START_GAME' }, { type: 'AUTO_ROLL_ALL_ORDER' }, { type: 'CONFIRM_TURN_ORDER' });
+      for (const step of actions) {
+        const result = applyGameAction(next, playerId, step, context);
+        if (result.error) return { state: prevState, error: result.error };
+        next = result.state;
+      }
+      return { state: next };
+    }
+
     case 'START_GAME': {
       if (state.phase !== 'LOBBY' || !actor.isHost) {
         return { state: prevState, error: 'Solo el anfitrión puede iniciar la partida.' };
@@ -2106,6 +2146,7 @@ export function applyGameAction(
         state.board = enforceDesertInCenterRule(state.board, true);
       }
 
+      if (hasCitiesKnights(state.config)) state.board = withOfficialNumberSpiral(state.board, state.config.preventAdjacentRedNumbers);
       for (const p of state.players) {
         p.shipsLeft = state.config.expansionModule === 'SEAFARERS' ? 15 : undefined;
         p.hasMovedShipThisTurn = false;
@@ -2511,7 +2552,7 @@ export function applyGameAction(
           'BUILD',
           actor.id
         );
-        const remainingValid = getValidRoadEdges(state, playerId);
+        const remainingValid = [...getValidRoadEdges(state, playerId), ...(state.config.expansionModule === 'SEAFARERS' ? getValidShipEdges(state, playerId) : [])];
         if (state.turn.freeRoadsRemaining <= 0 || remainingValid.length === 0) {
           state.turn.freeRoadsRemaining = 0;
           state.phase = 'MAIN_PHASE';

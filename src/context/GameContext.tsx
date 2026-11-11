@@ -1,3 +1,4 @@
+import type { RoomCreationOptions } from '../shared/roomPresets';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getAvatarNameError, normalizeAvatar } from '../shared/playerIdentity';
@@ -21,7 +22,8 @@ interface GameContextValue {
   errorToast: string | null;
   showErrorToast: (msg: string) => void;
   clearErrorToast: () => void;
-  createRoom: () => void;
+  createRoom: (options?: RoomCreationOptions) => void;
+  creatingRoom: boolean;
   joinRoom: (code: string) => void;
   dispatchAction: (action: GameAction) => void;
   leaveRoomClient: () => void;
@@ -55,13 +57,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saved = localStorage.getItem('catan_server_url');
     if (saved) return saved;
     // In standalone electron with embedded dist server, port is random, default to host port 3000
-    if (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') {
+    if ((window as Window & { catanDesktop?: { isDesktopApp?: boolean } }).catanDesktop?.isDesktopApp && window.location.hostname === '127.0.0.1' && window.location.port !== '3000') {
       return 'https://rekatan.onrender.com';
     }
     return window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
   });
 
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [creatingRoom, setCreatingRoom] = useState(false);
   const [connected, setConnected] = useState<boolean>(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
@@ -132,6 +135,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('disconnect', (reason) => {
       console.warn('[Socket] Disconnected from server. Reason:', reason);
       setConnected(false);
+      setCreatingRoom(false);
       joinedRoomRef.current = null;
     });
 
@@ -141,6 +145,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socket.on('ROOM_JOINED', (payload: { roomCode: string; playerId: string; state: GameState }) => {
+      setCreatingRoom(false);
       activeRoomRef.current = payload.roomCode;
       joinedRoomRef.current = payload.roomCode;
       setConnected(true);
@@ -158,6 +163,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socket.on('ACTION_ERROR', (payload: { message: string; code?: string; roomCode?: string }) => {
+      setCreatingRoom(false);
       const missingRoom = payload.code === 'ROOM_NOT_FOUND' || payload.message === 'Sala no encontrada.' || payload.message.startsWith('No existe ninguna sala');
       const currentRoom = activeRoomRef.current || sessionStorage.getItem('catan_active_room');
       if (missingRoom && currentRoom && (!payload.roomCode || payload.roomCode === currentRoom)) {
@@ -192,7 +198,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const createRoom = () => {
+  const createRoom = (options?: RoomCreationOptions) => {
+    if (creatingRoom) return;
     const avatarError = getAvatarNameError(playerAvatar, playerName);
     if (avatarError) {
       setErrorToast(avatarError);
@@ -206,11 +213,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     const finalName = playerName.trim() || 'Colono';
     setPlayerName(finalName);
+    setCreatingRoom(true);
     socketRef.current.emit('CREATE_ROOM', {
       playerId,
       playerName: finalName,
       color: playerColor,
       avatar: playerAvatar,
+      options,
     });
   };
 
@@ -299,6 +308,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         showErrorToast: (msg: string) => setErrorToast(msg),
         clearErrorToast: () => setErrorToast(null),
         createRoom,
+        creatingRoom,
         joinRoom,
         dispatchAction,
         leaveRoomClient,

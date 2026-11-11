@@ -90,6 +90,7 @@ export type WonderId =
 
 export interface BoardState {
   merchant?: { playerId: string; hexId: string };
+  numberSpiralHexIds?: string[];
   mode: BoardMode;
   seafarersScenario?: SeafarersScenario;
   seafarersBoardSize?: SeafarersBoardSize;
@@ -175,6 +176,8 @@ export type BotDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type SeafarersBoardSize = '3P' | '4P' | '5_6P';
 
 export interface GameConfig {
+  /** Optional “doña Urraca” defense selection from page 9 of the supplied edition. */
+  citiesKnightsVoluntaryDefense?: boolean;
   boardMode: BoardMode;
   preventAdjacentRedNumbers: boolean;
   desertInCenter: boolean;
@@ -473,6 +476,7 @@ export type GameAction =
   | { type: 'SET_GLOBAL_BOT_DIFFICULTY'; difficulty: BotDifficulty }
   | { type: 'REMOVE_PLAYER'; targetPlayerId: string }
   | { type: 'START_GAME' }
+  | { type: 'START_WITH_BOTS'; playerCount?: number; difficulty?: BotDifficulty }
   | { type: 'ROLL_FOR_ORDER' }
   | { type: 'AUTO_ROLL_ALL_ORDER' }
   | { type: 'SET_CUSTOM_PLAYER_ORDER'; playerIds: string[] }

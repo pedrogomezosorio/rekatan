@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_RESOURCES, ALL_TRADE_CARDS, createEmptyResources, countTotalResources } from '../constants';
 import { BRANCH_META, CK_BRANCHES, PROGRESS_CARDS, emptyCKPlayer, safeHandLimit } from '../citiesKnightsConfig';
 import { automaticCKChoice, initializeCitiesKnights, knightReachableVertices, produceCitiesKnightsResources, resolveBarbarianAttack } from '../engine/CitiesAndKnights';
-import { applyGameAction, canBuyDevCard, createInitialGameState, executeAction, executeBotStepIfNeeded, getPlayerBankTradeRatios, getValidCityVertices, getValidRoadEdges, getValidSettlementVertices, recalculateVictoryPoints } from '../engine/RulesEngine';
+import { applyGameAction, canBuyDevCard, createInitialGameState, executeAction, executeBotStepIfNeeded, getPlayerBankTradeRatios, getValidCityVertices, getValidRoadEdges, getValidSettlementVertices, getValidShipEdges, recalculateVictoryPoints } from '../engine/RulesEngine';
 import { calculatePlayerLongestRoad } from '../engine/LongestRoad';
 import type { GameAction, GameState, ImprovementBranch, ProgressCardType, ResourceType } from '../types';
 import type { BoardKnight, ProgressPayload, RuleContext } from '../citiesKnightsTypes';
@@ -161,6 +161,24 @@ describe('Economía, dados y Acueducto', () => {
 });
 
 describe('Invasiones y murallas según los PDF adjuntos', () => {
+  it('la variante doña Urraca espera elecciones, respeta el orden y conserva activos los reservados', () => {
+    let s = game(); s.config.citiesKnightsVoluntaryDefense = true;
+    city(s); city(s, 'P2'); const reserved = knight(s, 'P1', 3); const fighting = knight(s, 'P2', 2);
+    s.citiesKnights!.barbarianPosition = 6; s = dice(s);
+    expect(s.citiesKnights!.choices[0]).toMatchObject({ kind: 'BARBARIAN_DEFENSE', playerId: 'P1' });
+    expect(s.citiesKnights!.firstAttackResolved).toBe(false); expect(s.citiesKnights!.pendingDice).toEqual([2, 3]);
+    s = act(s, { type: 'RESOLVE_CK_CHOICE', vertexIds: [] });
+    expect(s.citiesKnights!.choices[0].playerId).toBe('P2');
+    s = act(s, { type: 'RESOLVE_CK_CHOICE', vertexIds: [fighting] }, 'P2');
+    expect(s.citiesKnights!.lastBattle).toMatchObject({ won: true, defenders: 2, contributions: { P1: 0, P2: 2 } });
+    expect(s.board.vertices[reserved].knight!.active).toBe(true); expect(s.board.vertices[fighting].knight!.active).toBe(false);
+    expect(s.players[1].citiesKnights!.defenderPoints).toBe(1); expect(s.citiesKnights!.pendingDice).toBeUndefined();
+  });
+  it('doña Urraca rechaza caballeros ajenos y duplicados sin consumir la decisión', () => {
+    let s = game(); s.config.citiesKnightsVoluntaryDefense = true; city(s); const mine = knight(s); const rival = knight(s, 'P2'); s.citiesKnights!.barbarianPosition = 6; s = dice(s);
+    expect(applyGameAction(s, 'P1', { type: 'RESOLVE_CK_CHOICE', vertexIds: [rival] }).state).toBe(s);
+    expect(applyGameAction(s, 'P1', { type: 'RESOLVE_CK_CHOICE', vertexIds: [mine, mine] }).error).toBeDefined();
+  });
   it('empate en fuerzas defiende Catán y el único máximo gana Campeador; se agotan todos', () => {
     const s = game(); city(s); city(s, 'P2'); knight(s, 'P1', 2); resolveBarbarianAttack(s);
     expect(s.citiesKnights!.lastBattle).toMatchObject({ won: true, barbarians: 2, defenders: 2, defenderIds: ['P1'] }); expect(s.players[0].citiesKnights!.defenderPoints).toBe(1);
@@ -276,6 +294,16 @@ describe('Mejoras y metrópolis', () => {
 });
 
 describe('Cartas de progreso oficiales', () => {
+  it('permite construir un barco gratis después de gastar la última carretera disponible', () => {
+    let s = game(); s.phase = 'LOBBY';
+    s = act(s, { type: 'UPDATE_CONFIG', config: { expansionModule: 'SEAFARERS', enabledExpansions: ['BASE', 'SEAFARERS', 'CITIES_AND_KNIGHTS'] } });
+    s = act(s, { type: 'START_GAME' }); s.phase = 'MAIN_PHASE'; s.turn.hasRolledDice = true;
+    const coast = Object.values(s.board.vertices).find(v => v.isCoastal && v.isLand && v.adjacentEdgeIds.some(id => s.board.edges[id].isCoastal && !s.board.edges[id].hexIds.includes(s.board.pirateHexId || '')))!;
+    coast.building = 'SETTLEMENT'; coast.playerId = 'P1'; s.players[0].roadsLeft = 1;
+    s = progress(s, 'ROAD_BUILDING'); s = act(s, { type: 'PLACE_ROAD', edgeId: getValidRoadEdges(s, 'P1')[0] });
+    expect(s.players[0].roadsLeft).toBe(0); expect(s.phase).toBe('ROAD_BUILDING_DEV'); expect(s.turn.freeRoadsRemaining).toBe(1);
+    s = act(s, { type: 'PLACE_SHIP', edgeId: getValidShipEdges(s, 'P1')[0] }); expect(s.phase).toBe('MAIN_PHASE'); expect(s.players[0].shipsLeft).toBe(14);
+  });
   it('Construcción de carreteras concede dos tramos gratis y devuelve la carta al fondo', () => {
     let s = game(); const v = city(s); s = progress(s, 'ROAD_BUILDING');
     expect(s.phase).toBe('ROAD_BUILDING_DEV'); expect(s.turn.freeRoadsRemaining).toBe(2);
@@ -350,6 +378,7 @@ describe('Cartas de progreso oficiales', () => {
   it('los puntos de progreso se exponen inmediatamente y no ocupan la mano', () => {
     const s = game(); const deck = s.citiesKnights!.decks.SCIENCE; const index = deck.findIndex(c => c.type === 'PRINTER'); deck.unshift(...deck.splice(index, 1)); s.players[0].citiesKnights!.improvements.SCIENCE = 1;
     const after = dice(s, [1, 2], 'SCIENCE'); expect(after.players[0].citiesKnights!.progressPoints).toBe(1); expect(after.players[0].citiesKnights!.progressCards).toEqual([]);
+    expect(after.players[0].citiesKnights!.revealedProgressCards?.[0].type).toBe('PRINTER');
   });
   it('la quinta carta ajena exige devolver una al fondo antes de continuar', () => {
     let s = game(); for (const type of ['CRANE', 'MEDICINE', 'MINING', 'IRRIGATION'] as const) giveCard(s, type, 'P2'); s.players[1].citiesKnights!.improvements.SCIENCE = 5;

@@ -13,8 +13,10 @@ export interface CitiesKnightsPlayer {
   progressCards: ProgressCard[];
   defenderPoints: number;
   progressPoints: number;
+  revealedProgressCards?: ProgressCard[];
 }
 export type CKChoice =
+  | { kind: 'BARBARIAN_DEFENSE'; playerId: string }
   | { kind: 'CITY_LOSS'; playerId: string }
   | { kind: 'DEFENDER_CARD'; playerId: string }
   | { kind: 'AQUEDUCT'; playerId: string }
@@ -31,6 +33,7 @@ export interface CitiesKnightsState {
   metropolisOwners: Record<ImprovementBranch, string | null>;
   choices: CKChoice[];
   pendingDice?: [number, number];
+  pendingDefense?: Record<string, string[]>;
   specialBuild?: { turnOwnerId: string; remainingPlayerIds: string[] };
   turnEffects?: { crane?: boolean; medicine?: boolean; engineer?: boolean; smith?: number; fleet?: TradeCardType[]; harborPartners?: string[] };
   lastBattle?: { barbarians: number; defenders: number; contributions: Record<string, number>; won: boolean; defenderIds: string[]; victimIds: string[] };
@@ -57,7 +60,7 @@ export type CitiesKnightsAction =
   | { type: 'BUILD_CITY_WALL'; vertexId: string }
   | { type: 'IMPROVE_CITY'; branch: ImprovementBranch; vertexId?: string }
   | { type: 'PLAY_PROGRESS_CARD'; cardId: string; payload?: ProgressPayload }
-  | { type: 'RESOLVE_CK_CHOICE'; vertexId?: string; branch?: ImprovementBranch; resource?: ResourceType; cardId?: string; resources?: CardBundle }
+  | { type: 'RESOLVE_CK_CHOICE'; vertexId?: string; vertexIds?: string[]; branch?: ImprovementBranch; resource?: ResourceType; cardId?: string; resources?: CardBundle }
   | { type: 'COMMERCIAL_HARBOR_TRADE'; targetPlayerId: string; resource: ResourceType }
   | { type: 'END_SPECIAL_BUILD' };
 

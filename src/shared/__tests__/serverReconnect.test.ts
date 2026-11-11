@@ -6,6 +6,7 @@ import { resolve, join } from 'node:path';
 import { io, Socket } from 'socket.io-client';
 import { expect, it } from 'vitest';
 import { GameAction, GameState } from '../types';
+import type { RoomCreationOptions } from '../roomPresets';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -43,9 +44,9 @@ it('conserva la sala tras errores de opciones, cambio de transporte, desconexió
     return socket;
   }
   const identity = { playerId: 'P1', playerName: 'Colona', color: 'RED', avatar: 'I' };
-  const roomJoined = (socket: Socket, event: 'CREATE_ROOM' | 'JOIN_ROOM', roomCode?: string) => new Promise<GameState>((r, reject) => {
+  const roomJoined = (socket: Socket, event: 'CREATE_ROOM' | 'JOIN_ROOM', roomCode?: string, options?: RoomCreationOptions) => new Promise<GameState>((r, reject) => {
     socket.once('ROOM_JOINED', payload => { socket.off('ACTION_ERROR', reject); r(payload.state); });
-    socket.once('ACTION_ERROR', reject); socket.emit(event, { ...identity, roomCode });
+    socket.once('ACTION_ERROR', reject); socket.emit(event, { ...identity, roomCode, options });
   });
   const action = (socket: Socket, roomCode: string, value: GameAction) => new Promise<GameState>((r, reject) => {
     const fail = (error: { message: string }) => { socket.off('ROOM_STATE', success); reject(new Error(error.message)); };
@@ -55,6 +56,10 @@ it('conserva la sala tras errores de opciones, cambio de transporte, desconexió
   });
   try {
     await start();
+    const ckLobby = await roomJoined(await connect(), 'CREATE_ROOM', undefined, { preset: 'CITIES_KNIGHTS_3_4' });
+    expect(ckLobby.config.expansionModule).toBe('CITIES_AND_KNIGHTS'); expect(ckLobby.config.maxPlayers).toBe(4); expect(ckLobby.phase).toBe('LOBBY');
+    const ckGame = await roomJoined(await connect(), 'CREATE_ROOM', undefined, { preset: 'CITIES_KNIGHTS_5_6', playWithBots: true, playerCount: 6 });
+    expect(ckGame.players).toHaveLength(6); expect(ckGame.bank.COIN).toBe(18); expect(ckGame.citiesKnights?.decks.SCIENCE).toHaveLength(18); expect(ckGame.phase).toBe('SETUP_SETTLEMENT_1');
     const first = await connect();
     const created = await roomJoined(first, 'CREATE_ROOM');
     const roomCode = created.roomCode;

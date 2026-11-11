@@ -23,6 +23,7 @@ import {
   applyGameAction,
   autoResolveCurrentTurn,
   createInitialGameState,
+  createConfiguredGameState,
   executeBotStepIfNeeded,
   getDecisionPlayerId,
   refreshTurnDeadline,
@@ -99,6 +100,7 @@ async function startServer() {
         playerName: string;
         color: PlayerColor;
         avatar: string;
+        options?: unknown;
       }) => {
         const avatarError = getAvatarNameError(payload.avatar, payload.playerName || '');
         if (avatarError) {
@@ -107,12 +109,16 @@ async function startServer() {
         }
         const roomCode = generateRoomCode();
         const playerId = payload.playerId || `P_${ socket.id }`;
-        const gameState = createInitialGameState(roomCode, {
+        let gameState: GameState;
+        try { gameState = createConfiguredGameState(roomCode, {
           id: playerId,
           name: getPublicPlayerName(payload.playerName || '') || 'Anfitrión',
           color: payload.color || 'RED',
           avatar: normalizeAvatar(payload.avatar) || 'I',
-        });
+        }, payload.options); } catch (error) {
+          socket.emit('ACTION_ERROR', { code: 'ROOM_CREATION_FAILED', message: error instanceof Error ? error.message : 'No se pudo crear esa modalidad.' });
+          return;
+        }
 
         rooms.set(roomCode, gameState);
         socketToSession.set(socket.id, { roomCode, playerId });

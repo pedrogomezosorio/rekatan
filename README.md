@@ -1,6 +1,6 @@
 # Rekatan — Catan Tabletop
 
-Implementación digital de Catan y su expansión **Los Navegantes** para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas, tableros y escenarios oficiales del juego de mesa para 2 a 6 jugadores.
+Implementación digital de Catan y sus expansiones **Navegantes** y **Ciudades y Caballeros** para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas, tableros y escenarios oficiales del juego de mesa para 2 a 6 jugadores.
 
 Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
@@ -86,7 +86,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 - **Backend:** Node.js, Express, Socket.io, Vite (en modo middleware para desarrollo).
 - **Entorno de Escritorio:** Electron, Electron Builder.
-- **Pruebas Unitarias:** Vitest (166 tests validando el motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
+- **Pruebas Unitarias:** Vitest (reglas de Ciudades y Caballeros, creación de salas, contratos Socket.io y validación del motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
 
 ---
 
@@ -164,7 +164,7 @@ Los archivos compilados se guardarán dentro de la carpeta `release/`.
 
 ## Ciudades y Caballeros
 
-Disponible para 3–4 y 5–6 jugadores, con mercancías, tres dados, caballeros sobre el tablero, invasiones, murallas, mejoras, metrópolis y los tres mazos oficiales de progreso. La ampliación utiliza la fase especial de construcción del PDF español aportado. Se activa desde el lobby; el panel de la expansión y el atajo **D** permiten gestionar sus acciones.
+Disponible para 3–4 y 5–6 jugadores, con mercancías, tres dados, caballeros sobre el tablero, invasiones, murallas, mejoras, metrópolis y los tres mazos oficiales de progreso. La ampliación utiliza la fase especial de construcción del PDF español aportado. En el menú de creación selecciona **Ciudades y Caballeros → 3–4 jugadores / 5–6 jugadores**. **Jugar con bots** inicia una partida lista para colocar piezas; **Crear sala multijugador** permite invitar amigos. El panel de la expansión y el atajo **D** gestionan sus acciones. La variante opcional **doña Urraca** permite elegir los caballeros defensores. El menú, lobby, tablero y paneles se adaptan a móvil, tablet y escritorio.
 
 Consulta las [reglas implementadas y límites de combinación con Navegantes](docs/ciudades-caballeros.md) y el [catálogo de gráficos sustituibles](docs/ciudades-caballeros-assets.md). Se incluyen SVG provisionales para jugar sin esperar a las ilustraciones finales.
 

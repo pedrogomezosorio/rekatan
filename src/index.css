@@ -348,3 +348,81 @@
   background: rgba(245, 158, 11, 0.6);
 }
 
+/* Layout follows viewport width as well as pointer type: phones and narrow
+   desktop windows must keep the game controls inside the visible board. */
+@media (max-width: 1023px) {
+  .room-lobby { height: auto; min-height: 100dvh; overflow: visible; }
+  .room-lobby-header { height: auto; min-height: 64px; flex-wrap: wrap; gap: 10px; padding: 12px; }
+  .room-lobby-header > div { flex-wrap: wrap; gap: 8px; }
+  .room-lobby-grid { display: flex; flex-direction: column; overflow: visible; }
+  .room-lobby-options { overflow: visible; border-right: 0; }
+  .room-lobby-board { order: -1; flex: none; height: 360px; min-height: 280px; border-bottom: 1px solid #334155; }
+  .room-lobby-board > .flex-1 { min-height: 0; }
+  .game-screen .tablet-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; height: auto !important; padding: 8px 12px !important; gap: 6px; }
+  .game-screen .tablet-header > div:first-child { gap: 8px; min-width: 0; }
+  .game-screen .tablet-header > div:first-child > :nth-child(n+3) { display: none; }
+  .game-screen .tablet-header-instruction { grid-column: 1 / -1; grid-row: 2; max-width: 100%; font-size: 12px !important; padding: 6px 10px !important; min-height: 30px !important; }
+}
+
+@media (max-width: 767px) {
+  .main-menu select, .main-menu input { font-size: 16px; }
+  .main-menu { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .game-screen { width: 100%; }
+  .tablet-header { height: auto !important; min-height: 82px; padding: 6px 8px !important; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px !important; }
+  .tablet-header > div:first-child { gap: 6px; min-width: 0; }
+  .tablet-header > div:first-child > :nth-child(n+3) { display: none; }
+  .tablet-header-title { font-size: 14px !important; }
+  .tablet-header-badge { font-size: 10px !important; padding: 3px 5px !important; }
+  .tablet-header > div:last-child { gap: 4px; }
+  .tablet-header-btn { min-height: 38px !important; min-width: 36px; padding: 7px !important; font-size: 11px !important; gap: 4px !important; }
+  .tablet-header-btn svg { width: 16px !important; height: 16px !important; }
+  .tablet-header-btn span { display: none !important; }
+  .tablet-header-instruction { grid-column: 1 / -1; grid-row: 2; min-height: 28px !important; max-height: 42px; padding: 5px 8px !important; font-size: 11px !important; line-height: 1.3; white-space: normal; max-width: 100%; }
+  .game-turn-timer { padding: 4px; gap: 2px; }
+  .game-turn-timer > svg, .game-turn-timer .h-1\.5, .game-turn-timer .flex.justify-between > span:first-child { display: none; }
+  .game-turn-timer .w-20 { width: 32px; }
+  .game-turn-timer .flex.justify-between { justify-content: center; margin: 0; }
+  .tablet-sidebar { width: min(290px, calc(100vw - 24px)) !important; top: 52px; bottom: 6px; }
+  .tablet-player-list { overflow-y: auto !important; }
+  .profile-card-fan { display: none; }
+  .game-players-toggle { min-height: 40px; padding: 8px; font-size: 11px; }
+  .cities-knights-hud { top: 8px; left: 8px; width: min(235px, calc(100vw - 118px)); border-radius: 12px; padding: 10px; }
+  .cities-knights-hud > button { min-height: 24px; font-size: 11px; gap: 6px; }
+  .cities-knights-hud .ck-mobile-summary { display: block; }
+  .cities-knights-hud .ck-hud-details { display: none; }
+  .cities-knights-hud > .ck-special-build { display: none; }
+  .cities-knights-dialog { padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .cities-knights-dialog > div { max-height: calc(100dvh - 24px); padding: 12px; border-radius: 16px; }
+  .cities-knights-dialog h2 { font-size: 16px; }
+  .cities-knights-dialog select, .cities-knights-dialog input { max-width: 100%; font-size: 16px; }
+  .cities-knights-dialog button { min-height: 42px; }
+  .cities-knights-dialog .ck-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .cities-knights-dialog .ck-tabs button { padding: 8px 4px; font-size: 11px; }
+  .game-dice-hud { top: 58px !important; right: 8px !important; }
+  .has-cities-knights .game-dice-hud { display: none; }
+  .game-build-controls { left: 8px; bottom: 8px; }
+  .tablet-action-box { width: min(44vw, 180px) !important; padding: 5px !important; gap: 4px !important; border-radius: 12px !important; }
+  .tablet-action-btn { min-height: 42px !important; padding: 8px !important; font-size: 11px !important; }
+  .tablet-action-btn svg { width: 16px !important; height: 16px !important; }
+  .tablet-zoom-controls { left: auto !important; right: 8px !important; bottom: 8px !important; padding: 4px; gap: 0; }
+  .tablet-zoom-controls button { min-width: 36px; min-height: 40px; padding: 8px; }
+  .tablet-footer { height: auto !important; min-height: 96px; padding: 5px 8px max(5px, env(safe-area-inset-bottom)) !important; flex-wrap: wrap; gap: 4px; }
+  .tablet-footer > .hidden.sm\:block { display: none; }
+  .game-resource-hand { min-width: 0; flex: 0 0 100%; width: 100%; }
+  .game-desktop-hand { display: none; }
+  .game-mobile-hand { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+  .game-end-turn { flex: 0 0 100%; width: 100%; min-width: 0; justify-content: space-between; gap: 6px; }
+  .game-mobile-turn { display: block; }
+  .tablet-end-turn-btn { min-height: 40px !important; padding: 8px 12px !important; font-size: 12px !important; }
+  .game-screen .grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-height: 520px) and (max-width: 1023px) {
+  .game-screen .tablet-header { min-height: 44px; }
+  .game-screen .tablet-header-instruction { display: none !important; }
+  .game-screen .tablet-footer { min-height: 64px; }
+  .game-screen .cities-knights-hud { padding: 6px; }
+  .game-screen .ck-hud-details { display: none; }
+  .game-screen .ck-mobile-summary { display: block; }
+}
+

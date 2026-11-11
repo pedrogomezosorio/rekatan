@@ -27,12 +27,13 @@ export function CitiesKnightsPanel({ gameState: s, playerId, dispatchAction, onH
   const [vertex, setVertex] = useState(''); const [destination, setDestination] = useState('');
   const [branch, setBranch] = useState<ImprovementBranch>('SCIENCE');
   const [selectedCard, setSelectedCard] = useState(''); const [payload, setPayload] = useState<ProgressPayload>({});
+  const [defenseKnights, setDefenseKnights] = useState<string[]>([]);
   const [gift, setGift] = useState<CardBundle>(createEmptyResources);
   const [choiceVertex, setChoiceVertex] = useState(''); const [choiceCard, setChoiceCard] = useState('');
   const [choiceResource, setChoiceResource] = useState<ResourceType>('WOOD');
   const ck = s.citiesKnights; const me = s.players.find(p => p.id === playerId);
   const choice = ck?.choices[0];
-  useEffect(() => { setGift(createEmptyResources()); setChoiceVertex(''); setChoiceCard(''); }, [choice?.kind, choice?.playerId, s.turn.turnNumber]);
+  useEffect(() => { setGift(createEmptyResources()); setChoiceVertex(''); setChoiceCard(''); setDefenseKnights(Object.values(s.board.vertices).filter(v => v.knight?.playerId === playerId && v.knight.active).map(v => v.id)); }, [choice?.kind, choice?.playerId, s.turn.turnNumber]);
   useEffect(() => () => onHighlightVertex(null), [onHighlightVertex]);
   useEffect(() => { const show = () => { setOpen(true); setTab('PROGRESS'); }; window.addEventListener('open-cities-knights', show); return () => window.removeEventListener('open-cities-knights', show); }, []);
   if (!ck || !me?.citiesKnights) return null;
@@ -57,19 +58,22 @@ export function CitiesKnightsPanel({ gameState: s, playerId, dispatchAction, onH
   const neededResource = card && ['MERCHANT_FLEET', 'COMMODITY_MONOPOLY', 'RESOURCE_MONOPOLY'].includes(card.type);
 
   return <>
-    <div className="absolute top-3 left-3 z-30 w-60 rounded-2xl border border-amber-600/50 bg-stone-950/95 p-3 shadow-xl text-stone-100 pointer-events-auto">
+    <div className="cities-knights-hud absolute top-3 left-3 z-30 w-60 rounded-2xl border border-amber-600/50 bg-stone-950/95 p-3 shadow-xl text-stone-100 pointer-events-auto">
       <button className="flex justify-between w-full text-xs font-bold" onClick={() => setOpen(true)}><span>⚔ Ciudades y Caballeros</span><span>＋</span></button>
+      <p className="ck-mobile-summary hidden text-[11px] mt-1 text-stone-300">Bárbaros {ck.barbarianPosition}/7 · Defensa {defense}</p>
+      <div className="ck-hud-details">
       <div className="mt-2 flex items-center gap-1" aria-label={`Bárbaros: ${ck.barbarianPosition} de 7`}>{Array.from({ length: 8 }, (_, i) => <span key={i} className={`flex h-6 w-6 items-center justify-center rounded text-xs ${i === ck.barbarianPosition ? 'bg-red-800 border border-red-300' : 'bg-stone-800 text-stone-400'}`}>{i === ck.barbarianPosition ? '⛵' : i}</span>)}</div>
       <p className="mt-1 text-[11px]">Defensa {defense} · Ciudades {totalCities} · Mano segura {safeHandLimit(s, me.id)}</p>
       <div className="flex gap-2 mt-2">{CK_BRANCHES.map(b => <span key={b} style={{ color: BRANCH_META[b].color }} className="text-xs font-bold">{BRANCH_META[b].name} {mine.improvements[b]}</span>)}</div>
       {ck.eventDie && <div className="flex items-center gap-2 mt-2 text-xs"><img alt="Dado de evento" className="h-8 w-8" src={`/assets/cities-knights/events/${ck.eventDie === 'BARBARIAN' ? 'barbarian' : ck.eventDie.toLowerCase()}.svg`}/><span>{s.turn.diceRoll && <><strong className="text-red-400">{s.turn.diceRoll[0]}</strong> + <strong>{s.turn.diceRoll[1]}</strong> · </>}{ck.eventDie === 'BARBARIAN' ? 'Avance bárbaro' : BRANCH_META[ck.eventDie].name}</span></div>}
       {choice && <p className="text-xs text-amber-200 mt-2">Decisión pendiente: {s.players.find(p => p.id === choice.playerId)?.name}</p>}
-      {s.phase === 'SPECIAL_BUILD_PHASE' && s.turn.activePlayerId === me.id && <button className={`${button} w-full mt-2`} onClick={() => dispatchAction({ type: 'END_SPECIAL_BUILD' })}>Terminar construcción especial</button>}
+      </div>
+      {s.phase === 'SPECIAL_BUILD_PHASE' && s.turn.activePlayerId === me.id && <button className={`ck-special-build ${button} w-full mt-2`} onClick={() => dispatchAction({ type: 'END_SPECIAL_BUILD' })}>Terminar construcción especial</button>}
     </div>
 
-    {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Ciudades y Caballeros"><div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-stone-900 border border-amber-700 rounded-2xl p-5 space-y-4 text-stone-100">
+    {open && <div className="cities-knights-dialog fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Ciudades y Caballeros"><div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-stone-900 border border-amber-700 rounded-2xl p-5 space-y-4 text-stone-100">
       <div className="flex justify-between items-center"><h2 className="font-bold text-xl">Ciudades y Caballeros</h2><button className={button} onClick={() => { setOpen(false); onHighlightVertex(null); }}>Cerrar</button></div>
-      <div className="flex gap-2">{(['KNIGHTS', 'CITIES', 'PROGRESS'] as const).map(t => <button key={t} className={`${button} ${tab === t ? 'ring-1 ring-amber-300' : ''}`} onClick={() => setTab(t)}>{t === 'KNIGHTS' ? 'Caballeros' : t === 'CITIES' ? 'Mejoras y murallas' : `Progreso (${mine.progressCards.length}/4)`}</button>)}</div>
+      <div className="ck-tabs flex gap-2">{(['KNIGHTS', 'CITIES', 'PROGRESS'] as const).map(t => <button key={t} className={`${button} ${tab === t ? 'ring-1 ring-amber-300' : ''}`} onClick={() => setTab(t)}>{t === 'KNIGHTS' ? 'Caballeros' : t === 'CITIES' ? 'Mejoras y murallas' : `Progreso (${mine.progressCards.length}/4)`}</button>)}</div>
       {tab === 'KNIGHTS' && <div className="space-y-3">
         <p className="text-sm text-stone-300">Reclutar o ascender: 1 oveja + 1 mineral. Activar: 1 trigo. Dos piezas de cada rango. Un caballero activado durante este turno ya defiende, pero actuará a partir de un turno posterior.</p>
         <Select label="Reclutar en un cruce libre" value={vertex} options={vertexOptions(knightRecruitVertices(s, me.id))} onChange={chooseVertex}/>
@@ -88,6 +92,7 @@ export function CitiesKnightsPanel({ gameState: s, playerId, dispatchAction, onH
       {tab === 'PROGRESS' && <div className="space-y-3">
         <div className="flex gap-2">{CK_BRANCHES.map(b => <div key={b} className="flex-1 text-center text-xs"><img className="h-20 mx-auto" src={`/assets/cities-knights/progress/${b.toLowerCase()}_back.svg`} alt={`Mazo de ${BRANCH_META[b].name}`}/>{ck.decks[b].length} cartas</div>)}</div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{mine.progressCards.map(c => <button key={c.id} onClick={() => { setSelectedCard(c.id); setPayload({}); }} className={`rounded-lg p-2 border text-xs text-left ${selectedCard === c.id ? 'border-amber-300 bg-amber-950' : 'border-stone-700'}`}><img className="h-24 mx-auto" src={`/assets/cities-knights/progress/${c.type.toLowerCase()}.svg`} alt=""/><strong>{PROGRESS_CARDS[c.type].name}</strong></button>)}</div>
+        {!!mine.revealedProgressCards?.length && <div className="border-t border-stone-700 pt-3"><p className="text-xs text-amber-200 mb-2">Puntos de progreso descubiertos: {mine.progressPoints} PV</p><div className="flex gap-2 flex-wrap">{mine.revealedProgressCards.map(c => <img key={c.id} src={`/assets/cities-knights/progress/${c.type.toLowerCase()}.svg`} className="h-28 rounded-lg" alt={`${PROGRESS_CARDS[c.type].name}, un punto público`}/>)}</div></div>}
         {!mine.progressCards.length && <p className="text-sm text-stone-400">Recibirás progreso mediante el dado de evento y las mejoras de tus ciudades.</p>}
         {card && <div className="space-y-3 border border-stone-700 rounded-xl p-3"><strong>{PROGRESS_CARDS[card.type].name}</strong><p className="text-sm">{PROGRESS_CARDS[card.type].description}</p>
           {neededRival && <Select label="Jugador objetivo" value={payload.targetPlayerId || ''} options={rivalOptions} onChange={targetPlayerId => setData({ targetPlayerId })}/>}
@@ -106,13 +111,14 @@ export function CitiesKnightsPanel({ gameState: s, playerId, dispatchAction, onH
       </div>}
     </div></div>}
 
-    {choice?.playerId === me.id && s.phase === 'CK_CHOICE' && !s.turn.isPausedByHost && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Decisión de Ciudades y Caballeros"><div className="max-w-xl w-full max-h-[85vh] overflow-y-auto rounded-2xl bg-stone-900 border border-amber-500 p-5 text-stone-100 space-y-4"><h2 className="font-bold text-lg">{choice.kind === 'CITY_LOSS' ? 'Los bárbaros saquean una ciudad' : choice.kind === 'AQUEDUCT' ? 'Acueducto: elige un recurso' : choice.kind === 'DEFENDER_CARD' ? 'Defensa empatada: elige un mazo' : choice.kind === 'PROGRESS_DISCARD' ? 'Devuelve progreso hasta tener cuatro cartas' : choice.kind === 'GIFT' ? `Entrega ${choice.amount} carta(s) a ${s.players.find(p => p.id === choice.beneficiaryId)?.name}` : choice.kind === 'RETREAT' ? 'Elige la retirada de tu caballero' : choice.kind === 'DESERTER' ? 'Desertor: elige un caballero para retirar' : 'Coloca el caballero recibido'}</h2>
+    {choice?.playerId === me.id && s.phase === 'CK_CHOICE' && !s.turn.isPausedByHost && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Decisión de Ciudades y Caballeros"><div className="max-w-xl w-full max-h-[85vh] overflow-y-auto rounded-2xl bg-stone-900 border border-amber-500 p-5 text-stone-100 space-y-4"><h2 className="font-bold text-lg">{choice.kind === 'BARBARIAN_DEFENSE' ? 'Doña Urraca: elige tus defensores' : choice.kind === 'CITY_LOSS' ? 'Los bárbaros saquean una ciudad' : choice.kind === 'AQUEDUCT' ? 'Acueducto: elige un recurso' : choice.kind === 'DEFENDER_CARD' ? 'Defensa empatada: elige un mazo' : choice.kind === 'PROGRESS_DISCARD' ? 'Devuelve progreso hasta tener cuatro cartas' : choice.kind === 'GIFT' ? `Entrega ${choice.amount} carta(s) a ${s.players.find(p => p.id === choice.beneficiaryId)?.name}` : choice.kind === 'RETREAT' ? 'Elige la retirada de tu caballero' : choice.kind === 'DESERTER' ? 'Desertor: elige un caballero para retirar' : 'Coloca el caballero recibido'}</h2>
+      {choice.kind === 'BARBARIAN_DEFENSE' && <div className="space-y-3"><p className="text-sm text-stone-300">Puedes reservar caballeros activos. Sólo se agotarán los que envíes a la batalla.</p>{ownKnights.filter(v => v.knight!.active).map(v => <label key={v.id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={defenseKnights.includes(v.id)} onChange={e => setDefenseKnights(ids => e.target.checked ? [...ids, v.id] : ids.filter(id => id !== v.id))}/> Fuerza {v.knight!.rank} · {location(s, v.id)}</label>)}</div>}
       {['CITY_LOSS', 'RETREAT', 'DESERTER', 'DESERTER_PLACE'].includes(choice.kind) && <Select label="Cruce elegido" value={choiceVertex} options={vertexOptions(choice.kind === 'CITY_LOSS' ? ownCities.filter(v => !v.metropolis).map(v => v.id) : choice.kind === 'RETREAT' ? choice.vertexIds : choice.kind === 'DESERTER' ? ownKnights.map(v => v.id) : knightRecruitVertices(s, me.id))} onChange={id => { setChoiceVertex(id); onHighlightVertex(id); }}/>}
       {choice.kind === 'DEFENDER_CARD' && <Select label="Mazo elegido" value={branch} options={CK_BRANCHES.map(b => ({ id: b, name: BRANCH_META[b].name }))} onChange={b => setBranch(b as ImprovementBranch)}/>}
       {choice.kind === 'AQUEDUCT' && <Select label="Recurso del acueducto" value={choiceResource} options={resourceOptions(ALL_RESOURCES.filter(r => s.bank[r] > 0))} onChange={r => setChoiceResource(r as ResourceType)}/>}
       {choice.kind === 'PROGRESS_DISCARD' && <Select label="Carta a devolver" value={choiceCard} options={mine.progressCards.map(c => ({ id: c.id, name: PROGRESS_CARDS[c.type].name }))} onChange={setChoiceCard}/>}
       {choice.kind === 'GIFT' && <><HandSelection hand={me.resources} value={gift} onChange={setGift} commoditiesOnly={choice.commodityOnly}/><p className="text-xs">Seleccionadas: {cardCount(gift)} / {choice.amount}</p></>}
-      <button className={button} onClick={() => dispatchAction({ type: 'RESOLVE_CK_CHOICE', vertexId: choiceVertex || undefined, branch, resource: choiceResource, cardId: choiceCard || undefined, resources: gift })}>Confirmar elección</button>
+      <button className={button} onClick={() => dispatchAction({ type: 'RESOLVE_CK_CHOICE', vertexId: choiceVertex || undefined, vertexIds: defenseKnights, branch, resource: choiceResource, cardId: choiceCard || undefined, resources: gift })}>Confirmar elección</button>
     </div></div>}
   </>;
 }

@@ -1,3 +1,4 @@
+import { CitiesKnightsOverview } from './CitiesKnightsOverview';
 import { CK_CONFLICTING_SCENARIOS, hasCitiesKnights } from '../../shared/citiesKnightsConfig';
 import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useState } from 'react';
@@ -116,9 +117,9 @@ export const RoomLobby: React.FC = () => {
   };
 
   return (
-    <div className="h-screen h-[100dvh] w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+    <div className="room-lobby h-screen h-[100dvh] w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
       {/* Top Header */}
-      <header className="h-16 px-4 sm:px-6 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between shrink-0 z-20">
+      <header className="room-lobby-header h-16 px-4 sm:px-6 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-3">
           <span className="font-display text-xl font-extrabold text-amber-400 tracking-wider">
             CATAN
@@ -156,6 +157,7 @@ export const RoomLobby: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {isHost && <button type="button" onClick={() => dispatchAction({ type: 'START_WITH_BOTS', difficulty: selectedDifficulty })} className="lobby-quick-start min-h-11 rounded-xl border border-emerald-500/50 bg-emerald-950/40 px-3 py-2 text-xs font-bold text-emerald-100 flex items-center gap-2"><Bot size={16}/><span>Completar con bots y jugar</span></button>}
           {isHost ? (
             <button
               onClick={() => dispatchAction({ type: 'START_GAME' })}
@@ -186,9 +188,9 @@ export const RoomLobby: React.FC = () => {
       </header>
 
       {/* Main Content Split: Left Settings/Players + Right Live Board & Custom Builder */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+      <div className="room-lobby-grid flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left Configuration Column */}
-        <div className="lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-r border-slate-800 overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="room-lobby-options lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-r border-slate-800 overflow-y-auto p-4 sm:p-5 space-y-5">
           {/* 1. Players Section with Bot AI Difficulty Controls */}
           <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3.5">
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -660,7 +662,15 @@ export const RoomLobby: React.FC = () => {
                   </div>
                 </div>
               );
-            })() : (
+            })() : hasCitiesKnights(config) ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2" aria-label="Modalidad de Ciudades y Caballeros">
+                  {([{ mode: 'STANDARD_3_4', name: '3–4 jugadores' }, { mode: 'EXPANSION_5_6', name: '5–6 jugadores' }] as const).map(({ mode, name }) => <button key={mode} type="button" disabled={!isHost} aria-pressed={config.boardMode === mode} onClick={() => handleBoardModeSelect(mode)} className={`min-h-12 rounded-xl border p-3 text-xs font-bold ${config.boardMode === mode ? 'border-emerald-400 bg-emerald-900/30 text-emerald-100' : 'border-stone-700 text-stone-400'}`}>{name}</button>)}
+                </div>
+                <CitiesKnightsOverview extended={config.boardMode === 'EXPANSION_5_6'}/>
+                <label className="flex items-start gap-2 text-xs text-stone-300"><input type="checkbox" disabled={!isHost} checked={!!config.citiesKnightsVoluntaryDefense} onChange={e => dispatchAction({ type: 'UPDATE_CONFIG', config: { citiesKnightsVoluntaryDefense: e.target.checked } })}/><span>Variante «doña Urraca»: elegir los caballeros que participan en cada defensa.</span></label>
+              </div>
+            ) : (
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
@@ -1515,7 +1525,7 @@ export const RoomLobby: React.FC = () => {
         </div>
 
         {/* Right Column: Interactive Board Preview & Custom Board Builder */}
-        <div className="lg:col-span-7 xl:col-span-8 relative flex flex-col h-full overflow-hidden">
+        <div className="room-lobby-board lg:col-span-7 xl:col-span-8 relative flex flex-col h-full overflow-hidden">
           {isHost && editorTool.active && (
             <div className="bg-slate-900/95 border-b border-sky-500/30 p-3 flex flex-wrap items-center gap-3 z-20 shadow-xl">
               <span className="text-xs font-extrabold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">

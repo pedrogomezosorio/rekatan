@@ -94,7 +94,7 @@ export const GameScreen: React.FC = () => {
   const [showAbandonModal, setShowAbandonModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChronicle, setShowChronicle] = useState(false);
-  const [isTabletRightPanelVisible, setIsTabletRightPanelVisible] = useState<boolean>(true);
+  const [isTabletRightPanelVisible, setIsTabletRightPanelVisible] = useState<boolean>(() => window.matchMedia('(min-width: 1024px)').matches);
   const [showProfileCardFans, setShowProfileCardFans] = useState<boolean>(() => {
     try {
       return localStorage.getItem('catan_profile_card_fans') !== 'false';
@@ -722,7 +722,7 @@ export const GameScreen: React.FC = () => {
   );
 
   return (
-    <div className="h-screen h-[100dvh] w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative">
+    <div className={`game-screen ${hasCitiesKnights(config) ? 'has-cities-knights' : ''} h-screen h-[100dvh] w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative`}>
       {/* Intermittent Green Screen Border Glow STRICTLY ONLY when it is the local player's turn */}
       {isStrictlyMyTurn && (
         <motion.div
@@ -815,7 +815,7 @@ export const GameScreen: React.FC = () => {
         {/* Right: Turn Timer, Host-Only Pause Button, Settings Button & Abandon Button */}
         <div className="flex items-center gap-2">
           {remainingSec !== null && (
-            <div className="flex items-center gap-2 bg-[#0d0906] px-3 py-1 rounded-xl border border-[#d4af37]/30">
+            <div className="game-turn-timer flex items-center gap-2 bg-[#0d0906] px-3 py-1 rounded-xl border border-[#d4af37]/30">
               <Clock
                 className={`w-4 h-4 ${
                   isPausedByHost
@@ -1254,7 +1254,7 @@ export const GameScreen: React.FC = () => {
 
           {/* Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck (positioned left of the right profiles & card fans) */}
           <div
-            className={`tablet-dev-deck-container absolute top-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none ${
+            className={`game-dice-hud tablet-dev-deck-container absolute top-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none ${
               isTabletRightPanelVisible ? 'right-[338px] xl:right-[374px]' : 'right-4'
             }`}
           >
@@ -1313,7 +1313,7 @@ export const GameScreen: React.FC = () => {
 
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
               placed immediately above the bottom cards rectangle, right where the Zoom controls were (Zoom controls are now immediately to their right) */}
-          <div className="absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
+          <div className="game-build-controls absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
             <div className="tablet-action-box flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
               {/* 1. Construir (C) */}
               <BuildDrawerMenu
@@ -1411,7 +1411,7 @@ export const GameScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsTabletRightPanelVisible((v) => !v)}
-            className="lg:hidden absolute top-2 right-2 z-30 px-3 py-2 rounded-xl bg-[#1d140e]/95 border border-[#d4af37]/60 text-amber-300 shadow-xl pointer-events-auto flex items-center gap-2 text-xs font-black backdrop-blur-md cursor-pointer active:scale-95 transition"
+            className="game-players-toggle lg:hidden absolute top-2 right-2 z-30 px-3 py-2 rounded-xl bg-[#1d140e]/95 border border-[#d4af37]/60 text-amber-300 shadow-xl pointer-events-auto flex items-center gap-2 text-xs font-black backdrop-blur-md cursor-pointer active:scale-95 transition"
             title="Mostrar u ocultar panel de jugadores y banca"
           >
             <Users className="w-4 h-4" />
@@ -1536,8 +1536,8 @@ export const GameScreen: React.FC = () => {
         <div className="hidden sm:block min-w-[140px]" />
 
         {/* CENTER: Player's Resource Cards Protruding Above the Slim Bottom Rectangle */}
-        <div className="flex-1 flex items-end justify-center min-w-[260px] overflow-visible">
-          <ResourceHandFan
+        <div className="game-resource-hand flex-1 flex items-end justify-center min-w-[260px] overflow-visible">
+          <div className="game-desktop-hand"><ResourceHandFan
             resources={me.resources}
             portRatios={myPortRatios}
             onCardClick={() => {
@@ -1550,11 +1550,15 @@ export const GameScreen: React.FC = () => {
                 setShowTradeModal(true);
               }
             }}
-          />
+          /></div>
+          <div className="game-mobile-hand hidden w-full" aria-label="Tus recursos y mercancías">{(hasCitiesKnights(config) ? ALL_TRADE_CARDS : ALL_RESOURCES).map(r => <button key={r} type="button" title={`${RESOURCE_META[r].name}: ${me.resources[r] || 0}`} onClick={() => { setTradeModalInitialTab('BANK'); setShowTradeModal(true); }} className="flex flex-col items-center gap-0.5 min-w-0 rounded-lg bg-stone-950/60 py-1"><ResourceIcon resource={r} size={20}/><span className="text-xs font-bold">{me.resources[r] || 0}</span></button>)}</div>
         </div>
 
         {/* RIGHT: Pasar Turno / Finalizar Carreteras */}
-        <div className="flex items-center justify-end min-w-[140px]">
+        <div className="game-end-turn flex items-center justify-end min-w-[140px]">
+          <p className="game-mobile-turn hidden text-xs text-stone-400">{isMyTurn ? 'Tu turno' : `Turno de ${activePlayer?.name || 'otro jugador'}`}</p>
+          {isMyTurn && phase === 'SPECIAL_BUILD_PHASE' && !isPausedByHost && <button type="button" className="tablet-end-turn-btn rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold" onClick={() => dispatchAction({ type: 'END_SPECIAL_BUILD' })}>Terminar construcción especial</button>}
+
           {isMyTurn && phase === 'ROAD_BUILDING_DEV' && !isPausedByHost && (
             <button
               type="button"

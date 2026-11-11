@@ -113,6 +113,7 @@ function draw(s: GameState, id: string, branch: ImprovementBranch): void {
   const p = player(s, id);
   if (card.type === 'PRINTER' || card.type === 'CONSTITUTION') {
     p.citiesKnights!.progressPoints++;
+    (p.citiesKnights!.revealedProgressCards ||= []).push(card);
     log(s, `${p.name} recibe ${PROGRESS_CARDS[card.type].name}: +1 PV público.`);
   } else {
     p.citiesKnights!.progressCards.push(card);
@@ -120,10 +121,11 @@ function draw(s: GameState, id: string, branch: ImprovementBranch): void {
   }
 }
 
-export function resolveBarbarianAttack(s: GameState): void {
+export function resolveBarbarianAttack(s: GameState, participating?: Set<string>): void {
   const ck = s.citiesKnights!;
   const barbarians = vertices(s).filter(v => v.building === 'CITY').length;
-  const contributions = Object.fromEntries(s.players.map(p => [p.id, ownKnights(s, p.id).reduce((n, v) => n + (v.knight!.active ? v.knight!.rank : 0), 0)]));
+  const contributes = (v: Vertex) => !!v.knight?.active && (!participating || participating.has(v.id));
+  const contributions = Object.fromEntries(s.players.map(p => [p.id, ownKnights(s, p.id).reduce((n, v) => n + (contributes(v) ? v.knight!.rank : 0), 0)]));
   const defenders = Object.values(contributions).reduce((a, b) => a + b, 0);
   const won = defenders >= barbarians;
   const defenderIds: string[] = [];
@@ -140,7 +142,7 @@ export function resolveBarbarianAttack(s: GameState): void {
       victimIds.push(p.id); ck.choices.push({ kind: 'CITY_LOSS', playerId: p.id });
     }
   }
-  for (const v of vertices(s)) if (v.knight) v.knight.active = false;
+  for (const v of vertices(s)) if (v.knight && contributes(v)) v.knight.active = false;
   ck.barbarianPosition = 0;
   ck.firstAttackResolved = true;
   ck.lastBattle = { barbarians, defenders, contributions, won, defenderIds, victimIds };
@@ -332,7 +334,13 @@ export function rollCitiesKnightsDice(s: GameState, dice: [number, number], even
   s.turn.diceRoll = dice; s.turn.hasRolledDice = true;
   if (event === 'BARBARIAN') {
     ck.barbarianPosition++;
-    if (ck.barbarianPosition >= 7) resolveBarbarianAttack(s);
+    if (ck.barbarianPosition >= 7) {
+      if (s.config.citiesKnightsVoluntaryDefense) {
+        ck.pendingDefense = {};
+        for (const p of inTurnOrder(s)) if (ownKnights(s, p.id).some(v => v.knight!.active)) ck.choices.push({ kind: 'BARBARIAN_DEFENSE', playerId: p.id });
+        if (!ck.choices.length) { delete ck.pendingDefense; resolveBarbarianAttack(s, new Set()); }
+      } else resolveBarbarianAttack(s);
+    }
   } else for (const p of inTurnOrder(s)) {
     const level = p.citiesKnights!.improvements[event];
     if (level > 0 && dice[0] <= level + 1) draw(s, p.id, event);
@@ -430,6 +438,17 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
       const choice = ck.choices[0]; requireRule(choice?.playerId === id && s.phase === 'CK_CHOICE', 'La decisión corresponde a otro jugador.');
       ck.choices.shift();
       switch (choice.kind) {
+        case 'BARBARIAN_DEFENSE': {
+          const ids = action.vertexIds || [];
+          requireRule(ck.pendingDefense && new Set(ids).size === ids.length && ids.every(vid => { const k = s.board.vertices[vid]?.knight; return k?.playerId === id && k.active; }), 'Elige sólo caballeros activos propios para defender.');
+          ck.pendingDefense![id] = ids;
+          if (!ck.choices.some(c => c.kind === 'BARBARIAN_DEFENSE')) {
+            const participating = new Set(Object.values(ck.pendingDefense!).flat());
+            delete ck.pendingDefense;
+            resolveBarbarianAttack(s, participating);
+          }
+          break;
+        }
         case 'CITY_LOSS': loseCity(s, p, action.vertexId); break;
         case 'DEFENDER_CARD': requireRule(CK_BRANCHES.includes(action.branch!), 'Elige un mazo.'); draw(s, id, action.branch!); break;
         case 'AQUEDUCT': requireRule(ALL_RESOURCES.includes(action.resource!) && s.bank[action.resource!] > 0, 'Elige un recurso disponible.'); take(s, p, action.resource!, 1); break;
@@ -493,6 +512,7 @@ export function automaticCKChoice(s: GameState): { playerId: string; action: Gam
   const p = player(s, c.playerId);
   const action: Extract<GameAction, { type: 'RESOLVE_CK_CHOICE' }> = { type: 'RESOLVE_CK_CHOICE' };
   switch (c.kind) {
+    case 'BARBARIAN_DEFENSE': action.vertexIds = ownKnights(s, p.id).filter(v => v.knight!.active).map(v => v.id); break;
     case 'CITY_LOSS': action.vertexId = cities(s, p.id).find(v => !v.metropolis)?.id; break;
     case 'DEFENDER_CARD': action.branch = CK_BRANCHES.find(b => s.citiesKnights!.decks[b].length) || 'SCIENCE'; break;
     case 'AQUEDUCT': action.resource = ALL_RESOURCES.find(r => s.bank[r] > 0); break;
