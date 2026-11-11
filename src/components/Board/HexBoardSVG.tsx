@@ -1,3 +1,4 @@
+import { BRANCH_META } from '../../shared/citiesKnightsConfig';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, ShieldAlert } from 'lucide-react';
@@ -36,6 +37,7 @@ export interface HexBoardSVGProps {
   board: BoardState;
   players: PlayerState[];
   validSettlementIds?: string[];
+  highlightedVertexId?: string | null;
   validCityIds?: string[];
   validRoadIds?: string[];
   validShipIds?: string[];
@@ -60,6 +62,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   board,
   players,
   validSettlementIds = [],
+  highlightedVertexId = null,
   validCityIds = [],
   validRoadIds = [],
   validShipIds = [],
@@ -1096,6 +1099,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             );
           })}
 
+          {board.merchant && board.hexes[board.merchant.hexId] && <g transform={`translate(${board.hexes[board.merchant.hexId].center.x + 26}, ${board.hexes[board.merchant.hexId].center.y - 12})`} pointerEvents="none"><circle r={14} fill="#dbb552" stroke={PLAYER_COLORS[playerMap.get(board.merchant.playerId)?.color || 'WHITE'].primary} strokeWidth={5}/><text textAnchor="middle" y={5} fontSize={16} fill="#332513">M</text><title>Comerciante: {playerMap.get(board.merchant.playerId)?.name}</title></g>}
           {/* 4. VERTICES LAYER (3D Settlements & Cities with Spring Drop Animation) */}
           {vertexList.map((vertex) => {
             const isValidSettlement = validSettlementSet.has(vertex.id);
@@ -1123,6 +1127,13 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   />
                 )}
 
+                {vertex.cityWall && owner && <image href={`/assets/cities-knights/walls/${owner.color.toLowerCase()}.svg`} x={-26} y={-14} width={52} height={38} pointerEvents="none" />}
+                {vertex.knight && (() => {
+                  const kp = playerMap.get(vertex.knight.playerId);
+                  return kp ? <image href={`/assets/cities-knights/knights/${kp.color.toLowerCase()}_${vertex.knight.rank}_${vertex.knight.active ? 'active' : 'inactive'}.svg`} x={-18} y={-22} width={36} height={36} pointerEvents="none"><title>{kp.name}: caballero {vertex.knight.rank}, {vertex.knight.active ? 'activo' : 'inactivo'}</title></image> : null;
+                })()}
+                {vertex.metropolis && <g pointerEvents="none"><image href={`/assets/cities-knights/metropolises/${vertex.metropolis.toLowerCase()}.svg`} x={-24} y={-51} width={48} height={38}/><title>Metrópolis de {BRANCH_META[vertex.metropolis].name} (+2 PV)</title></g>}
+                {highlightedVertexId === vertex.id && <circle r={28} fill="none" stroke="#fde68a" strokeWidth={4} pointerEvents="none"/>}
                 {/* Built 3D Settlement */}
                 {vertex.building === 'SETTLEMENT' && colorCfg && (
                   <g filter={lowEndPcMode ? undefined : 'url(#piece-drop-shadow)'}>

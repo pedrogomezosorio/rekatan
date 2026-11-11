@@ -24,6 +24,7 @@ import {
   autoResolveCurrentTurn,
   createInitialGameState,
   executeBotStepIfNeeded,
+  getDecisionPlayerId,
   refreshTurnDeadline,
 } from '../src/shared/engine/RulesEngine';
 
@@ -308,9 +309,14 @@ async function startServer() {
           socket.emit('ACTION_ERROR', { code: 'ROOM_NOT_FOUND', roomCode, message: 'Sala no encontrada.' });
           return;
         }
+        const session = socketToSession.get(socket.id);
+        if (!session || session.roomCode !== roomCode || session.playerId !== payload.playerId) {
+          socket.emit('ACTION_ERROR', { code: 'PLAYER_SESSION_MISMATCH', message: 'La acción debe corresponder al jugador conectado.' });
+          return;
+        }
         let result: ReturnType<typeof applyGameAction>;
         try {
-          result = applyGameAction(room, payload.playerId, payload.action);
+          result = applyGameAction(room, payload.playerId, payload.action, { random: Math.random, now: Date.now() });
         } catch (error) {
           console.error('[GAME_ACTION]', roomCode, payload.action.type, error);
           socket.emit('ACTION_ERROR', { code: 'ACTION_FAILED', roomCode, message: 'No se pudo aplicar esa opción. Se conserva la sala y el tablero anterior.' });
@@ -435,7 +441,7 @@ async function startServer() {
         room.phase === 'ORDER_ROLL'
           ? room.players.find((p) => p.isBot && !room.turn.orderRolls?.[p.id])
           : undefined;
-      const activePlayer = room.players.find((p) => p.id === room.turn.activePlayerId);
+      const activePlayer = room.players.find((p) => p.id === getDecisionPlayerId(room));
       const shouldRunBotStep =
         Boolean(unrolledBotInOrderPhase) ||
         Boolean(activePlayer && (activePlayer.isBot || activePlayer.status === 'FROZEN_SKIP'));
@@ -461,7 +467,7 @@ async function startServer() {
                 ? currentRoom.players.find(
                     (p) => p.isBot && !currentRoom.turn.orderRolls?.[p.id]
                   )
-                : currentRoom.players.find((p) => p.id === currentRoom.turn.activePlayerId);
+                : currentRoom.players.find((p) => p.id === getDecisionPlayerId(currentRoom));
 
             if (!actingBot) return;
 
@@ -501,7 +507,7 @@ async function startServer() {
             const prevPhase = latestRoom.phase;
             const prevNonce = latestRoom.lastEvent?.nonce;
             const currentActive = latestRoom.players.find(
-              (p) => p.id === latestRoom.turn.activePlayerId
+              (p) => p.id === getDecisionPlayerId(latestRoom)
             );
             const updated =
               latestRoom.phase !== 'ORDER_ROLL' && currentActive?.status === 'FROZEN_SKIP'

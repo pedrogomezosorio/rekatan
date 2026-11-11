@@ -442,10 +442,10 @@ export function getRedNumberConflictHexIds(hexes: Record<string, Hex>): string[]
   return Array.from(conflicts);
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], random: () => number = Math.random): T[] {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
@@ -458,12 +458,13 @@ export function generateSeafarersBoard(
   hexSize: number = DEFAULT_HEX_SIZE,
   playerCount: number = 4,
   randomizeVariableSetup: boolean = false,
-  boardSizeOverride?: SeafarersBoardSize
+  boardSizeOverride?: SeafarersBoardSize,
+  random: () => number = Math.random
 ): BoardState {
   const size = boardSizeOverride || (playerCount <= 3 ? '3P' : playerCount >= 5 ? '5_6P' : '4P');
   const data = getSeafarersScenarioData(scenario, size);
   const freeWorld = scenario === 'NEW_WORLD' || scenario === 'PROCEDURAL_ARCHIPELAGO';
-  const specs = prepareScenarioHexes(data, randomizeVariableSetup || freeWorld, preventAdjacentRedNumbers);
+  const specs = prepareScenarioHexes(data, randomizeVariableSetup || freeWorld, preventAdjacentRedNumbers, random);
   const idOf = (c: { q: number; r: number }) => coordToId(c.q, c.r, -c.q - c.r);
   const hexes: Record<string, Hex> = {};
   for (const spec of specs) {
@@ -516,15 +517,15 @@ export function generateSeafarersBoard(
   };
   if (freeWorld) {
     const types: PortType[] = ['WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE', ...Array<PortType>(5).fill('GENERIC'), ...(size === '5_6P' ? ['SHEEP' as const] : [])];
-    const candidates = shuffled(coastalEdgeIdsOrdered.filter(id => !edges[id].hexIds.some(h => hexes[h]?.terrain === 'FOG')));
-    for (const type of shuffled(types)) {
+    const candidates = shuffled(coastalEdgeIdsOrdered.filter(id => !edges[id].hexIds.some(h => hexes[h]?.terrain === 'FOG')), random);
+    for (const type of shuffled(types, random)) {
       const edgeId = candidates.find(id => edges[id].vertexIds.every(v => !usedPortVertices.has(v)));
       if (!edgeId) throw new Error('No hay suficiente costa para los puertos de Un nuevo mundo.');
       attachPort(edges[edgeId], type);
     }
   } else {
     const types = randomizeVariableSetup && data.variableSetup.shufflePorts
-      ? shuffled(data.ports.map(p => p.type)) : data.ports.map(p => p.type);
+      ? shuffled(data.ports.map(p => p.type), random) : data.ports.map(p => p.type);
     data.ports.forEach((spec, i) => attachPort(portEdge(spec), types[i], coordToId(spec.seaQ, spec.seaR, -spec.seaQ - spec.seaR)));
   }
 
@@ -634,7 +635,8 @@ export function generateBoard(
   seafarersScenario?: SeafarersScenario,
   playerCount: number = 4,
   randomizeVariableSetup: boolean = false,
-  boardSizeOverride?: SeafarersBoardSize
+  boardSizeOverride?: SeafarersBoardSize,
+  random: () => number = Math.random
 ): BoardState {
   if (seafarersScenario) {
     return generateSeafarersBoard(
@@ -643,7 +645,8 @@ export function generateBoard(
       hexSize,
       playerCount,
       randomizeVariableSetup,
-      boardSizeOverride
+      boardSizeOverride,
+      random
     );
   }
 
@@ -691,7 +694,7 @@ export function generateBoard(
       }
     }
 
-    const shuffledTerrains = shuffle(remainingTerrainPool);
+    const shuffledTerrains = shuffle(remainingTerrainPool, random);
 
     // If random desert mode is selected, ensure the desert does not accidentally land in the center
     // so the visual change from "Desierto en el Centro" is immediately distinct and noticeable!
@@ -708,7 +711,7 @@ export function generateBoard(
       }
     }
 
-    const shuffledNumbers = shuffle(numberPool);
+    const shuffledNumbers = shuffle(numberPool, random);
     let numIdx = 0;
     let terrainIdx = 0;
 
@@ -771,7 +774,7 @@ export function generateBoard(
   const { vertices, edges, coastalEdgeIdsOrdered } = buildTopologyFromHexes(hexes, hexSize);
 
   // Place ports evenly along the ordered coastal perimeter edges, ensuring no two ports share a vertex
-  const shuffledPorts = shuffle(portPool);
+  const shuffledPorts = shuffle(portPool, random);
   const ports: PortInfo[] = [];
   const totalCoastal = coastalEdgeIdsOrdered.length;
   const targetPortCount = shuffledPorts.length;

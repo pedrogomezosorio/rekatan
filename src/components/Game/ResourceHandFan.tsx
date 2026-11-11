@@ -1,17 +1,17 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ALL_RESOURCES, RESOURCE_CARD_PATHS, RESOURCE_META } from '../../shared/constants';
-import { ResourceType } from '../../shared/types';
+import { ALL_TRADE_CARDS, RESOURCE_CARD_PATHS, RESOURCE_META } from '../../shared/constants';
+import { CardBundle, TradeCardType } from '../../shared/types';
 
 interface ResourceHandFanProps {
-  resources: Record<ResourceType, number>;
-  portRatios?: Record<ResourceType, 2 | 3 | 4>;
-  onCardClick?: (resource: ResourceType) => void;
+  resources: CardBundle;
+  portRatios?: Partial<Record<TradeCardType, 2 | 3 | 4>>;
+  onCardClick?: (resource: TradeCardType) => void;
 }
 
 interface FanCardItem {
   id: string;
-  resource: ResourceType;
+  resource: TradeCardType;
   stackCount: number;
 }
 
@@ -52,8 +52,8 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
 
   // Build individual physical cards for the fan (caps cleanly at 15 physical cards, stacking extras)
   const fanCards = useMemo<FanCardItem[]>(() => {
-    const rawCards: ResourceType[] = [];
-    for (const res of ALL_RESOURCES) {
+    const rawCards: TradeCardType[] = [];
+    for (const res of ALL_TRADE_CARDS) {
       const count = resources[res] || 0;
       for (let i = 0; i < count; i++) {
         rawCards.push(res);
@@ -70,10 +70,21 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
 
     // If the player hoards >15 cards, group excess so the fan stays crisp and readable
     const grouped: FanCardItem[] = [];
-    for (const res of ALL_RESOURCES) {
+    const types = ALL_TRADE_CARDS.filter(r => (resources[r] || 0) > 0);
+    const slots = new Map(types.map(r => [r, 1]));
+    let remainingSlots = 15 - types.length;
+    while (remainingSlots > 0) {
+      let added = false;
+      for (const r of types) {
+        if (!remainingSlots) break;
+        if (slots.get(r)! < (resources[r] || 0)) { slots.set(r, slots.get(r)! + 1); remainingSlots--; added = true; }
+      }
+      if (!added) break;
+    }
+    for (const res of ALL_TRADE_CARDS) {
       const total = resources[res] || 0;
       if (total === 0) continue;
-      const maxSlotsForType = Math.min(total, 3);
+      const maxSlotsForType = slots.get(res) || 1;
       const baseStack = Math.floor(total / maxSlotsForType);
       const remainder = total % maxSlotsForType;
       for (let i = 0; i < maxSlotsForType; i++) {
@@ -87,7 +98,7 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
     return grouped;
   }, [resources]);
 
-  const totalCards = ALL_RESOURCES.reduce((acc, r) => acc + (resources[r] || 0), 0);
+  const totalCards = ALL_TRADE_CARDS.reduce((acc, r) => acc + (resources[r] || 0), 0);
 
   if (totalCards === 0) {
     return (

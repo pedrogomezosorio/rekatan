@@ -1,3 +1,5 @@
+import type { BoardKnight, CardBundle, CitiesKnightsAction, CitiesKnightsPlayer, CitiesKnightsState, ImprovementBranch, TradeCardType } from './citiesKnightsTypes';
+export type { CommodityType, TradeCardType, CardBundle, ImprovementBranch, EventDie, ProgressCardType, ProgressCard, BoardKnight } from './citiesKnightsTypes';
 export type ResourceType = 'WOOD' | 'BRICK' | 'SHEEP' | 'WHEAT' | 'ORE';
 
 export type TerrainType = ResourceType | 'DESERT' | 'SEA' | 'GOLD' | 'FOG';
@@ -43,6 +45,10 @@ export interface Vertex {
   adjacentVertexIds: string[];
   adjacentEdgeIds: string[];
   building: VertexBuildingType | null;
+  knight?: BoardKnight;
+  cityWall?: boolean;
+  metropolis?: ImprovementBranch;
+  isDowngradedCity?: boolean;
   playerId: string | null;
   port: { type: PortType; ratio: 2 | 3 } | null;
   isLand: boolean;
@@ -83,6 +89,7 @@ export type WonderId =
   | 'GREAT_LIBRARY';
 
 export interface BoardState {
+  merchant?: { playerId: string; hexId: string };
   mode: BoardMode;
   seafarersScenario?: SeafarersScenario;
   seafarersBoardSize?: SeafarersBoardSize;
@@ -237,8 +244,9 @@ export interface PlayerState {
   botDifficulty?: BotDifficulty;
   connected: boolean;
   status: PlayerConnectionStatus;
-  resources: Record<ResourceType, number>;
+  resources: CardBundle;
   devCards: DevCard[];
+  citiesKnights?: CitiesKnightsPlayer;
   knightsPlayed: number;
   longestRoadLength: number;
   longestRoadEdgeIds: string[];
@@ -274,12 +282,14 @@ export type GamePhase =
   | 'ROBBER_MOVE'
   | 'ROBBER_STEAL'
   | 'MAIN_PHASE'
+  | 'CK_CHOICE'
   | 'SPECIAL_BUILD_PHASE'
   | 'ROAD_BUILDING_DEV'
   | 'PAUSED_DISCONNECT'
   | 'GAME_OVER';
 
 export interface TurnState {
+  ckSaboteurDiscard?: boolean;
   turnNumber: number;
   activePlayerId: string;
   setupStepIndex: number;
@@ -312,8 +322,8 @@ export interface TradeOffer {
   id: string;
   fromPlayerId: string;
   targetPlayerId: string | null; // null means open to everyone
-  offer: Record<ResourceType, number>;
-  request: Record<ResourceType, number>;
+  offer: CardBundle;
+  request: CardBundle;
   responses: Record<string, 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COUNTERED'>;
   parentOfferId?: string;
   createdAt: number;
@@ -323,7 +333,7 @@ export interface ResourceFlightEvent {
   id: string;
   hexId: string;
   playerId: string;
-  resource: ResourceType;
+  resource: TradeCardType;
   amount: number;
 }
 
@@ -331,7 +341,7 @@ export interface DiscardAnimationEvent {
   id: string;
   playerId: string;
   playerName: string;
-  discarded: Partial<Record<ResourceType, number>>;
+  discarded: Partial<Record<TradeCardType, number>>;
   mode: 'MANUAL' | 'RANDOM';
 }
 
@@ -339,7 +349,7 @@ export interface RobberStealEvent {
   id: string;
   thiefId: string;
   victimId: string;
-  resource: ResourceType;
+  resource: TradeCardType;
   hexId: string;
 }
 
@@ -352,6 +362,9 @@ export interface GameLogEntry {
 }
 
 export interface GameState {
+  actionTimestamp?: number;
+  logSequence?: number;
+  citiesKnights?: CitiesKnightsState;
   roomCode: string;
   createdAt: number;
   phase: GamePhase;
@@ -359,7 +372,7 @@ export interface GameState {
   board: BoardState;
   players: PlayerState[];
   turn: TurnState;
-  bank: Record<ResourceType, number>;
+  bank: CardBundle;
   devDeck: DevCard[];
   longestRoadPlayerId: string | null;
   largestArmyPlayerId: string | null;
@@ -375,8 +388,8 @@ export interface GameState {
     accepterId: string;
     accepterName: string;
     accepterAvatar: string;
-    offered: Record<ResourceType, number>;
-    requested: Record<ResourceType, number>;
+    offered: CardBundle;
+    requested: CardBundle;
   };
   // Transient animation payloads (incrementing event nonce so frontend animates once per event)
   lastEvent?: {
@@ -424,14 +437,14 @@ export interface GameState {
       accepterId: string;
       accepterName: string;
       accepterAvatar: string;
-      offered: Record<ResourceType, number>;
-      requested: Record<ResourceType, number>;
+      offered: CardBundle;
+      requested: CardBundle;
     };
     bankTradeNotice?: {
       playerName: string;
-      giveResource: ResourceType;
+      giveResource: TradeCardType;
       giveAmount: number;
-      receiveResource: ResourceType;
+      receiveResource: TradeCardType;
       receiveAmount: number;
       ratio: 2 | 3 | 4;
       message: string;
@@ -441,6 +454,7 @@ export interface GameState {
 }
 
 export type GameAction =
+  | CitiesKnightsAction
   | { type: 'UPDATE_CONFIG'; config: Partial<GameConfig> }
   | {
       type: 'GENERATE_BOARD';
@@ -469,7 +483,7 @@ export type GameAction =
   | { type: 'MOVE_SHIP'; fromEdgeId: string; toEdgeId: string }
   | { type: 'UPGRADE_CITY'; vertexId: string }
   | { type: 'ROLL_DICE' }
-  | { type: 'DISCARD_RESOURCES'; resources: Record<ResourceType, number> }
+  | { type: 'DISCARD_RESOURCES'; resources: CardBundle }
   | { type: 'MOVE_ROBBER'; hexId: string }
   | { type: 'MOVE_PIRATE'; hexId: string }
   | { type: 'SET_ROBBER_OR_PIRATE_MODE'; mode: 'ROBBER' | 'PIRATE' }
@@ -486,8 +500,8 @@ export type GameAction =
   | {
       type: 'CREATE_TRADE_OFFER';
       targetPlayerId: string | null;
-      offer: Record<ResourceType, number>;
-      request: Record<ResourceType, number>;
+      offer: CardBundle;
+      request: CardBundle;
       parentOfferId?: string;
     }
   | { type: 'RESPOND_TRADE_OFFER'; offerId: string; response: 'ACCEPT' | 'REJECT' }
@@ -495,9 +509,9 @@ export type GameAction =
   | { type: 'CANCEL_TRADE_OFFER'; offerId: string }
   | {
       type: 'BANK_TRADE';
-      giveResource: ResourceType;
+      giveResource: TradeCardType;
       giveAmount: number;
-      receiveResource: ResourceType;
+      receiveResource: TradeCardType;
       receiveAmount: number;
     }
   | { type: 'END_TURN' }

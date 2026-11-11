@@ -1,3 +1,4 @@
+import { CK_CONFLICTING_SCENARIOS, hasCitiesKnights } from '../../shared/citiesKnightsConfig';
 import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useState } from 'react';
 import {
@@ -74,33 +75,19 @@ export const RoomLobby: React.FC = () => {
 
   const handleSelectExpansion = (expId: ExpansionModule) => {
     if (!isHost) return;
-
     if (expId === 'BASE') {
-      dispatchAction({
-        type: 'UPDATE_CONFIG',
-        config: {
-          enabledExpansions: ['BASE'],
-          expansionModule: 'BASE',
-          victoryPointsTarget: 10,
-          desertInCenter: true,
-        },
-      });
-    } else {
-      dispatchAction({
-        type: 'UPDATE_CONFIG',
-        config: {
-          enabledExpansions: ['BASE', expId],
-          expansionModule: expId,
-          ...(expId === 'SEAFARERS'
-            ? {
-                seafarersScenario: config.seafarersScenario || 'HEADING_FOR_NEW_SHORES',
-                victoryPointsTarget: 13,
-                desertInCenter: false,
-              }
-            : {}),
-        },
-      });
+      dispatchAction({ type: 'UPDATE_CONFIG', config: { enabledExpansions: ['BASE'], expansionModule: 'BASE', victoryPointsTarget: 10, desertInCenter: true } });
+      return;
     }
+    const compatible = expId === 'SEAFARERS' || expId === 'CITIES_AND_KNIGHTS';
+    const selected: ExpansionModule[] = compatible ? enabledExpansions.filter(e => e === 'BASE' || e === 'SEAFARERS' || e === 'CITIES_AND_KNIGHTS') : ['BASE'];
+    const next = selected.includes(expId) ? selected.filter(e => e !== expId) : [...selected, expId];
+    const primary = next.includes('SEAFARERS') ? 'SEAFARERS' : next.includes('CITIES_AND_KNIGHTS') ? 'CITIES_AND_KNIGHTS' : next.find(e => e !== 'BASE') || 'BASE';
+    dispatchAction({ type: 'UPDATE_CONFIG', config: {
+      enabledExpansions: next, expansionModule: primary,
+      ...(primary === 'SEAFARERS' ? { seafarersScenario: config.seafarersScenario || 'HEADING_FOR_NEW_SHORES', desertInCenter: false } : { desertInCenter: true }),
+      ...(next.includes('CITIES_AND_KNIGHTS') ? {} : { victoryPointsTarget: primary === 'BASE' ? 10 : primary === 'SEAFARERS' ? (SEAFARERS_SCENARIOS.find(s => s.id === config.seafarersScenario)?.recommendedVP || 13) : 13 }),
+    } });
   };
 
   const handleSelectScenario = (scenarioId: SeafarersScenario, recommendedVP: number = 13) => {
@@ -109,9 +96,9 @@ export const RoomLobby: React.FC = () => {
       type: 'UPDATE_CONFIG',
       config: {
         expansionModule: 'SEAFARERS',
-        enabledExpansions: ['BASE', 'SEAFARERS'],
+        enabledExpansions: hasCitiesKnights(config) ? ['BASE', 'SEAFARERS', 'CITIES_AND_KNIGHTS'] : ['BASE', 'SEAFARERS'],
         seafarersScenario: scenarioId,
-        victoryPointsTarget: recommendedVP,
+        victoryPointsTarget: recommendedVP + (hasCitiesKnights(config) ? 2 : 0),
         desertInCenter: false,
       },
     });
@@ -172,9 +159,9 @@ export const RoomLobby: React.FC = () => {
           {isHost ? (
             <button
               onClick={() => dispatchAction({ type: 'START_GAME' })}
-              disabled={players.length < 2}
+              disabled={players.length < (hasCitiesKnights(config) ? 3 : 2)}
               className={`px-5 py-2 rounded-xl font-extrabold text-sm flex items-center gap-2 shadow-lg transition cursor-pointer ${
-                players.length >= 2
+                players.length >= (hasCitiesKnights(config) ? 3 : 2)
                   ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
@@ -381,14 +368,14 @@ export const RoomLobby: React.FC = () => {
                 <span>Selector de Juego / Expansión</span>
               </h3>
               <span className="text-[10px] text-slate-400 font-medium">
-                (Máx. 1 expansión o Juego Base)
+                (Navegantes y Ciudades y Caballeros combinables)
               </span>
             </div>
 
+            {hasCitiesKnights(config) && <p className="text-xs text-emerald-200 p-3 border border-emerald-500/30 rounded-xl">Ciudades y Caballeros: poblado + ciudad inicial, 13 PV (escenario +2 con Navegantes), mercancías y progreso. El mapa estándar admite hasta 4; el mapa ampliado hasta 6 y añade la fase especial de construcción.</p>}
             <div className="space-y-2">
               {EXPANSION_CATALOG.map((exp) => {
-                const activeExpansion = enabledExpansions.find((e) => e !== 'BASE') || 'BASE';
-                const checked = exp.id === activeExpansion;
+                const checked = exp.id === 'BASE' ? enabledExpansions.every(e => e === 'BASE') : enabledExpansions.includes(exp.id);
                 return (
                   <div
                     key={exp.id}
@@ -401,6 +388,7 @@ export const RoomLobby: React.FC = () => {
                     <button
                       type="button"
                       disabled={!isHost}
+                      aria-pressed={checked}
                       onClick={() => handleSelectExpansion(exp.id)}
                       className={`w-full flex items-start justify-between gap-3 p-3 text-left transition ${
                         !isHost ? 'cursor-default' : 'cursor-pointer'
@@ -462,13 +450,15 @@ export const RoomLobby: React.FC = () => {
                               </div>
                               <div className="space-y-1">
                                 {catScenarios.map((scen) => {
+                                  const conflictsWithCK = hasCitiesKnights(config) && CK_CONFLICTING_SCENARIOS.includes(scen.id as typeof CK_CONFLICTING_SCENARIOS[number]);
                                   const isScenActive =
                                     (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
                                   return (
                                     <button
                                       key={scen.id}
                                       type="button"
-                                      disabled={!isHost}
+                                      disabled={!isHost || conflictsWithCK}
+                                      title={conflictsWithCK ? "Los PDF no definen cómo sustituir las cartas de desarrollo de este escenario al combinarlo con Ciudades y Caballeros." : undefined}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleSelectScenario(scen.id, scen.recommendedVP);
@@ -488,11 +478,11 @@ export const RoomLobby: React.FC = () => {
                                             {scen.badge}
                                           </span>
                                           <span className="text-[9px] text-amber-300 font-bold ml-auto">
-                                            {scen.recommendedVP} PV
+                                            {scen.recommendedVP + (hasCitiesKnights(config) ? 2 : 0)} PV
                                           </span>
                                         </div>
                                         <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
-                                          {scen.subtitle}
+                                          {conflictsWithCK ? "Requiere Navegantes sin Ciudades y Caballeros: utiliza cartas de desarrollo." : scen.subtitle}
                                         </p>
                                       </div>
 
@@ -1154,7 +1144,7 @@ export const RoomLobby: React.FC = () => {
                 )}
               </div>
               <div className="grid grid-cols-5 gap-1.5">
-                {(config.expansionModule === 'SEAFARERS' ? [10, 12, 13, 14, 15] : [9, 10, 11, 12, 15]).map((pts) => (
+                {(config.expansionModule === 'SEAFARERS' ? [10, 12, 13, 14, 15, 16, 17] : hasCitiesKnights(config) ? [13] : [9, 10, 11, 12, 15]).map((pts) => (
                   <button
                     key={pts}
                     type="button"

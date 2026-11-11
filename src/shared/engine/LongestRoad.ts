@@ -50,7 +50,7 @@ export function calculatePlayerLongestRoad(
     // If we just arrived at currentVertexId via an edge (currentPath.length > 0):
     // 1. Check if an opponent's building blocks continuation through this vertex
     if (currentPath.length > 0) {
-      if (vertex.building !== null && vertex.playerId !== null && vertex.playerId !== playerId) {
+      if (vertex.knight && vertex.knight.playerId !== playerId || vertex.building !== null && vertex.playerId !== null && vertex.playerId !== playerId) {
         return; // Blocked by enemy settlement/city!
       }
       // 2. If this vertex was already used as an intermediate vertex (or we looped back to start), we cannot continue further through it

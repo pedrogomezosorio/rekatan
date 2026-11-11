@@ -7,10 +7,10 @@ const adjacent = (a: RawHexSpec, b: RawHexSpec) =>
   Math.max(Math.abs(a.q - b.q), Math.abs(a.r - b.r), Math.abs(a.q + a.r - b.q - b.r)) === 1;
 const isRed = (n: number | null) => n === 6 || n === 8;
 
-export function shuffled<T>(items: readonly T[]): T[] {
+export function shuffled<T>(items: readonly T[], random: () => number = Math.random): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
@@ -35,7 +35,7 @@ export function replaceDeserts(hexes: RawHexSpec[]): RawHexSpec[] {
   return copy;
 }
 
-function assignNumbers(group: RawHexSpec[], previous: RawHexSpec[], outside: RawHexSpec[], rule: VariableHexGroup, preventRed: boolean): boolean {
+function assignNumbers(group: RawHexSpec[], previous: RawHexSpec[], outside: RawHexSpec[], rule: VariableHexGroup, preventRed: boolean, random: () => number): boolean {
   const slots = group.filter(isLand);
   const pool = previous.flatMap(h => h.num === null ? [] : [h.num]);
   if (slots.length !== pool.length) throw new Error('El grupo de montaje debe conservar sus terrenos productivos y fichas.');
@@ -51,10 +51,10 @@ function assignNumbers(group: RawHexSpec[], previous: RawHexSpec[], outside: Raw
     !forbidden.get(key(h))?.has(n) && !(rule.forbidRedOnGold && h.terrain === 'GOLD' && isRed(n)) &&
     !(rule.forbidNumbersOnTerrains || []).some(restriction => restriction.terrains.includes(h.terrain) && restriction.numbers.includes(n));
   const prevent = rule.preventRedAdjacent ?? preventRed;
-  const reds = shuffled(pool.filter(isRed));
-  const nonReds = shuffled(pool.filter(n => !isRed(n)));
+  const reds = shuffled(pool.filter(isRed), random);
+  const nonReds = shuffled(pool.filter(n => !isRed(n)), random);
   const fixedReds = prevent ? outside.filter(h => isRed(h.num)) : [];
-  const candidates = shuffled(slots.filter(h => allowed(h, 6) && allowed(h, 8) && !fixedReds.some(other => adjacent(h, other))));
+  const candidates = shuffled(slots.filter(h => allowed(h, 6) && allowed(h, 8) && !fixedReds.some(other => adjacent(h, other))), random);
   const chosen: RawHexSpec[] = [];
   let visits = 0;
   const chooseReds = (start: number): boolean => {
@@ -73,7 +73,7 @@ function assignNumbers(group: RawHexSpec[], previous: RawHexSpec[], outside: Raw
   if (!chooseReds(0)) return false;
   group.forEach(h => { h.num = null; });
   chosen.forEach((h, i) => { h.num = reds[i]; });
-  const remaining = shuffled(slots.filter(h => !chosen.includes(h)));
+  const remaining = shuffled(slots.filter(h => !chosen.includes(h)), random);
   // Place the most constrained values first (e.g. 5/9 at the eastern tip).
   nonReds.sort((a, b) => remaining.filter(h => allowed(h, a)).length - remaining.filter(h => allowed(h, b)).length);
   for (const number of nonReds) {
@@ -84,7 +84,7 @@ function assignNumbers(group: RawHexSpec[], previous: RawHexSpec[], outside: Raw
   return true;
 }
 
-export function prepareScenarioHexes(data: ScenarioBoardData, randomize: boolean, preventRed: boolean): RawHexSpec[] {
+export function prepareScenarioHexes(data: ScenarioBoardData, randomize: boolean, preventRed: boolean, random: () => number = Math.random): RawHexSpec[] {
   let hexes = replaceDeserts(data.hexes);
   if (!randomize) return hexes;
   for (const rule of data.variableSetup.groups) {
@@ -93,9 +93,9 @@ export function prepareScenarioHexes(data: ScenarioBoardData, randomize: boolean
     const outside = hexes.filter(h => !positions.has(key(h)));
     let assigned: RawHexSpec[] | undefined;
     for (let attempt = 0; attempt < 100 && !assigned; attempt++) {
-      const terrains = rule.shuffleTerrains ? shuffled(original.map(h => h.terrain)) : original.map(h => h.terrain);
+      const terrains = rule.shuffleTerrains ? shuffled(original.map(h => h.terrain), random) : original.map(h => h.terrain);
       const candidate = original.map((h, i) => ({ ...h, terrain: terrains[i] }));
-      if (!rule.shuffleNumbers || assignNumbers(candidate, original, outside, rule, preventRed)) assigned = candidate;
+      if (!rule.shuffleNumbers || assignNumbers(candidate, original, outside, rule, preventRed, random)) assigned = candidate;
     }
     if (!assigned) throw new Error(`No se pudo obtener un montaje válido para ${data.scenarioId}.`);
     const changed = new Map(assigned.map(h => [key(h), h]));

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import {
   ALL_RESOURCES,
+  ALL_TRADE_CARDS,
   countTotalResources,
   createEmptyResources,
   getDevCardImagePath,
@@ -36,6 +37,8 @@ import {
   PlayerState,
   PortType,
   ResourceType,
+  CardBundle,
+  TradeCardType,
   TradeOffer,
 } from '../../shared/types';
 import {
@@ -634,16 +637,16 @@ export const ActiveTradeFloatingBanner: React.FC<{
 // 1. MANDATORY ROBBER DISCARD MODAL (MANUAL MODE - VISUAL CLICKABLE CARDS)
 export const RobberDiscardModal: React.FC<{
   me: PlayerState;
-  onDiscard: (resources: Record<ResourceType, number>) => void;
+  onDiscard: (resources: CardBundle) => void;
 }> = ({ me, onDiscard }) => {
-  const [selected, setSelected] = useState<Record<ResourceType, number>>(createEmptyResources);
+  const [selected, setSelected] = useState<CardBundle>(createEmptyResources);
   const currentSum = countTotalResources(selected);
   const target = me.mustDiscardCount;
 
-  const adjust = (res: ResourceType, delta: number) => {
+  const adjust = (res: TradeCardType, delta: number) => {
     setSelected((prev) => {
-      const nextVal = prev[res] + delta;
-      if (nextVal < 0 || nextVal > me.resources[res]) return prev;
+      const nextVal = (prev[res] || 0) + delta;
+      if (nextVal < 0 || nextVal > (me.resources[res] || 0)) return prev;
       if (delta > 0 && currentSum >= target) return prev;
       return { ...prev, [res]: nextVal };
     });
@@ -665,19 +668,19 @@ export const RobberDiscardModal: React.FC<{
           <ShieldAlert className="w-7 h-7 shrink-0" />
           <div>
             <h3 className="font-display text-lg font-extrabold text-amber-100">
-              ¡Salió un 7! Tributo al Ladrón
+              Descarte obligatorio
             </h3>
             <p className="text-xs text-stone-300">
-              Tienes más de 7 cartas en mano. Haz clic en tus cartas para seleccionar{' '}
+              Tu mano supera el límite permitido por tus murallas. Haz clic en tus cartas para seleccionar{' '}
               <strong className="text-red-400">{target} cartas</strong> a descartar.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-5 gap-2">
-          {ALL_RESOURCES.map((res) => {
-            const owned = me.resources[res];
-            const picked = selected[res];
+          {(me.citiesKnights ? ALL_TRADE_CARDS : ALL_RESOURCES).map((res) => {
+            const owned = (me.resources[res] || 0);
+            const picked = selected[res] || 0;
             const meta = RESOURCE_META[res];
             return (
               <div
@@ -869,15 +872,16 @@ export const TradeModal: React.FC<{
   onClose: () => void;
   dispatchAction: (action: GameAction) => void;
 }> = ({ gameState, me, initialTab = 'BANK', onClose, dispatchAction }) => {
+  const tradeCards = me.citiesKnights ? ALL_TRADE_CARDS : ALL_RESOURCES;
   const [tab, setTab] = useState<'PLAYERS' | 'BANK'>(initialTab);
-  const [offer, setOffer] = useState<Record<ResourceType, number>>(createEmptyResources);
-  const [request, setRequest] = useState<Record<ResourceType, number>>(createEmptyResources);
+  const [offer, setOffer] = useState<CardBundle>(createEmptyResources);
+  const [request, setRequest] = useState<CardBundle>(createEmptyResources);
   const [targetPlayerId, setTargetPlayerId] = useState<string | null>(null);
   const [parentOfferId, setParentOfferId] = useState<string | undefined>(undefined);
 
   // Maritime Bank / Port trade ("Quemar Cartas") states
-  const [giveRes, setGiveRes] = useState<ResourceType>('WOOD');
-  const [receiveRes, setReceiveRes] = useState<ResourceType>('WHEAT');
+  const [giveRes, setGiveRes] = useState<TradeCardType>('WOOD');
+  const [receiveRes, setReceiveRes] = useState<TradeCardType>('WHEAT');
   const [receiveMultiple, setReceiveMultiple] = useState<number>(1);
 
   const ratios = getPlayerBankTradeRatios(gameState, me.id);
@@ -896,31 +900,31 @@ export const TradeModal: React.FC<{
   }, [gameState.board.vertices, me.id]);
 
   // Add/Remove 1 card by clicking directly on visual cards!
-  const addOfferCard = (res: ResourceType) => {
+  const addOfferCard = (res: TradeCardType) => {
     setOffer((prev) => {
-      if (prev[res] >= me.resources[res]) return prev;
-      return { ...prev, [res]: prev[res] + 1 };
+      if ((prev[res] || 0) >= (me.resources[res] || 0)) return prev;
+      return { ...prev, [res]: (prev[res] || 0) + 1 };
     });
   };
 
-  const removeOfferCard = (res: ResourceType) => {
+  const removeOfferCard = (res: TradeCardType) => {
     setOffer((prev) => {
-      if (prev[res] <= 0) return prev;
-      return { ...prev, [res]: prev[res] - 1 };
+      if ((prev[res] || 0) <= 0) return prev;
+      return { ...prev, [res]: (prev[res] || 0) - 1 };
     });
   };
 
-  const addRequestCard = (res: ResourceType) => {
+  const addRequestCard = (res: TradeCardType) => {
     setRequest((prev) => {
-      if (prev[res] >= 19) return prev;
-      return { ...prev, [res]: prev[res] + 1 };
+      if ((prev[res] || 0) >= 19) return prev;
+      return { ...prev, [res]: (prev[res] || 0) + 1 };
     });
   };
 
-  const removeRequestCard = (res: ResourceType) => {
+  const removeRequestCard = (res: TradeCardType) => {
     setRequest((prev) => {
-      if (prev[res] <= 0) return prev;
-      return { ...prev, [res]: prev[res] - 1 };
+      if ((prev[res] || 0) <= 0) return prev;
+      return { ...prev, [res]: (prev[res] || 0) - 1 };
     });
   };
 
@@ -939,9 +943,9 @@ export const TradeModal: React.FC<{
   };
 
   const handlePrepareCounterOffer = (existingOffer: TradeOffer) => {
-    const counterGive = createEmptyResources();
-    for (const r of ALL_RESOURCES) {
-      counterGive[r] = Math.min(me.resources[r], existingOffer.request[r] || 0);
+    const counterGive: CardBundle = createEmptyResources();
+    for (const r of tradeCards) {
+      counterGive[r] = Math.min((me.resources[r] || 0), (existingOffer.request[r] || 0) || 0);
     }
     setOffer(counterGive);
     setRequest({ ...existingOffer.offer });
@@ -954,8 +958,8 @@ export const TradeModal: React.FC<{
   const canExecuteBankTrade =
     tradePermission.allowed &&
     giveRes !== receiveRes &&
-    me.resources[giveRes] >= requiredGiveAmount &&
-    gameState.bank[receiveRes] >= receiveMultiple;
+    (me.resources[giveRes] || 0) >= requiredGiveAmount &&
+    (gameState.bank[receiveRes] || 0) >= receiveMultiple;
 
   const handleBankTrade = () => {
     if (!canExecuteBankTrade) return;
@@ -1077,11 +1081,11 @@ export const TradeModal: React.FC<{
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-bold text-emerald-200">
                           <span>Da:</span>
-                          {ALL_RESOURCES.map(
+                          {tradeCards.map(
                             (r) =>
-                              tOffer.offer[r] > 0 && (
+                              (tOffer.offer[r] || 0) > 0 && (
                                 <span key={r} className="inline-flex items-center gap-0.5">
-                                  <span>{tOffer.offer[r]}x</span>
+                                  <span>{(tOffer.offer[r] || 0)}x</span>
                                   <ResourceIcon resource={r} size={13} />
                                 </span>
                               )
@@ -1090,11 +1094,11 @@ export const TradeModal: React.FC<{
                         <ArrowLeftRight className="w-4 h-4 text-amber-400" />
                         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-950/60 border border-amber-500/40 text-xs font-bold text-amber-200">
                           <span>Pide:</span>
-                          {ALL_RESOURCES.map(
+                          {tradeCards.map(
                             (r) =>
-                              tOffer.request[r] > 0 && (
+                              (tOffer.request[r] || 0) > 0 && (
                                 <span key={r} className="inline-flex items-center gap-0.5">
-                                  <span>{tOffer.request[r]}x</span>
+                                  <span>{(tOffer.request[r] || 0)}x</span>
                                   <ResourceIcon resource={r} size={13} />
                                 </span>
                               )
@@ -1176,9 +1180,9 @@ export const TradeModal: React.FC<{
                       Toca las cartas de abajo para añadir lo que entregas...
                     </span>
                   ) : (
-                    ALL_RESOURCES.map(
+                    tradeCards.map(
                       (r) =>
-                        offer[r] > 0 && (
+                        (offer[r] || 0) > 0 && (
                           <button
                             key={r}
                             type="button"
@@ -1188,7 +1192,7 @@ export const TradeModal: React.FC<{
                           >
                             <ResourceIcon resource={r} size={15} />
                             <span>
-                              {offer[r]}x {RESOURCE_META[r].name}
+                              {(offer[r] || 0)}x {RESOURCE_META[r].name}
                             </span>
                           </button>
                         )
@@ -1198,8 +1202,8 @@ export const TradeModal: React.FC<{
 
                 {/* Clickable Hand Resource Cards */}
                 <div className="grid grid-cols-5 gap-1.5">
-                  {ALL_RESOURCES.map((r) => {
-                    const remainingInHand = me.resources[r] - offer[r];
+                  {tradeCards.map((r) => {
+                    const remainingInHand = (me.resources[r] || 0) - (offer[r] || 0);
                     return (
                       <button
                         key={r}
@@ -1247,9 +1251,9 @@ export const TradeModal: React.FC<{
                       Toca los recursos de abajo para pedir a cambio...
                     </span>
                   ) : (
-                    ALL_RESOURCES.map(
+                    tradeCards.map(
                       (r) =>
-                        request[r] > 0 && (
+                        (request[r] || 0) > 0 && (
                           <button
                             key={r}
                             type="button"
@@ -1259,7 +1263,7 @@ export const TradeModal: React.FC<{
                           >
                             <ResourceIcon resource={r} size={15} />
                             <span>
-                              {request[r]}x {RESOURCE_META[r].name}
+                              {(request[r] || 0)}x {RESOURCE_META[r].name}
                             </span>
                           </button>
                         )
@@ -1269,7 +1273,7 @@ export const TradeModal: React.FC<{
 
                 {/* Clickable Desired Resource Cards */}
                 <div className="grid grid-cols-5 gap-1.5">
-                  {ALL_RESOURCES.map((r) => (
+                  {tradeCards.map((r) => (
                     <button
                       key={r}
                       type="button"
@@ -1373,9 +1377,9 @@ export const TradeModal: React.FC<{
                 1. Elige qué recurso de tu mano quieres QUEMAR:
               </label>
               <div className="grid grid-cols-5 gap-2">
-                {ALL_RESOURCES.map((r) => {
+                {tradeCards.map((r) => {
                   const needed = ratios[r] * receiveMultiple;
-                  const canAfford = me.resources[r] >= needed;
+                  const canAfford = (me.resources[r] || 0) >= needed;
                   const isSelected = giveRes === r;
                   return (
                     <button
@@ -1390,7 +1394,7 @@ export const TradeModal: React.FC<{
                     >
                       <ResourceIcon resource={r} size={30} />
                       <span className="text-xs font-bold">{RESOURCE_META[r].name}</span>
-                      <span className="text-[11px] text-stone-400">Tienes: {me.resources[r]}</span>
+                      <span className="text-[11px] text-stone-400">Tienes: {(me.resources[r] || 0)}</span>
                       <span
                         className={`mt-1 px-2 py-0.5 rounded-lg text-[10px] font-black ${
                           canAfford
@@ -1432,7 +1436,7 @@ export const TradeModal: React.FC<{
               </div>
 
               <div className="grid grid-cols-5 gap-2">
-                {ALL_RESOURCES.map((r) => {
+                {tradeCards.map((r) => {
                   const isSelected = receiveRes === r;
                   return (
                     <button

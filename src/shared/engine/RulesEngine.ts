@@ -1,7 +1,11 @@
+import { applyCitiesKnightsAction, automaticCKChoice, citiesKnightsBotActions, cityCost, initializeCitiesKnights, isRobberUnlocked, queueAqueduct, produceCitiesKnightsResources } from './CitiesAndKnights';
+import { hasCitiesKnights, COMMODITIES, BRANCH_META, safeHandLimit, CK_CONFLICTING_SCENARIOS } from '../citiesKnightsConfig';
+import type { CardBundle, RuleContext } from '../citiesKnightsTypes';
 import { getRoomPlayerLimit, SEAFARERS_PLAYER_LIMITS } from '../seafarersConfig';
 import { shuffled } from './seafarersSetup';
 import {
   ALL_RESOURCES,
+  ALL_TRADE_CARDS,
   AVATAR_LIST,
   BOT_AVATAR_LIST,
   BUILDING_COSTS,
@@ -10,6 +14,7 @@ import {
   DEFAULT_GAME_CONFIG,
   PLAYER_COLORS,
   RESOURCE_META,
+  SEAFARERS_SCENARIOS,
   TERRAIN_META,
   getWonderStageCost,
   WONDERS_CATALOG,
@@ -32,6 +37,7 @@ import {
   PortType,
   ResourceFlightEvent,
   ResourceType,
+  TradeCardType,
   TerrainType,
   TradeOffer,
   WonderId,
@@ -54,7 +60,7 @@ const VP_CARD_TITLES = [
   'Gran Catedral',
 ];
 
-function createDevDeck(isExpansion56: boolean = false): DevCard[] {
+function createDevDeck(isExpansion56: boolean = false, random: () => number = Math.random): DevCard[] {
   const specs: Array<{ type: DevCardType; title: string; count: number }> = [
     { type: 'KNIGHT', title: 'Caballero', count: isExpansion56 ? 20 : 14 },
     { type: 'VICTORY_POINT', title: 'Punto de Victoria', count: 5 },
@@ -85,7 +91,7 @@ function createDevDeck(isExpansion56: boolean = false): DevCard[] {
 
   // Shuffle deck
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
 
@@ -179,9 +185,10 @@ export function addLog(
   type: GameLogEntry['type'] = 'INFO',
   playerId?: string
 ): void {
+  state.logSequence = (state.logSequence || 0) + 1;
   state.logs.unshift({
-    id: `LOG_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: Date.now(),
+    id: `LOG_${state.actionTimestamp ?? state.createdAt}_${state.logSequence}`,
+    timestamp: state.actionTimestamp ?? Date.now(),
     message,
     type,
     playerId,
@@ -192,24 +199,26 @@ export function addLog(
 }
 
 export function hasResources(
-  hand: Record<ResourceType, number>,
-  cost: Record<ResourceType, number>
+  hand: CardBundle,
+  cost: CardBundle
 ): boolean {
-  for (const r of ALL_RESOURCES) {
-    if ((hand[r] || 0) < (cost[r] || 0)) return false;
+  if (Object.keys(cost).some(r => !ALL_TRADE_CARDS.includes(r as TradeCardType))) return false;
+  for (const r of ALL_TRADE_CARDS) {
+    if (!Number.isInteger(cost[r] ?? 0) || (cost[r] || 0) < 0 || (hand[r] || 0) < (cost[r] || 0)) return false;
   }
   return true;
 }
 
 export function deductResources(
-  hand: Record<ResourceType, number>,
-  bank: Record<ResourceType, number>,
-  cost: Record<ResourceType, number>
+  hand: CardBundle,
+  bank: CardBundle,
+  cost: CardBundle
 ): void {
-  for (const r of ALL_RESOURCES) {
+  for (const r of ALL_TRADE_CARDS) {
     const amt = cost[r] || 0;
-    hand[r] -= amt;
-    bank[r] += amt;
+    if (!amt) continue;
+    hand[r] = (hand[r] || 0) - amt;
+    bank[r] = (bank[r] || 0) + amt;
   }
 }
 
@@ -242,6 +251,11 @@ export function recalculateVictoryPoints(state: GameState): void {
       publicVP += Math.floor(p.clothBales / 2);
     }
 
+    if (p.citiesKnights) {
+      publicVP += p.citiesKnights.defenderPoints + p.citiesKnights.progressPoints;
+      publicVP += Object.values(state.board.vertices).filter(v => v.playerId === p.id && v.metropolis && v.building === 'CITY').length * 2;
+      if (state.board.merchant?.playerId === p.id) publicVP++;
+    }
     const hiddenVP = p.devCards.filter((c) => c.type === 'VICTORY_POINT').length;
 
     p.publicVictoryPoints = publicVP;
@@ -249,7 +263,7 @@ export function recalculateVictoryPoints(state: GameState): void {
   }
 
   // Official Victory Conditions (adapted per Navegantes scenario)
-  if (state.phase !== 'LOBBY' && state.phase !== 'GAME_OVER') {
+  if (state.phase !== 'LOBBY' && state.phase !== 'GAME_OVER' && state.phase !== 'SPECIAL_BUILD_PHASE' && !state.citiesKnights?.specialBuild && !state.citiesKnights?.choices.length && !state.citiesKnights?.pendingDice) {
     const activePlayer = state.players.find((p) => p.id === state.turn.activePlayerId);
 
     // Escenario 8: Las maravillas catanas — Victoria instantánea al completar Fase 4
@@ -324,6 +338,7 @@ export function recalculateVictoryPoints(state: GameState): void {
 }
 
 export function updateLargestArmyAward(state: GameState): void {
+  if (hasCitiesKnights(state.config)) { state.largestArmyPlayerId = null; return; }
   let currentHolder = state.players.find((p) => p.id === state.largestArmyPlayerId) || null;
   let currentMax = currentHolder ? currentHolder.knightsPlayed : 2; // Minimum 3 knights required
 
@@ -357,8 +372,9 @@ export function updateLargestArmyAward(state: GameState): void {
 export function getPlayerBankTradeRatios(
   state: GameState,
   playerId: string
-): Record<ResourceType, 2 | 3 | 4> {
-  const ratios: Record<ResourceType, 2 | 3 | 4> = {
+): Record<TradeCardType, 2 | 3 | 4> {
+  const ratios: Record<TradeCardType, 2 | 3 | 4> = {
+    PAPER: 4, CLOTH: 4, COIN: 4,
     WOOD: 4,
     BRICK: 4,
     SHEEP: 4,
@@ -369,7 +385,7 @@ export function getPlayerBankTradeRatios(
   for (const v of Object.values(state.board.vertices)) {
     if (v.playerId === playerId && v.building !== null && v.port) {
       if (v.port.type === 'GENERIC') {
-        for (const r of ALL_RESOURCES) {
+        for (const r of ALL_TRADE_CARDS) {
           if (ratios[r] > 3) ratios[r] = 3;
         }
       } else {
@@ -378,6 +394,13 @@ export function getPlayerBankTradeRatios(
     }
   }
 
+  if (hasCitiesKnights(state.config)) {
+    const p = state.players.find(p => p.id === playerId);
+    if ((p?.citiesKnights?.improvements.TRADE || 0) >= 3) for (const r of COMMODITIES) ratios[r] = 2;
+    const m = state.board.merchant;
+    if (m?.playerId === playerId) ratios[state.board.hexes[m.hexId].terrain as ResourceType] = 2;
+    if (state.turn.activePlayerId === playerId) for (const r of state.citiesKnights?.turnEffects?.fleet || []) ratios[r] = 2;
+  }
   return ratios;
 }
 
@@ -446,7 +469,7 @@ export function canSpendOrBuildThisTurn(
       reason: 'Primero debes lanzar los dados obligatoriamente antes de construir.',
     };
   }
-  if (state.phase !== 'MAIN_PHASE') {
+  if (state.phase !== 'MAIN_PHASE' && state.phase !== 'SPECIAL_BUILD_PHASE') {
     return { allowed: false, reason: 'Solo puedes construir en la fase principal de tu turno.' };
   }
   if (state.turn.activePlayerId !== playerId) {
@@ -503,7 +526,7 @@ export function canBuildSettlement(
     state.phase === 'SETUP_SETTLEMENT_1' ||
     state.phase === 'SETUP_SETTLEMENT_2' ||
     state.phase === 'SETUP_SETTLEMENT_3';
-  const isMain = state.phase === 'MAIN_PHASE';
+  const isMain = state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE';
 
   if (!isSetup && !isMain) {
     return { allowed: false, reason: 'Fase inválida para colocar un poblado.' };
@@ -515,7 +538,7 @@ export function canBuildSettlement(
   }
 
   const v = state.board.vertices[vertexId];
-  if (!v || !v.isLand || v.building !== null) {
+  if (!v || !v.isLand || v.building !== null || v.knight) {
     return { allowed: false, reason: 'Intersección inválida u ocupada.' };
   }
 
@@ -673,7 +696,7 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
     state.phase === 'SETUP_ROAD_2' ||
     state.phase === 'SETUP_ROAD_3';
   const isFreeDev = state.phase === 'ROAD_BUILDING_DEV';
-  const isMain = state.phase === 'MAIN_PHASE';
+  const isMain = state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE';
 
   if (!isSetup && !isFreeDev && !isMain) return [];
 
@@ -713,7 +736,7 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
       const v = state.board.vertices[vId];
       if (!v) return false;
       if (v.playerId === playerId && v.building !== null) return true;
-      if (v.playerId !== null && v.playerId !== playerId && v.building !== null) {
+      if (v.knight && v.knight.playerId !== playerId || v.playerId !== null && v.playerId !== playerId && v.building !== null) {
         return false; // Blocked by opponent's settlement/city
       }
       return v.adjacentEdgeIds.some((adjEdgeId) => {
@@ -744,7 +767,7 @@ export function canBuildShip(
     state.phase === 'SETUP_ROAD_1' ||
     state.phase === 'SETUP_ROAD_2' ||
     state.phase === 'SETUP_ROAD_3';
-  const isMain = state.phase === 'MAIN_PHASE';
+  const isMain = state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE';
   const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
 
   if (!isSetup && !isMain && !isRoadBuilding) {
@@ -804,7 +827,7 @@ export function canBuildShip(
     const v = state.board.vertices[vId];
     if (!v) return false;
     if (v.playerId === playerId && v.building !== null) return true;
-    if (v.playerId !== null && v.playerId !== playerId && v.building !== null) {
+    if (v.knight && v.knight.playerId !== playerId || v.playerId !== null && v.playerId !== playerId && v.building !== null) {
       return false; // Opponent building blocks continuation
     }
     return v.adjacentEdgeIds.some((adjEdgeId) => {
@@ -834,7 +857,7 @@ export function getValidShipEdges(state: GameState, playerId: string): string[] 
     state.phase === 'SETUP_ROAD_1' ||
     state.phase === 'SETUP_ROAD_2' ||
     state.phase === 'SETUP_ROAD_3';
-  const isMain = state.phase === 'MAIN_PHASE';
+  const isMain = state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE';
   const isRoadBuilding = state.phase === 'ROAD_BUILDING_DEV';
   if (!isSetup && !isMain && !isRoadBuilding) return [];
 
@@ -888,6 +911,21 @@ export function getMovableShipEdges(state: GameState, playerId: string): string[
   for (const edge of Object.values(state.board.edges)) {
     if (edge.building !== 'SHIP' || edge.playerId !== playerId) continue;
 
+    if (edge.vertexIds.some(id => state.board.vertices[id].knight && state.board.vertices[id].knight!.playerId !== playerId)) continue;
+    // An enemy knight immobilizes the whole connected shipping route.
+    if (Object.values(state.board.vertices).some(v => v.knight)) {
+      const queue = [edge.id]; const seen = new Set<string>(); let interrupted = false;
+      while (queue.length && !interrupted) {
+        const routeEdge = state.board.edges[queue.pop()!]; if (seen.has(routeEdge.id)) continue; seen.add(routeEdge.id);
+        for (const id of routeEdge.vertexIds) {
+          const v = state.board.vertices[id];
+          if (v.knight && v.knight.playerId !== playerId) { interrupted = true; break; }
+          if (v.building) continue;
+          for (const eid of v.adjacentEdgeIds) if (!seen.has(eid) && state.board.edges[eid].building === 'SHIP' && state.board.edges[eid].playerId === playerId) queue.push(eid);
+        }
+      }
+      if (interrupted) continue;
+    }
     // Pirate blocks moving adjacent ships!
     if (state.board.pirateHexId && edge.hexIds.includes(state.board.pirateHexId)) {
       continue;
@@ -900,6 +938,7 @@ export function getMovableShipEdges(state: GameState, playerId: string): string[
     const v2 = state.board.vertices[v2Id];
 
     const v1HasOtherShipOrBuilding =
+      (v1?.knight?.playerId === playerId) ||
       (v1?.playerId === playerId && v1?.building !== null) ||
       (v1?.adjacentEdgeIds.some(
         (adjId) =>
@@ -909,6 +948,7 @@ export function getMovableShipEdges(state: GameState, playerId: string): string[
       ) ?? false);
 
     const v2HasOtherShipOrBuilding =
+      (v2?.knight?.playerId === playerId) ||
       (v2?.playerId === playerId && v2?.building !== null) ||
       (v2?.adjacentEdgeIds.some(
         (adjId) =>
@@ -1020,20 +1060,22 @@ export function getVertexIslandId(
  * Returns all valid vertex IDs where `playerId` can upgrade a Settlement to a City.
  */
 export function getValidCityVertices(state: GameState, playerId: string): string[] {
-  if (state.phase !== 'MAIN_PHASE' || state.turn.activePlayerId !== playerId) {
+  if (state.phase !== 'MAIN_PHASE' && state.phase !== 'SPECIAL_BUILD_PHASE' || state.turn.activePlayerId !== playerId) {
     return [];
   }
 
   const player = state.players.find((p) => p.id === playerId);
-  if (!player || player.citiesLeft <= 0) return [];
+  if (!player) return [];
+  const fallen = Object.values(state.board.vertices).filter(v => v.playerId === playerId && v.isDowngradedCity);
+  if (player.citiesLeft <= 0 && !fallen.length) return [];
 
   const check = canSpendOrBuildThisTurn(state, playerId, true);
   if (!check.allowed) return [];
 
-  if (!hasResources(player.resources, BUILDING_COSTS.CITY)) return [];
+  if (!hasResources(player.resources, cityCost(state))) return [];
 
   return Object.values(state.board.vertices)
-    .filter((v) => v.playerId === playerId && v.building === 'SETTLEMENT')
+    .filter((v) => v.playerId === playerId && v.building === 'SETTLEMENT' && (!fallen.length || v.isDowngradedCity))
     .map((v) => v.id);
 }
 
@@ -1041,6 +1083,7 @@ export function canBuyDevCard(
   state: GameState,
   playerId: string
 ): { allowed: boolean; reason?: string } {
+  if (hasCitiesKnights(state.config)) return { allowed: false, reason: 'Ciudades y Caballeros utiliza cartas de progreso.' };
   const check = canSpendOrBuildThisTurn(state, playerId, false);
   if (!check.allowed) return check;
 
@@ -1056,7 +1099,7 @@ export function canBuyDevCard(
   return { allowed: true };
 }
 
-export function refreshTurnDeadline(state: GameState): void {
+export function refreshTurnDeadline(state: GameState, now: number = Date.now()): void {
   if (state.turn.isPausedByHost) {
     state.turn.turnDeadlineMs = null;
     return;
@@ -1067,7 +1110,7 @@ export function refreshTurnDeadline(state: GameState): void {
     state.phase !== 'GAME_OVER' &&
     state.phase !== 'PAUSED_DISCONNECT'
   ) {
-    state.turn.turnDeadlineMs = Date.now() + state.config.turnTimerSeconds * 1000;
+    state.turn.turnDeadlineMs = now + state.config.turnTimerSeconds * 1000;
   } else {
     state.turn.turnDeadlineMs = null;
   }
@@ -1109,6 +1152,7 @@ function advanceToNextTurn(state: GameState): void {
   state.turn.turnNumber += 1;
   state.turn.activePlayerId = nextPlayer.id;
   state.turn.diceRoll = null;
+  if (state.citiesKnights) state.citiesKnights.eventDie = null;
   state.turn.hasRolledDice = false;
   state.turn.devCardPlayedThisTurn = false;
   state.turn.infrastructureBuiltThisTurn = 0;
@@ -1124,7 +1168,8 @@ function advanceToNextTurn(state: GameState): void {
     p.hasMovedShipThisTurn = false;
   }
   state.phase = 'WAITING_FOR_DICE';
-  refreshTurnDeadline(state);
+  if (state.citiesKnights) { recalculateVictoryPoints(state); if (state.winnerId) return; }
+  refreshTurnDeadline(state, state.actionTimestamp);
 
   addLog(state, `Turno #${state.turn.turnNumber}: Es el turno de ${nextPlayer.name}. Debe lanzar los dados.`, 'INFO', nextPlayer.id);
 }
@@ -1274,12 +1319,284 @@ export function canBuildWonderStage(state: GameState, playerId: string): { allow
 }
 
 /** Authoritative reducer that validates and applies a GameAction for `playerId`. */
+
+function resolveNumberDice(state: GameState, dice: [number, number], context: RuleContext = { random: Math.random }): { state: GameState } {
+  const actor = state.players.find(p => p.id === state.turn.activePlayerId)!;
+  const nextNonce = (state.lastEvent?.nonce || 0) + 1;
+  const [d1, d2] = dice;
+  const sum = d1 + d2;
+
+  state.turn.diceRoll = [d1, d2];
+  state.turn.hasRolledDice = true;
+
+  if (sum === 7) {
+    addLog(
+      state,
+      `${actor.name} obtuvo un 7 (${d1} + ${d2}). Se activa el Ladrón.`,
+      'ROBBER',
+      actor.id
+    );
+
+    // Check players with > 7 resource cards
+    const playersOver7 = state.players.filter(
+      (p) => p.status !== 'ABANDONED' && countTotalResources(p.resources) > safeHandLimit(state, p.id)
+    );
+
+    if (playersOver7.length === 0) {
+      state.phase = isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'DICE_ROLLED',
+        dice: [d1, d2],
+        producingHexIds: [],
+      };
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    }
+
+    // House Rule 4: robberDiscardMode = 'RANDOM' vs 'MANUAL'
+    if (state.config.robberDiscardMode === 'RANDOM') {
+      const discardEvents: DiscardAnimationEvent[] = [];
+
+      for (const p of playersOver7) {
+        const total = countTotalResources(p.resources);
+        const toDiscard = Math.floor(total / 2);
+        const discarded = performRandomDiscardForPlayer(p, state.bank, toDiscard, context.random);
+        discardEvents.push({
+          id: `DISC_${state.actionTimestamp ?? state.createdAt}_${p.id}`,
+          playerId: p.id,
+          playerName: p.name,
+          discarded,
+          mode: 'RANDOM',
+        });
+        addLog(
+          state,
+          `Descarte aleatorio automático: ${p.name} perdió ${toDiscard} cartas por tener ${total} en mano.`,
+          'ROBBER',
+          p.id
+        );
+      }
+
+      state.phase = isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'ROBBER_DISCARDED',
+        dice: [d1, d2],
+        discards: discardEvents,
+      };
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    } else {
+      // MANUAL mode: players with >7 cards must choose which cards to discard
+      const discardEvents: DiscardAnimationEvent[] = [];
+      for (const p of playersOver7) {
+        const total = countTotalResources(p.resources);
+        const toDiscard = Math.floor(total / 2);
+        if (p.isBot || p.status === 'FROZEN_SKIP') {
+          const discarded = performRandomDiscardForPlayer(p, state.bank, toDiscard, context.random);
+          p.mustDiscardCount = 0;
+          discardEvents.push({
+            id: `DISC_${state.actionTimestamp ?? state.createdAt}_${p.id}`,
+            playerId: p.id,
+            playerName: p.name,
+            discarded,
+            mode: 'RANDOM',
+          });
+          addLog(
+            state,
+            `${p.name} descartó ${toDiscard} cartas.`,
+            'ROBBER',
+            p.id
+          );
+        } else {
+          p.mustDiscardCount = toDiscard;
+        }
+      }
+
+      const stillMustDiscard = state.players.some((p) => p.mustDiscardCount > 0);
+      state.phase = stillMustDiscard ? 'ROBBER_DISCARD' : isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      state.lastEvent = {
+        nonce: nextNonce,
+        type: 'DICE_ROLLED',
+        dice: [d1, d2],
+        discards: discardEvents.length > 0 ? discardEvents : undefined,
+      };
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    }
+  } else {
+    // Produce resources on hexes matching `sum` that do not have the Robber
+    const producingHexes = Object.values(state.board.hexes).filter(
+      (h) => h.terrain !== 'SEA' && h.terrain !== 'DESERT' && h.numberToken === sum && !h.hasRobber
+    );
+
+    const flights: ResourceFlightEvent[] = state.citiesKnights ? produceCitiesKnightsResources(state, sum, nextNonce) : [];
+    const summaryPerPlayer = new Map<string, string[]>();
+
+    for (const hex of producingHexes) {
+      if (hex.terrain === 'GOLD') {
+        for (const v of Object.values(state.board.vertices)) {
+          if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
+            const owner = state.players.find((p) => p.id === v.playerId);
+            if (!owner || owner.status === 'ABANDONED') continue;
+            const wantedAmount = v.building === 'CITY' ? 2 : 1;
+
+            if (owner.isBot) {
+              for (let i = 0; i < wantedAmount; i++) {
+                const chosenRes: ResourceType =
+                  (['ORE', 'WHEAT', 'SHEEP', 'WOOD', 'BRICK'] as ResourceType[]).find(
+                    (r) => state.bank[r] > 0
+                  ) || 'WOOD';
+                if (state.bank[chosenRes] > 0) {
+                  state.bank[chosenRes]--;
+                  owner.resources[chosenRes]++;
+                  flights.push({
+                    id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}_gold_${i}`,
+                    hexId: hex.id,
+                    playerId: owner.id,
+                    resource: chosenRes,
+                    amount: 1,
+                  });
+                  const list = summaryPerPlayer.get(owner.name) || [];
+                  list.push(`+1 ${RESOURCE_META[chosenRes].name} (Oro)`);
+                  summaryPerPlayer.set(owner.name, list);
+                }
+              }
+            } else {
+              if (!state.turn.pendingGoldClaims) {
+                state.turn.pendingGoldClaims = [];
+              }
+              const existingClaim = state.turn.pendingGoldClaims.find((c) => c.playerId === owner.id);
+              if (existingClaim) {
+                existingClaim.amount += wantedAmount;
+              } else {
+                state.turn.pendingGoldClaims.push({
+                  playerId: owner.id,
+                  amount: wantedAmount,
+                });
+              }
+              const list = summaryPerPlayer.get(owner.name) || [];
+              list.push(`+${wantedAmount} Oro a elegir`);
+              summaryPerPlayer.set(owner.name, list);
+            }
+          }
+        }
+        continue;
+      }
+
+      if (state.citiesKnights) continue;
+      const res = hex.terrain as ResourceType;
+      // Find all vertices touching this hex that have a building
+      for (const v of Object.values(state.board.vertices)) {
+        if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
+          const owner = state.players.find((p) => p.id === v.playerId);
+          if (!owner || owner.status === 'ABANDONED') continue;
+          const wantedAmount = v.building === 'CITY' ? 2 : 1;
+          const actualAmount = Math.min(wantedAmount, state.bank[res]);
+          if (actualAmount > 0) {
+            state.bank[res] -= actualAmount;
+            owner.resources[res] += actualAmount;
+            flights.push({
+              id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}`,
+              hexId: hex.id,
+              playerId: owner.id,
+              resource: res,
+              amount: actualAmount,
+            });
+            const list = summaryPerPlayer.get(owner.name) || [];
+            list.push(`+${actualAmount} ${RESOURCE_META[res].name}`);
+            summaryPerPlayer.set(owner.name, list);
+          }
+        }
+      }
+    }
+
+    if (state.citiesKnights) for (const f of flights) {
+      const name = state.players.find(p => p.id === f.playerId)?.name || f.playerId;
+      const list = summaryPerPlayer.get(name) || []; list.push(`+${f.amount} ${RESOURCE_META[f.resource].name}`); summaryPerPlayer.set(name, list);
+    }
+    const prodDetails = Array.from(summaryPerPlayer.entries())
+      .map(([name, items]) => `${name} (${items.join(', ')})`)
+      .join(', ');
+
+    addLog(
+      state,
+      `${actor.name} obtuvo ${sum} (${d1} + ${d2}). ${
+        prodDetails ? `Producción: ${prodDetails}.` : 'Ningún terreno produjo recursos.'
+      }`,
+      'DICE',
+      actor.id
+    );
+
+    // Navegantes Escenario 6: Telas para Catán (Producción de tela en poblados indígenas)
+    if (state.config.seafarersScenario === 'CLOTH_FOR_CATAN' && state.board.nativeVillages) {
+      for (const village of Object.values(state.board.nativeVillages)) {
+        if (village.numberToken === sum && village.clothRemaining > 0) {
+          for (const p of state.players) {
+            const isConnected = Object.values(state.board.edges).some(
+              (e) =>
+                e.playerId === p.id &&
+                (e.building === 'SHIP' || e.building === 'ROAD') &&
+                (e.vertexIds[0] === village.vertexId || e.vertexIds[1] === village.vertexId)
+            );
+            if (isConnected && village.clothRemaining > 0) {
+              village.clothRemaining--;
+              p.clothBales = (p.clothBales || 0) + 1;
+              addLog(
+                state,
+                `¡Comercio de tela! ${p.name} recibió 1 fardo de tela del poblado indígena (Tirada: ${sum}).`,
+                'AWARD',
+                p.id
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // Navegantes Escenario 7: Las islas de los piratas (Movimiento de la Flota Pirata)
+    if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && state.board.pirateFleetRouteHexIds) {
+      const steps = Math.min(d1, d2);
+      const route = state.board.pirateFleetRouteHexIds;
+      const currentIndex = route.indexOf(state.board.pirateFleetHexId || route[0]);
+      const nextIndex = (currentIndex + steps) % route.length;
+      state.board.pirateFleetHexId = route[nextIndex];
+      addLog(
+        state,
+        `La Flota Pirata avanzó ${steps} sectores marítimos (dado menor: ${steps}) y ahora patrulla en ${state.board.pirateFleetHexId}.`,
+        'ROBBER'
+      );
+    }
+
+    recalculateVictoryPoints(state);
+
+    state.phase = 'MAIN_PHASE';
+    state.lastEvent = {
+      nonce: nextNonce,
+      type: 'RESOURCES_PRODUCED',
+      dice: [d1, d2],
+      producingHexIds: producingHexes.map((h) => h.id),
+      flights,
+    };
+    if (state.citiesKnights) {
+      queueAqueduct(state, new Set(flights.map(f => f.playerId)));
+      if (state.citiesKnights.choices.length) state.phase = 'CK_CHOICE';
+    }
+    refreshTurnDeadline(state, state.actionTimestamp);
+    return { state };
+  }
+
+}
+
+
 export function applyGameAction(
   prevState: GameState,
   playerId: string,
-  action: GameAction
+  action: GameAction,
+  context: RuleContext = { random: Math.random }
 ): { state: GameState; error?: string } {
   const state: GameState = structuredClone(prevState);
+  state.actionTimestamp = context.now ?? Date.now();
   const actor = state.players.find((p) => p.id === playerId);
 
   if (!actor) {
@@ -1299,6 +1616,21 @@ export function applyGameAction(
     };
   }
 
+  try {
+    if (applyCitiesKnightsAction(state, playerId, action, {
+      resolveDice: (s, dice) => { resolveNumberDice(s, dice, context); },
+      nextTurn: advanceToNextTurn,
+      score: recalculateVictoryPoints,
+      validRoads: getValidRoadEdges,
+      validShips: getValidShipEdges,
+      canSpend: canSpendOrBuildThisTurn,
+    }, context)) {
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    }
+  } catch (error) { return { state: prevState, error: error instanceof Error ? error.message : 'Acción inválida.' }; }
+
+  const generateActionBoard = (...args: Parameters<typeof generateBoard>): BoardState => { args[8] = context.random; return generateBoard(...args); };
   const nextNonce = (state.lastEvent?.nonce || 0) + 1;
 
   switch (action.type) {
@@ -1310,6 +1642,7 @@ export function applyGameAction(
         return { state: prevState, error: 'Solo el anfitrión puede modificar las reglas.' };
       }
 
+      const prevExpansionModule = state.config.expansionModule;
       const prevBoardMode = state.config.boardMode;
       const prevPreventRed = state.config.preventAdjacentRedNumbers;
       const prevDesertInCenter = state.config.desertInCenter;
@@ -1318,9 +1651,16 @@ export function applyGameAction(
         ...state.config,
         ...action.config,
       };
-      if (action.config.expansionModule !== undefined) {
+      if (action.config.expansionModule !== undefined && action.config.enabledExpansions === undefined) {
         state.config.enabledExpansions = action.config.expansionModule === 'BASE'
           ? ['BASE'] : ['BASE', action.config.expansionModule];
+      }
+
+      if (state.config.enabledExpansions.includes('SEAFARERS')) state.config.expansionModule = 'SEAFARERS';
+      else if (state.config.enabledExpansions.includes('CITIES_AND_KNIGHTS')) state.config.expansionModule = 'CITIES_AND_KNIGHTS';
+      if (hasCitiesKnights(state.config) && state.config.expansionModule !== 'SEAFARERS') {
+        state.config.maxPlayers = state.config.boardMode === 'EXPANSION_5_6' ? 6 : 4;
+        if (state.players.length > state.config.maxPlayers) return { state: prevState, error: 'Retira jugadores antes de reducir el mapa.' };
       }
 
       // Sync turnActionRestriction with legacy flags
@@ -1337,6 +1677,9 @@ export function applyGameAction(
         }
       }
 
+      if (hasCitiesKnights(state.config) && state.config.expansionModule === 'SEAFARERS' && CK_CONFLICTING_SCENARIOS.includes(state.config.seafarersScenario as typeof CK_CONFLICTING_SCENARIOS[number])) {
+        return { state: prevState, error: 'Ese escenario necesita cartas de desarrollo y los PDF no definen su combinación con progreso. Elige otro escenario, como Rumbo a nuevas orillas o A través del desierto.' };
+      }
       if (state.config.expansionModule === 'SEAFARERS') {
         const size = state.config.seafarersBoardSize || '4P';
         if (!Object.hasOwn(SEAFARERS_PLAYER_LIMITS, size)) {
@@ -1359,48 +1702,19 @@ export function applyGameAction(
         state.config.maxPlayers = 4;
       }
 
-      // If expansionModule, seafarersScenario, or seafarersBoardSize changed, handle Seafarers board setup
-      if (
-        action.config.expansionModule !== undefined ||
-        action.config.seafarersScenario !== undefined ||
-        action.config.seafarersBoardSize !== undefined
-      ) {
-        if (action.config.seafarersBoardSize !== undefined) {
-          state.config.seafarersBoardSize = action.config.seafarersBoardSize;
+      // Expansion toggles do not reshuffle an already selected Seafarers scenario.
+      const scenarioChanged = action.config.seafarersScenario !== undefined && action.config.seafarersScenario !== prevState.config.seafarersScenario;
+      const sizeChanged = action.config.seafarersBoardSize !== undefined && action.config.seafarersBoardSize !== prevState.config.seafarersBoardSize;
+      if (state.config.expansionModule === 'SEAFARERS') {
+        if (prevExpansionModule !== 'SEAFARERS' || scenarioChanged || sizeChanged) {
+          state.config.seafarersScenario ||= 'HEADING_FOR_NEW_SHORES';
+          state.config.victoryPointsTarget = action.config.victoryPointsTarget || 13;
+          state.board = generateActionBoard(state.config.boardMode, state.config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE, false, state.config.seafarersScenario, state.players.length, false, state.config.seafarersBoardSize);
         }
-        if (
-          action.config.expansionModule === 'SEAFARERS' ||
-          (state.config.expansionModule === 'SEAFARERS' && (action.config.seafarersScenario !== undefined || action.config.seafarersBoardSize !== undefined))
-        ) {
-          state.config.expansionModule = 'SEAFARERS';
-          state.config.seafarersScenario =
-            action.config.seafarersScenario ||
-            state.config.seafarersScenario ||
-            'HEADING_FOR_NEW_SHORES';
-          state.config.victoryPointsTarget =
-            action.config.victoryPointsTarget || 13;
-          state.config.desertInCenter = false;
-          state.board = generateBoard(
-            state.config.boardMode,
-            state.config.preventAdjacentRedNumbers,
-            DEFAULT_HEX_SIZE,
-            false,
-            state.config.seafarersScenario,
-            state.players.length,
-            false,
-            state.config.seafarersBoardSize
-          );
-        } else if (action.config.expansionModule === 'BASE') {
-          state.config.expansionModule = 'BASE';
-          state.config.victoryPointsTarget = action.config.victoryPointsTarget || 10;
-          state.config.desertInCenter = true;
-          state.board = generateBoard(
-            state.config.boardMode,
-            state.config.preventAdjacentRedNumbers,
-            DEFAULT_HEX_SIZE,
-            true
-          );
-        }
+      } else if (prevExpansionModule === 'SEAFARERS' || action.config.expansionModule === 'BASE') {
+        state.config.desertInCenter = action.config.desertInCenter ?? true;
+        state.config.victoryPointsTarget = action.config.victoryPointsTarget || (hasCitiesKnights(state.config) ? 13 : 10);
+        state.board = generateActionBoard(state.config.boardMode, state.config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE, state.config.desertInCenter);
       }
 
       const isSeaf = state.config.expansionModule === 'SEAFARERS';
@@ -1418,7 +1732,7 @@ export function applyGameAction(
 
       if (!isSeaf) {
         if (modeChanged && action.config.boardMode !== 'CUSTOM') {
-          state.board = generateBoard(
+          state.board = generateActionBoard(
             state.config.boardMode,
             state.config.preventAdjacentRedNumbers,
             DEFAULT_HEX_SIZE,
@@ -1428,7 +1742,7 @@ export function applyGameAction(
           if (state.config.boardMode === 'CUSTOM') {
             state.config.boardMode = state.players.length > 4 ? 'EXPANSION_5_6' : 'STANDARD_3_4';
           }
-          state.board = generateBoard(
+          state.board = generateActionBoard(
             state.config.boardMode,
             state.config.preventAdjacentRedNumbers,
             DEFAULT_HEX_SIZE,
@@ -1442,6 +1756,15 @@ export function applyGameAction(
         }
       }
 
+      if (action.config.victoryPointsTarget === undefined) {
+        const wasCK = hasCitiesKnights(prevState.config); const nowCK = hasCitiesKnights(state.config);
+        const scenarioTarget = SEAFARERS_SCENARIOS.find(s => s.id === state.config.seafarersScenario)?.recommendedVP || 13;
+        if (nowCK && state.config.expansionModule === 'SEAFARERS') {
+          if (!wasCK && prevExpansionModule === 'SEAFARERS' && !scenarioChanged) state.config.victoryPointsTarget = prevState.config.victoryPointsTarget + 2;
+          else if (!wasCK || prevExpansionModule !== 'SEAFARERS' || scenarioChanged) state.config.victoryPointsTarget = scenarioTarget + 2;
+        } else if (nowCK && (!wasCK || prevExpansionModule === 'SEAFARERS')) state.config.victoryPointsTarget = 13;
+        else if (wasCK && !nowCK && state.config.expansionModule === 'SEAFARERS') state.config.victoryPointsTarget = prevExpansionModule === 'SEAFARERS' ? prevState.config.victoryPointsTarget - 2 : scenarioTarget;
+      }
       addLog(state, `${actor.name} actualizó la configuración de la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -1462,7 +1785,7 @@ export function applyGameAction(
         action.desertInCenter ?? state.config.desertInCenter;
 
       const isSeaf = state.config.expansionModule === 'SEAFARERS';
-      state.board = generateBoard(
+      state.board = generateActionBoard(
         modeToGenerate,
         preventRed,
         DEFAULT_HEX_SIZE,
@@ -1615,7 +1938,7 @@ export function applyGameAction(
       const botDifficulty = action.difficulty || state.config.defaultBotDifficulty || 'MEDIUM';
 
       const bot: PlayerState = {
-        id: `BOT_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        id: `BOT_${(state.actionTimestamp ?? Date.now())}_${context.random().toString(36).slice(2, 5)}`,
         name: botNames[botIdx % botNames.length],
         color: availableColor,
         avatar: BOT_AVATAR_LIST[(state.players.length + 2) % BOT_AVATAR_LIST.length],
@@ -1665,7 +1988,7 @@ export function applyGameAction(
         const botIdx = state.players.filter((p) => p.isBot).length;
 
         const bot: PlayerState = {
-          id: `BOT_${Date.now()}_${Math.random().toString(36).slice(2, 5)}_${i}`,
+          id: `BOT_${(state.actionTimestamp ?? Date.now())}_${context.random().toString(36).slice(2, 5)}_${i}`,
           name: botNames[botIdx % botNames.length],
           color: availableColor,
           avatar: AVATAR_LIST[(state.players.length + 2) % AVATAR_LIST.length],
@@ -1738,6 +2061,7 @@ export function applyGameAction(
       if (state.phase !== 'LOBBY' || !actor.isHost) {
         return { state: prevState, error: 'Solo el anfitrión puede iniciar la partida.' };
       }
+      if (hasCitiesKnights(state.config) && state.players.length < 3) return { state: prevState, error: 'Ciudades y Caballeros requiere de 3 a 6 jugadores.' };
       if (state.players.length < 2) {
         return {
           state: prevState,
@@ -1750,7 +2074,7 @@ export function applyGameAction(
       }
       if (state.config.expansionModule === 'SEAFARERS' &&
           (state.board.seafarersScenario !== state.config.seafarersScenario || state.board.seafarersBoardSize !== state.config.seafarersBoardSize)) {
-        state.board = generateBoard(
+        state.board = generateActionBoard(
           state.config.boardMode,
           state.config.preventAdjacentRedNumbers,
           DEFAULT_HEX_SIZE,
@@ -1764,15 +2088,18 @@ export function applyGameAction(
 
       const isExpansion = state.players.length > 4 || state.config.boardMode === 'EXPANSION_5_6' || state.config.seafarersBoardSize === '5_6P' && state.config.expansionModule === 'SEAFARERS';
       if (state.board.fogDeck) {
-        const terrains = shuffled(state.board.fogDeck.map(h => h.terrain));
-        const numbers = shuffled(state.board.fogDeck.flatMap(h => h.numberToken === null ? [] : [h.numberToken]));
+        const terrains = shuffled(state.board.fogDeck.map(h => h.terrain), context.random);
+        const numbers = shuffled(state.board.fogDeck.flatMap(h => h.numberToken === null ? [] : [h.numberToken]), context.random);
         let index = 0;
         state.board.fogDeck = terrains.map(terrain => ({ terrain, numberToken: terrain === 'SEA' ? null : numbers[index++] }));
       }
-      state.devDeck = createDevDeck(isExpansion);
+      state.devDeck = createDevDeck(isExpansion, context.random);
       state.bank = isExpansion
         ? { WOOD: 24, BRICK: 24, SHEEP: 24, WHEAT: 24, ORE: 24 }
         : { WOOD: 19, BRICK: 19, SHEEP: 19, WHEAT: 19, ORE: 19 };
+
+      if (hasCitiesKnights(state.config)) initializeCitiesKnights(state, context.random);
+      else { delete state.citiesKnights; for (const p of state.players) delete p.citiesKnights; }
 
       // Strictly ensure Desert in center and initial Robber placement if desertInCenter option is active (non-Seafarers only)
       if (state.config.expansionModule !== 'SEAFARERS' && state.config.desertInCenter !== false) {
@@ -1808,7 +2135,7 @@ export function applyGameAction(
         botProposedTradeThisTurn: false,
       };
       state.phase = 'ORDER_ROLL';
-      refreshTurnDeadline(state);
+      refreshTurnDeadline(state, state.actionTimestamp);
 
       addLog(
         state,
@@ -1836,8 +2163,8 @@ export function applyGameAction(
       let d1 = 1;
       let d2 = 1;
       for (let attempt = 0; attempt < 25; attempt++) {
-        d1 = Math.floor(Math.random() * 6) + 1;
-        d2 = Math.floor(Math.random() * 6) + 1;
+        d1 = Math.floor(context.random() * 6) + 1;
+        d2 = Math.floor(context.random() * 6) + 1;
         if (!usedSums.has(d1 + d2)) break;
       }
 
@@ -1879,8 +2206,8 @@ export function applyGameAction(
           let d1 = 1;
           let d2 = 1;
           for (let attempt = 0; attempt < 25; attempt++) {
-            d1 = Math.floor(Math.random() * 6) + 1;
-            d2 = Math.floor(Math.random() * 6) + 1;
+            d1 = Math.floor(context.random() * 6) + 1;
+            d2 = Math.floor(context.random() * 6) + 1;
             if (!usedSums.has(d1 + d2)) break;
           }
           usedSums.add(d1 + d2);
@@ -1931,7 +2258,7 @@ export function applyGameAction(
       state.turn.activePlayerId = snakeOrder[0];
       state.phase = 'SETUP_SETTLEMENT_1';
       state.lastEvent = { nonce: nextNonce, type: 'ORDER_CONFIRMED' };
-      refreshTurnDeadline(state);
+      refreshTurnDeadline(state, state.actionTimestamp);
 
       addLog(
         state,
@@ -1954,14 +2281,17 @@ export function applyGameAction(
       vertex.building = 'SETTLEMENT';
       vertex.playerId = playerId;
       actor.settlementsLeft -= 1;
+      if (hasCitiesKnights(state.config) && state.phase === 'SETUP_SETTLEMENT_2') {
+        vertex.building = 'CITY'; actor.settlementsLeft++; actor.citiesLeft--;
+      }
 
       if (state.phase === 'SETUP_SETTLEMENT_1' || state.phase === 'SETUP_SETTLEMENT_2') {
         const isFirstSetup = state.phase === 'SETUP_SETTLEMENT_1';
         state.turn.lastPlacedSetupSettlementId = vertex.id;
         state.phase = isFirstSetup ? 'SETUP_ROAD_1' : 'SETUP_ROAD_2';
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
 
-        const giveInitialResources = state.config.initialSettlementsGiveResources !== false;
+        const giveInitialResources = hasCitiesKnights(state.config) ? !isFirstSetup : state.config.initialSettlementsGiveResources !== false;
         const flights: ResourceFlightEvent[] = [];
         const gainedNames: string[] = [];
 
@@ -2013,7 +2343,7 @@ export function applyGameAction(
           'BUILD',
           actor.id
         );
-      } else if (state.phase === 'MAIN_PHASE') {
+      } else if (state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE') {
         deductResources(actor.resources, state.bank, BUILDING_COSTS.SETTLEMENT);
         state.turn.infrastructureBuiltThisTurn += 1;
         state.turn.hasSpentOrBuiltThisTurn = true;
@@ -2135,7 +2465,7 @@ export function applyGameAction(
             state.turn.setupStepIndex < playerCount
               ? 'SETUP_SETTLEMENT_1'
               : 'SETUP_SETTLEMENT_2';
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
 
           const nextPlayer = state.players.find((p) => p.id === nextPlayerId);
           addLog(
@@ -2155,7 +2485,7 @@ export function applyGameAction(
           state.turn.botStatusMessage = null;
           state.turn.botProposedTradeThisTurn = false;
           state.phase = 'WAITING_FOR_DICE';
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
 
           addLog(
             state,
@@ -2186,7 +2516,7 @@ export function applyGameAction(
           state.turn.freeRoadsRemaining = 0;
           state.phase = 'MAIN_PHASE';
         }
-      } else if (state.phase === 'MAIN_PHASE') {
+      } else if (state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE') {
         deductResources(actor.resources, state.bank, BUILDING_COSTS.ROAD);
         state.turn.infrastructureBuiltThisTurn += 1;
         state.turn.hasSpentOrBuiltThisTurn = true;
@@ -2262,7 +2592,7 @@ export function applyGameAction(
             state.turn.setupStepIndex < playerCount
               ? 'SETUP_SETTLEMENT_1'
               : 'SETUP_SETTLEMENT_2';
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
 
           const nextPlayer = state.players.find((p) => p.id === nextPlayerId);
           addLog(
@@ -2282,7 +2612,7 @@ export function applyGameAction(
           state.turn.botStatusMessage = null;
           state.turn.botProposedTradeThisTurn = false;
           state.phase = 'WAITING_FOR_DICE';
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
 
           addLog(
             state,
@@ -2313,7 +2643,7 @@ export function applyGameAction(
         if (state.turn.freeRoadsRemaining <= 0) {
           state.phase = 'MAIN_PHASE';
         }
-      } else if (state.phase === 'MAIN_PHASE') {
+      } else if (state.phase === 'MAIN_PHASE' || state.phase === 'SPECIAL_BUILD_PHASE') {
         deductResources(actor.resources, state.bank, BUILDING_COSTS.SHIP);
         state.turn.infrastructureBuiltThisTurn += 1;
         state.turn.hasSpentOrBuiltThisTurn = true;
@@ -2395,10 +2725,11 @@ export function applyGameAction(
 
       const vertex = state.board.vertices[action.vertexId];
       vertex.building = 'CITY';
-      actor.settlementsLeft += 1; // Settlement piece returns to player's supply
-      actor.citiesLeft -= 1;
+      if (!vertex.isDowngradedCity) { actor.settlementsLeft += 1; actor.citiesLeft -= 1; }
+      delete vertex.isDowngradedCity;
 
-      deductResources(actor.resources, state.bank, BUILDING_COSTS.CITY);
+      deductResources(actor.resources, state.bank, cityCost(state));
+      if (state.citiesKnights?.turnEffects) delete state.citiesKnights.turnEffects.medicine;
       state.turn.infrastructureBuiltThisTurn += 1;
       state.turn.hasSpentOrBuiltThisTurn = true;
       state.lastEvent = {
@@ -2417,264 +2748,8 @@ export function applyGameAction(
     }
 
     case 'ROLL_DICE': {
-      if (state.phase !== 'WAITING_FOR_DICE' || state.turn.activePlayerId !== playerId) {
-        return { state: prevState, error: 'No puedes lanzar los dados en este momento.' };
-      }
-
-      const d1 = Math.floor(Math.random() * 6) + 1;
-      const d2 = Math.floor(Math.random() * 6) + 1;
-      const sum = d1 + d2;
-
-      state.turn.diceRoll = [d1, d2];
-      state.turn.hasRolledDice = true;
-
-      if (sum === 7) {
-        addLog(
-          state,
-          `${actor.name} obtuvo un 7 (${d1} + ${d2}). Se activa el Ladrón.`,
-          'ROBBER',
-          actor.id
-        );
-
-        // Check players with > 7 resource cards
-        const playersOver7 = state.players.filter(
-          (p) => p.status !== 'ABANDONED' && countTotalResources(p.resources) > 7
-        );
-
-        if (playersOver7.length === 0) {
-          state.phase = 'ROBBER_MOVE';
-          state.lastEvent = {
-            nonce: nextNonce,
-            type: 'DICE_ROLLED',
-            dice: [d1, d2],
-            producingHexIds: [],
-          };
-          refreshTurnDeadline(state);
-          return { state };
-        }
-
-        // House Rule 4: robberDiscardMode = 'RANDOM' vs 'MANUAL'
-        if (state.config.robberDiscardMode === 'RANDOM') {
-          const discardEvents: DiscardAnimationEvent[] = [];
-
-          for (const p of playersOver7) {
-            const total = countTotalResources(p.resources);
-            const toDiscard = Math.floor(total / 2);
-            const discarded = performRandomDiscardForPlayer(p, state.bank, toDiscard);
-            discardEvents.push({
-              id: `DISC_${Date.now()}_${p.id}`,
-              playerId: p.id,
-              playerName: p.name,
-              discarded,
-              mode: 'RANDOM',
-            });
-            addLog(
-              state,
-              `Descarte aleatorio automático: ${p.name} perdió ${toDiscard} cartas por tener ${total} en mano.`,
-              'ROBBER',
-              p.id
-            );
-          }
-
-          state.phase = 'ROBBER_MOVE';
-          state.lastEvent = {
-            nonce: nextNonce,
-            type: 'ROBBER_DISCARDED',
-            dice: [d1, d2],
-            discards: discardEvents,
-          };
-          refreshTurnDeadline(state);
-          return { state };
-        } else {
-          // MANUAL mode: players with >7 cards must choose which cards to discard
-          const discardEvents: DiscardAnimationEvent[] = [];
-          for (const p of playersOver7) {
-            const total = countTotalResources(p.resources);
-            const toDiscard = Math.floor(total / 2);
-            if (p.isBot || p.status === 'FROZEN_SKIP') {
-              const discarded = performRandomDiscardForPlayer(p, state.bank, toDiscard);
-              p.mustDiscardCount = 0;
-              discardEvents.push({
-                id: `DISC_${Date.now()}_${p.id}`,
-                playerId: p.id,
-                playerName: p.name,
-                discarded,
-                mode: 'RANDOM',
-              });
-              addLog(
-                state,
-                `${p.name} descartó ${toDiscard} cartas.`,
-                'ROBBER',
-                p.id
-              );
-            } else {
-              p.mustDiscardCount = toDiscard;
-            }
-          }
-
-          const stillMustDiscard = state.players.some((p) => p.mustDiscardCount > 0);
-          state.phase = stillMustDiscard ? 'ROBBER_DISCARD' : 'ROBBER_MOVE';
-          state.lastEvent = {
-            nonce: nextNonce,
-            type: 'DICE_ROLLED',
-            dice: [d1, d2],
-            discards: discardEvents.length > 0 ? discardEvents : undefined,
-          };
-          refreshTurnDeadline(state);
-          return { state };
-        }
-      } else {
-        // Produce resources on hexes matching `sum` that do not have the Robber
-        const producingHexes = Object.values(state.board.hexes).filter(
-          (h) => h.terrain !== 'SEA' && h.terrain !== 'DESERT' && h.numberToken === sum && !h.hasRobber
-        );
-
-        const flights: ResourceFlightEvent[] = [];
-        const summaryPerPlayer = new Map<string, string[]>();
-
-        for (const hex of producingHexes) {
-          if (hex.terrain === 'GOLD') {
-            for (const v of Object.values(state.board.vertices)) {
-              if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
-                const owner = state.players.find((p) => p.id === v.playerId);
-                if (!owner || owner.status === 'ABANDONED') continue;
-                const wantedAmount = v.building === 'CITY' ? 2 : 1;
-
-                if (owner.isBot) {
-                  for (let i = 0; i < wantedAmount; i++) {
-                    const chosenRes: ResourceType =
-                      (['ORE', 'WHEAT', 'SHEEP', 'WOOD', 'BRICK'] as ResourceType[]).find(
-                        (r) => state.bank[r] > 0
-                      ) || 'WOOD';
-                    if (state.bank[chosenRes] > 0) {
-                      state.bank[chosenRes]--;
-                      owner.resources[chosenRes]++;
-                      flights.push({
-                        id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}_gold_${i}`,
-                        hexId: hex.id,
-                        playerId: owner.id,
-                        resource: chosenRes,
-                        amount: 1,
-                      });
-                      const list = summaryPerPlayer.get(owner.name) || [];
-                      list.push(`+1 ${RESOURCE_META[chosenRes].name} (Oro)`);
-                      summaryPerPlayer.set(owner.name, list);
-                    }
-                  }
-                } else {
-                  if (!state.turn.pendingGoldClaims) {
-                    state.turn.pendingGoldClaims = [];
-                  }
-                  const existingClaim = state.turn.pendingGoldClaims.find((c) => c.playerId === owner.id);
-                  if (existingClaim) {
-                    existingClaim.amount += wantedAmount;
-                  } else {
-                    state.turn.pendingGoldClaims.push({
-                      playerId: owner.id,
-                      amount: wantedAmount,
-                    });
-                  }
-                  const list = summaryPerPlayer.get(owner.name) || [];
-                  list.push(`+${wantedAmount} Oro a elegir`);
-                  summaryPerPlayer.set(owner.name, list);
-                }
-              }
-            }
-            continue;
-          }
-
-          const res = hex.terrain as ResourceType;
-          // Find all vertices touching this hex that have a building
-          for (const v of Object.values(state.board.vertices)) {
-            if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
-              const owner = state.players.find((p) => p.id === v.playerId);
-              if (!owner || owner.status === 'ABANDONED') continue;
-              const wantedAmount = v.building === 'CITY' ? 2 : 1;
-              const actualAmount = Math.min(wantedAmount, state.bank[res]);
-              if (actualAmount > 0) {
-                state.bank[res] -= actualAmount;
-                owner.resources[res] += actualAmount;
-                flights.push({
-                  id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}`,
-                  hexId: hex.id,
-                  playerId: owner.id,
-                  resource: res,
-                  amount: actualAmount,
-                });
-                const list = summaryPerPlayer.get(owner.name) || [];
-                list.push(`+${actualAmount} ${RESOURCE_META[res].name}`);
-                summaryPerPlayer.set(owner.name, list);
-              }
-            }
-          }
-        }
-
-        const prodDetails = Array.from(summaryPerPlayer.entries())
-          .map(([name, items]) => `${name} (${items.join(', ')})`)
-          .join(', ');
-
-        addLog(
-          state,
-          `${actor.name} obtuvo ${sum} (${d1} + ${d2}). ${
-            prodDetails ? `Producción: ${prodDetails}.` : 'Ningún terreno produjo recursos.'
-          }`,
-          'DICE',
-          actor.id
-        );
-
-        // Navegantes Escenario 6: Telas para Catán (Producción de tela en poblados indígenas)
-        if (state.config.seafarersScenario === 'CLOTH_FOR_CATAN' && state.board.nativeVillages) {
-          for (const village of Object.values(state.board.nativeVillages)) {
-            if (village.numberToken === sum && village.clothRemaining > 0) {
-              for (const p of state.players) {
-                const isConnected = Object.values(state.board.edges).some(
-                  (e) =>
-                    e.playerId === p.id &&
-                    (e.building === 'SHIP' || e.building === 'ROAD') &&
-                    (e.vertexIds[0] === village.vertexId || e.vertexIds[1] === village.vertexId)
-                );
-                if (isConnected && village.clothRemaining > 0) {
-                  village.clothRemaining--;
-                  p.clothBales = (p.clothBales || 0) + 1;
-                  addLog(
-                    state,
-                    `¡Comercio de tela! ${p.name} recibió 1 fardo de tela del poblado indígena (Tirada: ${sum}).`,
-                    'AWARD',
-                    p.id
-                  );
-                }
-              }
-            }
-          }
-        }
-
-        // Navegantes Escenario 7: Las islas de los piratas (Movimiento de la Flota Pirata)
-        if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && state.board.pirateFleetRouteHexIds) {
-          const steps = Math.min(d1, d2);
-          const route = state.board.pirateFleetRouteHexIds;
-          const currentIndex = route.indexOf(state.board.pirateFleetHexId || route[0]);
-          const nextIndex = (currentIndex + steps) % route.length;
-          state.board.pirateFleetHexId = route[nextIndex];
-          addLog(
-            state,
-            `La Flota Pirata avanzó ${steps} sectores marítimos (dado menor: ${steps}) y ahora patrulla en ${state.board.pirateFleetHexId}.`,
-            'ROBBER'
-          );
-        }
-
-        recalculateVictoryPoints(state);
-
-        state.phase = 'MAIN_PHASE';
-        state.lastEvent = {
-          nonce: nextNonce,
-          type: 'RESOURCES_PRODUCED',
-          dice: [d1, d2],
-          producingHexIds: producingHexes.map((h) => h.id),
-          flights,
-        };
-        refreshTurnDeadline(state);
-        return { state };
-      }
+      if (state.phase !== 'WAITING_FOR_DICE' || state.turn.activePlayerId !== playerId) return { state: prevState, error: 'No puedes lanzar los dados ahora.' };
+      return resolveNumberDice(state, context.dice || [Math.floor(context.random() * 6) + 1, Math.floor(context.random() * 6) + 1], context);
     }
 
     case 'DISCARD_RESOURCES': {
@@ -2700,7 +2775,7 @@ export function applyGameAction(
       actor.mustDiscardCount = 0;
 
       const discEvent: DiscardAnimationEvent = {
-        id: `DISC_${Date.now()}_${actor.id}`,
+        id: `DISC_${(state.actionTimestamp ?? Date.now())}_${actor.id}`,
         playerId: actor.id,
         playerName: actor.name,
         discarded: action.resources,
@@ -2716,8 +2791,9 @@ export function applyGameAction(
 
       const anyoneLeft = state.players.some((p) => p.mustDiscardCount > 0);
       if (!anyoneLeft) {
-        state.phase = 'ROBBER_MOVE';
-        refreshTurnDeadline(state);
+        state.phase = state.turn.ckSaboteurDiscard || !isRobberUnlocked(state) ? 'MAIN_PHASE' : 'ROBBER_MOVE';
+        delete state.turn.ckSaboteurDiscard;
+        refreshTurnDeadline(state, state.actionTimestamp);
       }
 
       state.lastEvent = {
@@ -2730,6 +2806,7 @@ export function applyGameAction(
     }
 
     case 'MOVE_ROBBER': {
+      if (!isRobberUnlocked(state)) return { state: prevState, error: 'El ladrón espera al primer asalto bárbaro.' };
       if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
         return { state: prevState, error: 'No puedes mover el Ladrón ahora.' };
       }
@@ -2769,7 +2846,7 @@ export function applyGameAction(
       const hexLabel =
         targetHex.terrain === 'DESERT'
           ? 'el Desierto'
-          : `${RESOURCE_META[targetHex.terrain as ResourceType].terrainName} (${targetHex.numberToken})`;
+          : `${TERRAIN_META[targetHex.terrain].name} (${targetHex.numberToken})`;
 
       if (candidates.length === 0) {
         state.robberStealCandidates = [];
@@ -2787,12 +2864,12 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       } else if (candidates.length === 1) {
         // Automatically steal 1 random card from the single candidate
         const victim = state.players.find((p) => p.id === candidates[0])!;
-        const stolenRes = stealRandomCard(victim, actor);
+        const stolenRes = stealRandomCard(victim, actor, context.random);
         state.robberStealCandidates = [];
         state.phase = 'MAIN_PHASE';
         state.lastEvent = {
@@ -2817,7 +2894,7 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       } else {
         state.robberStealCandidates = candidates;
@@ -2835,7 +2912,7 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       }
     }
@@ -2853,7 +2930,7 @@ export function applyGameAction(
         return { state: prevState, error: 'Víctima no encontrada.' };
       }
 
-      const stolenRes = stealRandomCard(victim, actor);
+      const stolenRes = stealRandomCard(victim, actor, context.random);
       state.robberStealCandidates = [];
       state.phase = 'MAIN_PHASE';
       state.lastEvent = {
@@ -2876,11 +2953,12 @@ export function applyGameAction(
         'ROBBER',
         actor.id
       );
-      refreshTurnDeadline(state);
+      refreshTurnDeadline(state, state.actionTimestamp);
       return { state };
     }
 
     case 'MOVE_PIRATE': {
+      if (!isRobberUnlocked(state)) return { state: prevState, error: 'El pirata espera al primer asalto bárbaro.' };
       if (state.config.seafarersPirateMode === 'PACIFIC_NO_PIRATE') {
         return { state: prevState, error: 'El Barco Pirata está desactivado en esta partida.' };
       }
@@ -2929,11 +3007,11 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       } else if (candidates.length === 1) {
         const victim = state.players.find((p) => p.id === candidates[0])!;
-        const stolenRes = stealRandomCard(victim, actor);
+        const stolenRes = stealRandomCard(victim, actor, context.random);
         state.robberStealCandidates = [];
         state.phase = 'MAIN_PHASE';
         state.lastEvent = {
@@ -2960,7 +3038,7 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       } else {
         state.robberStealCandidates = candidates;
@@ -2978,7 +3056,7 @@ export function applyGameAction(
           'ROBBER',
           actor.id
         );
-        refreshTurnDeadline(state);
+        refreshTurnDeadline(state, state.actionTimestamp);
         return { state };
       }
     }
@@ -3112,7 +3190,7 @@ export function applyGameAction(
         recalculateVictoryPoints(state);
         if ((state.phase as GamePhase) !== 'GAME_OVER') {
           state.phase = 'ROBBER_MOVE';
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
         }
         return { state };
       }
@@ -3204,6 +3282,7 @@ export function applyGameAction(
         return { state: prevState, error: check.reason };
       }
       const { giveResource, giveAmount, receiveResource, receiveAmount } = action;
+      if (!ALL_TRADE_CARDS.includes(giveResource) || !ALL_TRADE_CARDS.includes(receiveResource) || !Number.isInteger(giveAmount) || !Number.isInteger(receiveAmount) || giveAmount <= 0 || receiveAmount <= 0) return { state: prevState, error: 'Intercambio inválido.' };
       if (giveResource === receiveResource) {
         return { state: prevState, error: 'El recurso entregado y recibido deben ser distintos.' };
       }
@@ -3216,17 +3295,17 @@ export function applyGameAction(
           error: `La tasa de cambio para ${RESOURCE_META[giveResource].name} es ${ratio}:1.`,
         };
       }
-      if (actor.resources[giveResource] < giveAmount) {
+      if ((actor.resources[giveResource] || 0) < giveAmount) {
         return { state: prevState, error: 'No tienes suficientes cartas para este intercambio.' };
       }
-      if (state.bank[receiveResource] < receiveAmount) {
+      if ((state.bank[receiveResource] || 0) < receiveAmount) {
         return { state: prevState, error: 'La banca no dispone de suficientes cartas de ese recurso.' };
       }
 
-      actor.resources[giveResource] -= giveAmount;
-      state.bank[giveResource] += giveAmount;
-      state.bank[receiveResource] -= receiveAmount;
-      actor.resources[receiveResource] += receiveAmount;
+      actor.resources[giveResource] = (actor.resources[giveResource] || 0) - giveAmount;
+      state.bank[giveResource] = (state.bank[giveResource] || 0) + giveAmount;
+      state.bank[receiveResource] = (state.bank[receiveResource] || 0) - receiveAmount;
+      actor.resources[receiveResource] = (actor.resources[receiveResource] || 0) + receiveAmount;
 
       state.turn.hasTradedThisTurn = true;
       state.turn.tradesAndBurnsThisTurn = (state.turn.tradesAndBurnsThisTurn || 0) + 1;
@@ -3301,14 +3380,14 @@ export function applyGameAction(
       }
 
       const newOffer: TradeOffer = {
-        id: `TRADE_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        id: `TRADE_${(state.actionTimestamp ?? Date.now())}_${context.random().toString(36).slice(2, 6)}`,
         fromPlayerId: actor.id,
         targetPlayerId: isCounterOffer ? state.turn.activePlayerId : action.targetPlayerId,
         offer: { ...action.offer },
         request: { ...action.request },
         responses,
         parentOfferId: action.parentOfferId,
-        createdAt: Date.now(),
+        createdAt: (state.actionTimestamp ?? Date.now()),
       };
 
       state.activeTradeOffers.push(newOffer);
@@ -3468,7 +3547,7 @@ export function applyGameAction(
           'SYSTEM'
         );
       }
-      refreshTurnDeadline(state);
+      refreshTurnDeadline(state, state.actionTimestamp);
       return { state };
     }
 
@@ -3487,7 +3566,7 @@ export function applyGameAction(
           p.status = 'ACTIVE';
         }
       }
-      refreshTurnDeadline(state);
+      refreshTurnDeadline(state, state.actionTimestamp);
       addLog(state, `La partida se ha reanudado.`, 'SYSTEM');
       return { state };
     }
@@ -3513,9 +3592,9 @@ export function applyGameAction(
           }
         }
         if (state.turn.pausedRemainingTimerMs) {
-          state.turn.turnDeadlineMs = Date.now() + state.turn.pausedRemainingTimerMs;
+          state.turn.turnDeadlineMs = (state.actionTimestamp ?? (state.actionTimestamp ?? Date.now())) + state.turn.pausedRemainingTimerMs;
         } else {
-          refreshTurnDeadline(state);
+          refreshTurnDeadline(state, state.actionTimestamp);
         }
         state.turn.pausedRemainingTimerMs = null;
         addLog(state, `El anfitrión (${actor.name}) ha reanudado la partida.`, 'SYSTEM', actor.id);
@@ -3524,7 +3603,7 @@ export function applyGameAction(
 
       state.turn.isPausedByHost = true;
       const remainingMs = state.turn.turnDeadlineMs
-        ? Math.max(1000, state.turn.turnDeadlineMs - Date.now())
+        ? Math.max(1000, state.turn.turnDeadlineMs - (state.actionTimestamp ?? Date.now()))
         : null;
       state.turn.pausedRemainingTimerMs = remainingMs;
       state.turn.turnDeadlineMs = null;
@@ -3768,11 +3847,12 @@ function executeTradeBetweenPlayers(
     return { state, error: `${partner.name} ya no tiene los recursos solicitados.` };
   }
 
-  for (const r of ALL_RESOURCES) {
+  for (const r of ALL_TRADE_CARDS) {
     const giveAmt = offer.offer[r] || 0;
     const reqAmt = offer.request[r] || 0;
-    proposer.resources[r] = proposer.resources[r] - giveAmt + reqAmt;
-    partner.resources[r] = partner.resources[r] + giveAmt - reqAmt;
+    if (!giveAmt && !reqAmt) continue;
+    proposer.resources[r] = (proposer.resources[r] || 0) - giveAmt + reqAmt;
+    partner.resources[r] = (partner.resources[r] || 0) + giveAmt - reqAmt;
   }
 
   state.turn.hasTradedThisTurn = true;
@@ -3809,24 +3889,25 @@ function executeTradeBetweenPlayers(
 
 export function performRandomDiscardForPlayer(
   player: PlayerState,
-  bank: Record<ResourceType, number>,
-  count: number
-): Partial<Record<ResourceType, number>> {
-  const pool: ResourceType[] = [];
-  for (const r of ALL_RESOURCES) {
-    for (let i = 0; i < player.resources[r]; i++) {
+  bank: CardBundle,
+  count: number,
+  random: () => number = Math.random
+): Partial<Record<TradeCardType, number>> {
+  const pool: TradeCardType[] = [];
+  for (const r of ALL_TRADE_CARDS) {
+    for (let i = 0; i < (player.resources[r] || 0); i++) {
       pool.push(r);
     }
   }
 
-  const discarded: Partial<Record<ResourceType, number>> = {};
+  const discarded: Partial<Record<TradeCardType, number>> = {};
   const actualCount = Math.min(count, pool.length);
 
   for (let i = 0; i < actualCount; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
+    const idx = Math.floor(random() * pool.length);
     const [res] = pool.splice(idx, 1);
-    player.resources[res] -= 1;
-    bank[res] += 1;
+    player.resources[res] = (player.resources[res] || 0) - 1;
+    bank[res] = (bank[res] || 0) + 1;
     discarded[res] = (discarded[res] || 0) + 1;
   }
 
@@ -3835,18 +3916,19 @@ export function performRandomDiscardForPlayer(
 
 function stealRandomCard(
   victim: PlayerState,
-  thief: PlayerState
-): ResourceType | null {
-  const pool: ResourceType[] = [];
-  for (const r of ALL_RESOURCES) {
-    for (let i = 0; i < victim.resources[r]; i++) {
+  thief: PlayerState,
+  random: () => number = Math.random
+): TradeCardType | null {
+  const pool: TradeCardType[] = [];
+  for (const r of ALL_TRADE_CARDS) {
+    for (let i = 0; i < (victim.resources[r] || 0); i++) {
       pool.push(r);
     }
   }
   if (pool.length === 0) return null;
-  const chosen = pool[Math.floor(Math.random() * pool.length)];
-  victim.resources[chosen] -= 1;
-  thief.resources[chosen] += 1;
+  const chosen = pool[Math.floor(random() * pool.length)];
+  victim.resources[chosen] = (victim.resources[chosen] || 0) - 1;
+  thief.resources[chosen] = (thief.resources[chosen] || 0) + 1;
   return chosen;
 }
 
@@ -3863,6 +3945,12 @@ export function autoResolveCurrentTurn(state: GameState): GameState {
   ) {
     return state;
   }
+
+  const gold = state.turn.pendingGoldClaims?.find(c => c.amount > 0);
+  if (gold) { const resource = ALL_RESOURCES.find(r => state.bank[r] > 0); if (resource) return applyGameAction(state, gold.playerId, { type: 'CLAIM_GOLD_RESOURCE', resource }).state; }
+  const pendingCK = automaticCKChoice(state);
+  if (pendingCK) return applyGameAction(state, pendingCK.playerId, pendingCK.action).state;
+  if (state.phase === 'SPECIAL_BUILD_PHASE') return applyGameAction(state, state.turn.activePlayerId, { type: 'END_SPECIAL_BUILD' }).state;
 
   const activeId = state.turn.activePlayerId;
 
@@ -3936,7 +4024,8 @@ export function autoResolveCurrentTurn(state: GameState): GameState {
         );
       }
     }
-    state.phase = 'ROBBER_MOVE';
+    state.phase = state.turn.ckSaboteurDiscard || !isRobberUnlocked(state) ? 'MAIN_PHASE' : 'ROBBER_MOVE';
+    delete state.turn.ckSaboteurDiscard;
   }
 
   if (state.phase === 'ROBBER_MOVE') {
@@ -4000,10 +4089,54 @@ export function executeBotStepIfNeeded(state: GameState): GameState {
     return state;
   }
 
+  const pendingCK = automaticCKChoice(state);
+  if (pendingCK && state.players.find(p => p.id === pendingCK.playerId)?.isBot) return applyGameAction(state, pendingCK.playerId, pendingCK.action).state;
+  if (state.phase === 'ROBBER_DISCARD') {
+    const discarder = state.players.find(p => p.mustDiscardCount > 0 && (p.isBot || p.status === 'FROZEN_SKIP'));
+    if (discarder) {
+      const resources: CardBundle = createEmptyResources(); let remaining = discarder.mustDiscardCount;
+      for (const r of ALL_TRADE_CARDS) { const n = Math.min(remaining, discarder.resources[r] || 0); resources[r] = n; remaining -= n; }
+      return applyGameAction(state, discarder.id, { type: 'DISCARD_RESOURCES', resources }).state;
+    }
+  }
+  if (!pendingCK) {
+    const claim = state.turn.pendingGoldClaims?.find(c => c.amount > 0 && state.players.find(p => p.id === c.playerId)?.isBot);
+    const resource = ALL_RESOURCES.find(r => state.bank[r] > 0);
+    if (claim && resource) return applyGameAction(state, claim.playerId, { type: 'CLAIM_GOLD_RESOURCE', resource }).state;
+  }
+
   const activePlayer = state.players.find((p) => p.id === state.turn.activePlayerId);
   if (!activePlayer || !activePlayer.isBot) {
     return state;
   }
 
+  if (state.citiesKnights) {
+    for (const action of citiesKnightsBotActions(state, activePlayer.id)) {
+      const result = applyGameAction(state, activePlayer.id, action);
+      if (!result.error) return result.state;
+    }
+    if (state.phase === 'SPECIAL_BUILD_PHASE') {
+      const city = getValidCityVertices(state, activePlayer.id)[0];
+      const settlement = getValidSettlementVertices(state, activePlayer.id)[0];
+      const road = getValidRoadEdges(state, activePlayer.id)[0];
+      return applyGameAction(state, activePlayer.id, city ? { type: 'UPGRADE_CITY', vertexId: city } : settlement ? { type: 'PLACE_SETTLEMENT', vertexId: settlement } : road ? { type: 'PLACE_ROAD', edgeId: road } : { type: 'END_SPECIAL_BUILD' }).state;
+    }
+  }
   return executeBotStep(state, activePlayer.id);
+}
+
+/** Replay-friendly dispatcher: no input mutation; time and random results are explicit. */
+export function executeAction(state: GameState, playerId: string, action: GameAction, context: RuleContext): ReturnType<typeof applyGameAction> {
+  return applyGameAction(state, playerId, action, context);
+}
+
+/** An event can require a decision from someone other than the turn owner. */
+export function getDecisionPlayerId(state: GameState): string {
+  if (state.citiesKnights?.choices.length) return state.citiesKnights.choices[0].playerId;
+  if (state.phase === 'ROBBER_DISCARD') {
+    const pending = state.players.filter(p => p.mustDiscardCount > 0);
+    return (pending.find(p => p.isBot || p.status === 'FROZEN_SKIP') || pending[0])?.id || state.turn.activePlayerId;
+  }
+  const claims = state.turn.pendingGoldClaims?.filter(c => c.amount > 0) || [];
+  return (claims.find(c => state.players.find(p => p.id === c.playerId)?.isBot) || claims[0])?.playerId || state.turn.activePlayerId;
 }

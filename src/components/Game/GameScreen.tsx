@@ -1,3 +1,6 @@
+import { CitiesKnightsPanel } from './CitiesKnightsPanel';
+import { hasCitiesKnights } from '../../shared/citiesKnightsConfig';
+import { cityCost } from '../../shared/engine/CitiesAndKnights';
 import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -32,6 +35,7 @@ import {
 import { useGame } from '../../context/GameContext';
 import {
   ALL_RESOURCES,
+  ALL_TRADE_CARDS,
   BUILDING_COSTS,
   countTotalResources,
   RESOURCE_META,
@@ -49,7 +53,7 @@ import {
   getValidShipMoveDestinations,
   hasResources,
 } from '../../shared/engine/RulesEngine';
-import { PlayerState, ResourceType } from '../../shared/types';
+import { PlayerState, ResourceType, TradeCardType } from '../../shared/types';
 import { Board } from '../Board/Board';
 import { OverlayAnimations } from '../Animations/OverlayAnimations';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
@@ -79,6 +83,7 @@ export const GameScreen: React.FC = () => {
     setLowEndPcMode,
   } = useGame();
 
+  const [ckHighlightedVertex, setCKHighlightedVertex] = useState<string | null>(null);
   const [buildMode, setBuildMode] = useState<ActiveBuildMode>(null);
   const [selectedMovableShipId, setSelectedMovableShipId] = useState<string | null>(null);
   const [isBuildDrawerOpen, setIsBuildDrawerOpen] = useState(false);
@@ -115,8 +120,8 @@ export const GameScreen: React.FC = () => {
       kind: 'BANK_TRADE' | 'PLAYER_TRADE' | 'BUILD' | 'DEV_CARD' | 'KNIGHT' | 'BOT';
       message: string;
       durationMs: number;
-      giveItems?: Array<{ resource: ResourceType; amount: number }>;
-      receiveItems?: Array<{ resource: ResourceType; amount: number }>;
+      giveItems?: Array<{ resource: TradeCardType; amount: number }>;
+      receiveItems?: Array<{ resource: TradeCardType; amount: number }>;
       ratio?: 2 | 3 | 4;
       isBotActor?: boolean;
     }>
@@ -151,11 +156,11 @@ export const GameScreen: React.FC = () => {
       // 2. Completed Player-to-Player Trade by Human or Bot
       if (ev.completedTrade) {
         const ct = ev.completedTrade;
-        const giveItems = ALL_RESOURCES.filter((r) => (ct.offered[r] || 0) > 0).map((r) => ({
+        const giveItems = ALL_TRADE_CARDS.filter((r) => (ct.offered[r] || 0) > 0).map((r) => ({
           resource: r,
           amount: ct.offered[r] || 0,
         }));
-        const receiveItems = ALL_RESOURCES.filter((r) => (ct.requested[r] || 0) > 0).map((r) => ({
+        const receiveItems = ALL_TRADE_CARDS.filter((r) => (ct.requested[r] || 0) > 0).map((r) => ({
           resource: r,
           amount: ct.requested[r] || 0,
         }));
@@ -297,7 +302,7 @@ export const GameScreen: React.FC = () => {
         const actor = gameState.players.find((p) => p.id === ev.devCardPlayerId);
         const actorName = ev.devCardPlayerName || actor?.name || 'Un jugador';
         let msg = `${actorName} usó una Carta de Desarrollo`;
-        let receiveItems: Array<{ resource: ResourceType; amount: number }> | undefined;
+        let receiveItems: Array<{ resource: TradeCardType; amount: number }> | undefined;
 
         if (ev.devCardType === 'KNIGHT') {
           msg = `${actorName} desplegó un Caballero y mueve al Ladrón`;
@@ -343,13 +348,13 @@ export const GameScreen: React.FC = () => {
       lastSeenOfferIdRef.current = latestOffer.id;
       const proposer = gameState.players.find((p) => p.id === latestOffer.fromPlayerId);
       if (proposer) {
-        const giveItems = ALL_RESOURCES.filter((r) => (latestOffer.offer[r] || 0) > 0).map(
+        const giveItems = ALL_TRADE_CARDS.filter((r) => (latestOffer.offer[r] || 0) > 0).map(
           (r) => ({
             resource: r,
             amount: latestOffer.offer[r] || 0,
           })
         );
-        const receiveItems = ALL_RESOURCES.filter((r) => (latestOffer.request[r] || 0) > 0).map(
+        const receiveItems = ALL_TRADE_CARDS.filter((r) => (latestOffer.request[r] || 0) > 0).map(
           (r) => ({
             resource: r,
             amount: latestOffer.request[r] || 0,
@@ -454,7 +459,8 @@ export const GameScreen: React.FC = () => {
         e.preventDefault();
         setIsBuildDrawerOpen(false);
         setShowTradeModal(false);
-        setShowDevModal((prev) => !prev);
+        if (hasCitiesKnights(gameState.config)) window.dispatchEvent(new Event('open-cities-knights'));
+        else setShowDevModal((prev) => !prev);
       } else if (key === 'i') {
         e.preventDefault();
         setIsBuildDrawerOpen(false);
@@ -473,7 +479,7 @@ export const GameScreen: React.FC = () => {
     if (gameState.phase === 'SETUP_SETTLEMENT_1' || gameState.phase === 'SETUP_SETTLEMENT_2') {
       return getValidSettlementVertices(gameState, playerId);
     }
-    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'SETTLEMENT') {
+    if (['MAIN_PHASE', 'SPECIAL_BUILD_PHASE'].includes(gameState.phase) && buildMode === 'SETTLEMENT') {
       return getValidSettlementVertices(gameState, playerId);
     }
     return [];
@@ -488,7 +494,7 @@ export const GameScreen: React.FC = () => {
     ) {
       return getValidRoadEdges(gameState, playerId);
     }
-    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'ROAD') {
+    if (['MAIN_PHASE', 'SPECIAL_BUILD_PHASE'].includes(gameState.phase) && buildMode === 'ROAD') {
       return getValidRoadEdges(gameState, playerId);
     }
     return [];
@@ -496,7 +502,7 @@ export const GameScreen: React.FC = () => {
 
   const validCityIds = useMemo(() => {
     if (!gameState || !isMyTurn || isPausedByHost) return [];
-    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'CITY') {
+    if (['MAIN_PHASE', 'SPECIAL_BUILD_PHASE'].includes(gameState.phase) && buildMode === 'CITY') {
       return getValidCityVertices(gameState, playerId);
     }
     return [];
@@ -515,7 +521,7 @@ export const GameScreen: React.FC = () => {
     ) {
       return isSeafarers ? getValidShipEdges(gameState, playerId) : [];
     }
-    if (gameState.phase === 'MAIN_PHASE' && buildMode === 'SHIP') {
+    if (['MAIN_PHASE', 'SPECIAL_BUILD_PHASE'].includes(gameState.phase) && buildMode === 'SHIP') {
       return getValidShipEdges(gameState, playerId);
     }
     if (gameState.phase === 'MAIN_PHASE' && buildMode === 'MOVE_SHIP' && selectedMovableShipId) {
@@ -533,11 +539,11 @@ export const GameScreen: React.FC = () => {
   }, [gameState, isMyTurn, isPausedByHost, buildMode, playerId, isSeafarers]);
 
   // Maritime Trade Ratios for local player
-  const myPortRatios = useMemo<Record<ResourceType, 2 | 3 | 4>>(
+  const myPortRatios = useMemo<Record<TradeCardType, 2 | 3 | 4>>(
     () =>
       gameState
         ? getPlayerBankTradeRatios(gameState, playerId)
-        : { WOOD: 4, BRICK: 4, SHEEP: 4, WHEAT: 4, ORE: 4 },
+        : { WOOD: 4, BRICK: 4, SHEEP: 4, WHEAT: 4, ORE: 4, PAPER: 4, CLOTH: 4, COIN: 4 },
     [gameState, playerId]
   );
 
@@ -595,7 +601,7 @@ export const GameScreen: React.FC = () => {
   const canBuildRoadNow =
     isMyTurn &&
     !isPausedByHost &&
-    phase === 'MAIN_PHASE' &&
+    (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
     infraPermission.allowed &&
     me.roadsLeft > 0 &&
     hasResources(me.resources, BUILDING_COSTS.ROAD) &&
@@ -604,7 +610,7 @@ export const GameScreen: React.FC = () => {
   const canBuildSettlementNow =
     isMyTurn &&
     !isPausedByHost &&
-    phase === 'MAIN_PHASE' &&
+    (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
     infraPermission.allowed &&
     me.settlementsLeft > 0 &&
     hasResources(me.resources, BUILDING_COSTS.SETTLEMENT) &&
@@ -613,16 +619,16 @@ export const GameScreen: React.FC = () => {
   const canBuildCityNow =
     isMyTurn &&
     !isPausedByHost &&
-    phase === 'MAIN_PHASE' &&
+    (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
     infraPermission.allowed &&
-    me.citiesLeft > 0 &&
-    hasResources(me.resources, BUILDING_COSTS.CITY) &&
+    (me.citiesLeft > 0 || Object.values(gameState.board.vertices).some(v => v.playerId === me.id && v.isDowngradedCity)) &&
+    hasResources(me.resources, cityCost(gameState)) &&
     getValidCityVertices(gameState, playerId).length > 0;
 
   const canBuildShipNow =
     isMyTurn &&
     !isPausedByHost &&
-    phase === 'MAIN_PHASE' &&
+    (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
     isSeafarers &&
     infraPermission.allowed &&
     (me.shipsLeft ?? 0) > 0 &&
@@ -677,19 +683,21 @@ export const GameScreen: React.FC = () => {
       case 'SETUP_ROAD_1':
         return 'Colocación Inicial (Ronda 1): Selecciona una arista contigua para colocar tu 1.ª Carretera gratis.';
       case 'SETUP_SETTLEMENT_2':
-        return 'Colocación Inicial (Ronda 2): Coloca tu 2.º Poblado (recibirás los recursos de los terrenos adyacentes).';
+        return hasCitiesKnights(config) ? 'Colocación inicial (ronda 2): funda tu ciudad; recibes un recurso básico por terreno adyacente.' : 'Colocación Inicial (Ronda 2): Coloca tu 2.º Poblado (recibirás los recursos de los terrenos adyacentes).';
       case 'SETUP_ROAD_2':
         return 'Colocación Inicial (Ronda 2): Coloca tu 2.ª Carretera adyacente.';
       case 'WAITING_FOR_DICE':
         return 'Fase Obligatoria de Dados: Lanza los dados en el centro de la pantalla antes de realizar cualquier acción.';
       case 'ROBBER_DISCARD':
-        return 'Esperando a que los jugadores con más de 7 cartas descarten la mitad de su mano...';
+        return 'Esperando el descarte obligatorio de cartas; el límite depende de las murallas de cada jugador.';
       case 'ROBBER_MOVE':
         return 'Selecciona cualquier hexágono terrestre (incluso el actual) para posicionar al Ladrón y robar 1 recurso.';
       case 'ROBBER_STEAL':
         return 'Elige a cuál de los jugadores adyacentes al hexágono deseas robarle 1 carta al azar.';
       case 'ROAD_BUILDING_DEV':
         return `Construcción de Carreteras activa: Coloca ${turn.freeRoadsRemaining} carretera(s) sin coste.`;
+      case 'CK_CHOICE': return 'Ciudades y Caballeros: se está resolviendo una elección del jugador indicado.';
+      case 'SPECIAL_BUILD_PHASE': return 'Construcción especial: puedes construir, mejorar ciudades y reclutar, activar o ascender caballeros. Al terminar, pulsa el botón del panel.';
       case 'MAIN_PHASE':
         if (buildMode === 'ROAD')
           return 'Selecciona una arista iluminada en el mapa para construir tu Carretera.';
@@ -697,7 +705,7 @@ export const GameScreen: React.FC = () => {
           return 'Selecciona un vértice iluminado conectado a tu carretera para construir tu Poblado.';
         if (buildMode === 'CITY')
           return 'Selecciona uno de tus Poblados iluminados para mejorarlo a Ciudad.';
-        return 'Fase Principal: Construye, comercia con la Banca/Puertos o con otros colonos, juega Desarrollo o pasa el turno.';
+        return hasCitiesKnights(config) ? 'Fase principal: construye, comercia, gestiona tus caballeros y juega progreso en el panel de la expansión.' : 'Fase Principal: Construye, comercia con la Banca/Puertos o con otros colonos, juega Desarrollo o pasa el turno.';
       default:
         return '';
     }
@@ -938,6 +946,7 @@ export const GameScreen: React.FC = () => {
             producingHexIds={boardProducingHexIds}
             lowEndPcMode={lowEndPcMode}
             lastEvent={gameState.lastEvent}
+            highlightedVertexId={ckHighlightedVertex}
             onVertexClick={(vertexId) => {
               if (isPausedByHost) return;
               if (validCityIds.includes(vertexId)) {
@@ -1241,6 +1250,8 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
+          {gameState.citiesKnights && <CitiesKnightsPanel gameState={gameState} playerId={playerId} dispatchAction={dispatchAction} onHighlightVertex={setCKHighlightedVertex}/>}
+
           {/* Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck (positioned left of the right profiles & card fans) */}
           <div
             className={`tablet-dev-deck-container absolute top-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none ${
@@ -1258,7 +1269,7 @@ export const GameScreen: React.FC = () => {
             )}
 
             {/* Physical Development Card Deck on the Tabletop */}
-            <div
+            {!hasCitiesKnights(config) && <div
               id="tabletop-devcard-deck"
               className="pointer-events-auto relative group flex flex-col items-center select-none cursor-pointer"
               title={`Mazo de Desarrollo: ${gameState.devDeck?.length ?? 0} cartas restantes`}
@@ -1297,7 +1308,7 @@ export const GameScreen: React.FC = () => {
                 <span>Mazo</span>
                 <span className="text-amber-400">({gameState.devDeck?.length ?? 0})</span>
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
@@ -1374,7 +1385,7 @@ export const GameScreen: React.FC = () => {
                 </button>
               )}
               {/* 3. Cartas de Desarrollo (D) */}
-              <button
+              {!hasCitiesKnights(config) && <button
                 type="button"
                 disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 onClick={() => setShowDevModal(true)}
@@ -1392,7 +1403,7 @@ export const GameScreen: React.FC = () => {
                 <span className="px-1.5 py-0.5 rounded bg-black/35 text-[9px] font-mono text-amber-300/80">
                   D
                 </span>
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -1445,11 +1456,11 @@ export const GameScreen: React.FC = () => {
                 <div className="tablet-bank-header flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-200 mb-1.5 px-0.5">
                   <span>Recursos de la Banca</span>
                   <span className="px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-500/30 text-purple-200 text-[9px]">
-                    Desarrollo: {gameState.devDeck.length}
+                    {hasCitiesKnights(config) ? `Progreso: ${Object.values(gameState.citiesKnights?.decks || {}).reduce((n, cards) => n + cards.length, 0)}` : `Desarrollo: ${gameState.devDeck.length}`}
                   </span>
                 </div>
                 <div className="grid grid-cols-5 gap-1">
-                  {ALL_RESOURCES.map((r) => (
+                  {(hasCitiesKnights(config) ? ALL_TRADE_CARDS : ALL_RESOURCES).map((r) => (
                     <div
                       key={r}
                       className="tablet-bank-slot flex flex-col items-center justify-center py-1 px-0.5 rounded-lg bg-[#090604] border border-stone-800"
@@ -1863,10 +1874,10 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   useCompactLayout = false,
 }) => {
   const totalRes = countTotalResources(player.resources);
-  const unplayedDevs = isLocalPlayer
+  const unplayedDevs = player.citiesKnights?.progressCards.length ?? (isLocalPlayer
     ? player.devCards.filter((c) => !c.played).length
     : player.devCards.filter((c) => !c.played && c.type !== 'VICTORY_POINT').length +
-      player.devCards.filter((c) => c.type === 'VICTORY_POINT').length;
+      player.devCards.filter((c) => c.type === 'VICTORY_POINT').length);
 
   return (
     <div
@@ -1929,7 +1940,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
           {/* Cartas de Desarrollo */}
           <div
             className="bg-[#090604] border border-stone-800/80 rounded px-1.5 py-0.5 flex items-center gap-0.5"
-            title="Cartas de Desarrollo sin jugar"
+            title={player.citiesKnights ? "Cartas de progreso" : "Cartas de Desarrollo sin jugar"}
           >
             <Layers className="w-2.5 h-2.5 text-purple-300 shrink-0" />
             <span className="text-[11px] font-black text-purple-300 font-mono">{unplayedDevs}</span>
@@ -1957,11 +1968,11 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
                 ? 'bg-red-950/70 border-red-400'
                 : 'bg-[#090604] border-stone-800/80'
             }`}
-            title={`Caballeros jugados: ${player.knightsPlayed}${hasLargestArmy ? ' (Gran Ejército +2 PV)' : ''}`}
+            title={`Caballeros jugados: ${player.citiesKnights ? player.citiesKnights.defenderPoints : player.knightsPlayed}${hasLargestArmy ? ' (Gran Ejército +2 PV)' : ''}`}
           >
             <Swords className={`w-2.5 h-2.5 ${hasLargestArmy ? 'text-red-300' : 'text-stone-400'} shrink-0`} />
             <span className={`text-[11px] font-black font-mono ${hasLargestArmy ? 'text-red-300' : 'text-red-200'}`}>
-              {player.knightsPlayed}
+              {player.citiesKnights ? player.citiesKnights.defenderPoints : player.knightsPlayed}
             </span>
           </div>
         </div>
@@ -2030,7 +2041,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
 
           <div
             className="tablet-player-stat-box bg-[#090604] border border-stone-800/80 rounded-md py-0.5 px-1 flex items-center justify-between"
-            title="Cartas de Desarrollo sin jugar"
+            title={player.citiesKnights ? "Cartas de progreso" : "Cartas de Desarrollo sin jugar"}
           >
             <Layers className="tablet-player-stat-icon w-2.5 h-2.5 text-purple-300 shrink-0" />
             <span className="tablet-player-stat-value text-[11px] font-black text-purple-300">{unplayedDevs}</span>
@@ -2056,11 +2067,11 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
                 ? 'bg-red-950/60 border-red-400'
                 : 'bg-[#090604] border-stone-800/80'
             }`}
-            title="Caballeros jugados"
+            title={player.citiesKnights ? "Puntos de Campeador de Catán" : "Caballeros jugados"}
           >
             <Swords className="tablet-player-stat-icon w-2.5 h-2.5 text-red-300 shrink-0" />
             <span className="tablet-player-stat-value text-[11px] font-black text-red-300">
-              {player.knightsPlayed}
+              {player.citiesKnights ? player.citiesKnights.defenderPoints : player.knightsPlayed}
             </span>
           </div>
         </div>

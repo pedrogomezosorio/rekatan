@@ -1,0 +1,608 @@
+[
+  {
+    "path": "public/assets/cities-knights/commodities/paper.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "paper"
+  },
+  {
+    "path": "public/assets/cities-knights/cards/paper.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "paper"
+  },
+  {
+    "path": "public/assets/cities-knights/commodities/cloth.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "cloth"
+  },
+  {
+    "path": "public/assets/cities-knights/cards/cloth.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "cloth"
+  },
+  {
+    "path": "public/assets/cities-knights/commodities/coin.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "coin"
+  },
+  {
+    "path": "public/assets/cities-knights/cards/coin.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "coin"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/red_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "red 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/red.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla red"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/blue_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "blue 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/blue.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla blue"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/orange_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "orange 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/orange.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla orange"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/white_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "white 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/white.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla white"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/green_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "green 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/green.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla green"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_1_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 1 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_1_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 1 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_2_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 2 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_2_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 2 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_3_active.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 3 active"
+  },
+  {
+    "path": "public/assets/cities-knights/knights/purple_3_inactive.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "purple 3 inactive"
+  },
+  {
+    "path": "public/assets/cities-knights/walls/purple.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Muralla purple"
+  },
+  {
+    "path": "public/assets/cities-knights/metropolises/science.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Metrópolis de Ciencia"
+  },
+  {
+    "path": "public/assets/cities-knights/events/science.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Ciencia"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/science_back.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Ciencia"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/science_1.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Ciencia 1"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/science_2.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Ciencia 2"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/science_3.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Ciencia 3"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/science_4.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Ciencia 4"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/science_5.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Ciencia 5"
+  },
+  {
+    "path": "public/assets/cities-knights/metropolises/politics.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Metrópolis de Política"
+  },
+  {
+    "path": "public/assets/cities-knights/events/politics.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Política"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/politics_back.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Política"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/politics_1.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Política 1"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/politics_2.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Política 2"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/politics_3.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Política 3"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/politics_4.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Política 4"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/politics_5.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Política 5"
+  },
+  {
+    "path": "public/assets/cities-knights/metropolises/trade.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Metrópolis de Comercio"
+  },
+  {
+    "path": "public/assets/cities-knights/events/trade.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Comercio"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/trade_back.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Comercio"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/trade_1.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Comercio 1"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/trade_2.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Comercio 2"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/trade_3.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Comercio 3"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/trade_4.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Comercio 4"
+  },
+  {
+    "path": "public/assets/cities-knights/improvements/trade_5.svg",
+    "size": "320×200",
+    "transparent": false,
+    "label": "Comercio 5"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/alchemist.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Alquimista"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/road_building.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Construcción de carreteras"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/smith.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Fragua"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/crane.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Grúa"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/printer.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Imprenta"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/engineer.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Ingeniero"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/inventor.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Inventor"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/irrigation.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Irrigación"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/medicine.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Medicina"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/mining.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Minería"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/wedding.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Boda"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/constitution.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Constitución"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/deserter.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Desertor"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/diplomat.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Diplomático"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/spy.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Espía"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/warlord.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Estratega"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/intrigue.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Intriga"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/bishop.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Obispo"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/saboteur.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Saboteador"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/merchant.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Comerciante"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/merchant_fleet.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Flota mercante"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/master_merchant.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Maestro comerciante"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/commodity_monopoly.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Monopolio de mercancías"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/resource_monopoly.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Monopolio de materias primas"
+  },
+  {
+    "path": "public/assets/cities-knights/progress/commercial_harbor.svg",
+    "size": "320×480",
+    "transparent": false,
+    "label": "Puerto de mercancías"
+  },
+  {
+    "path": "public/assets/cities-knights/events/barbarian.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Barco bárbaro"
+  },
+  {
+    "path": "public/assets/cities-knights/barbarians/barbarian_ship.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Barco bárbaro"
+  },
+  {
+    "path": "public/assets/cities-knights/barbarians/defender.svg",
+    "size": "128×128",
+    "transparent": true,
+    "label": "Campeador de Catán"
+  },
+  {
+    "path": "public/assets/cities-knights/barbarians/track.svg",
+    "size": "960×128",
+    "transparent": false,
+    "label": "Ruta de los bárbaros"
+  }
+]

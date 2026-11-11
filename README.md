@@ -162,5 +162,13 @@ Los archivos compilados se guardarán dentro de la carpeta `release/`.
 
 ---
 
+## Ciudades y Caballeros
+
+Disponible para 3–4 y 5–6 jugadores, con mercancías, tres dados, caballeros sobre el tablero, invasiones, murallas, mejoras, metrópolis y los tres mazos oficiales de progreso. La ampliación utiliza la fase especial de construcción del PDF español aportado. Se activa desde el lobby; el panel de la expansión y el atajo **D** permiten gestionar sus acciones.
+
+Consulta las [reglas implementadas y límites de combinación con Navegantes](docs/ciudades-caballeros.md) y el [catálogo de gráficos sustituibles](docs/ciudades-caballeros-assets.md). Se incluyen SVG provisionales para jugar sin esperar a las ilustraciones finales.
+
+---
+
 ## Nota Legal
 Este software es un proyecto independiente desarrollado exclusivamente con fines educativos y de investigación técnica. Catan es una marca registrada de Catan GmbH. El código y activos aquí contenidos no están afiliados, respaldados ni asociados formalmente con los titulares de la propiedad intelectual original.

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { isImageAvatar, RESOURCE_ICON_PATHS, RESOURCE_META } from '../../shared/constants';
-import { ResourceType } from '../../shared/types';
+import { TradeCardType } from '../../shared/types';
 
 export const AvatarIcon: React.FC<{
   avatar?: string;
@@ -20,7 +20,7 @@ export const AvatarIcon: React.FC<{
 };
 
 export interface ResourceIconProps {
-  resource: ResourceType;
+  resource: TradeCardType;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
   className?: string;
 }

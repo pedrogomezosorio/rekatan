@@ -5,6 +5,7 @@ import {
   PlayerColor,
   PortType,
   ResourceType,
+  TradeCardType,
   SeafarersBoardSize,
   SeafarersScenario,
   TerrainType,
@@ -56,7 +57,10 @@ export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
  * Rutas de logotipos/iconos oficiales para cada recurso en `/assets/icons/`.
  * Puedes sustituir los archivos en `/public/assets/icons/` por `.png`, `.webp` o `.svg`.
  */
-export const RESOURCE_ICON_PATHS: Record<ResourceType, string> = {
+export const RESOURCE_ICON_PATHS: Record<TradeCardType, string> = {
+  PAPER: '/assets/cities-knights/commodities/paper.svg',
+  CLOTH: '/assets/cities-knights/commodities/cloth.svg',
+  COIN: '/assets/cities-knights/commodities/coin.svg',
   WOOD: '/assets/icons/wood.svg',
   BRICK: '/assets/icons/brick.svg',
   SHEEP: '/assets/icons/sheep.svg',
@@ -68,7 +72,10 @@ export const RESOURCE_ICON_PATHS: Record<ResourceType, string> = {
  * Diseños originales de las cartas de recursos en `/assets/cards/` para el abanico pixel-perfect
  * y para las animaciones de recolección.
  */
-export const RESOURCE_CARD_PATHS: Record<ResourceType, string> = {
+export const RESOURCE_CARD_PATHS: Record<TradeCardType, string> = {
+  PAPER: '/assets/cities-knights/cards/paper.svg',
+  CLOTH: '/assets/cities-knights/cards/cloth.svg',
+  COIN: '/assets/cities-knights/cards/coin.svg',
   WOOD: '/assets/cards/wood.jpg',
   BRICK: '/assets/cards/brick.jpg',
   SHEEP: '/assets/cards/sheep.jpg',
@@ -123,8 +130,10 @@ export const EXPANSION_CATALOG: Array<{
 
 export const ALL_RESOURCES: ResourceType[] = ['WOOD', 'BRICK', 'SHEEP', 'WHEAT', 'ORE'];
 
+export const ALL_TRADE_CARDS: TradeCardType[] = [...ALL_RESOURCES, 'PAPER', 'CLOTH', 'COIN'];
+
 export const RESOURCE_META: Record<
-  ResourceType,
+  TradeCardType,
   {
     name: string;
     shortName: string;
@@ -138,6 +147,9 @@ export const RESOURCE_META: Record<
     iconPath: string;
   }
 > = {
+  PAPER: { name: 'Papel', shortName: 'Papel', terrainName: 'Papel', color: '#16a34a', bgHex: '#16a34a', accentHex: '#16a34a', badgeBg: 'bg-stone-900 border-stone-500', badgeText: 'text-stone-100', emoji: '📜', iconPath: '/assets/cities-knights/commodities/paper.svg' },
+  CLOTH: { name: 'Tela', shortName: 'Tela', terrainName: 'Tela', color: '#eab308', bgHex: '#eab308', accentHex: '#eab308', badgeBg: 'bg-stone-900 border-stone-500', badgeText: 'text-stone-100', emoji: '🧵', iconPath: '/assets/cities-knights/commodities/cloth.svg' },
+  COIN: { name: 'Moneda', shortName: 'Moneda', terrainName: 'Moneda', color: '#2563eb', bgHex: '#2563eb', accentHex: '#2563eb', badgeBg: 'bg-stone-900 border-stone-500', badgeText: 'text-stone-100', emoji: '🪙', iconPath: '/assets/cities-knights/commodities/coin.svg' },
   WOOD: {
     name: 'Madera',
     shortName: 'Madera',
@@ -669,6 +681,6 @@ export function createEmptyResources(): Record<ResourceType, number> {
 }
 
 export function countTotalResources(res: Record<ResourceType, number>): number {
-  return res.WOOD + res.BRICK + res.SHEEP + res.WHEAT + res.ORE;
+  return ALL_TRADE_CARDS.reduce((sum, r) => sum + ((res as Partial<Record<TradeCardType, number>>)[r] || 0), 0);
 }
 
