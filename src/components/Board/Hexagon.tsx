@@ -1,9 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Hex } from '../../shared/types';
-import { TILE_TEXTURE_PATHS } from '../../shared/constants';
+import {
+  PROBABILITY_PIPS,
+  TERRAIN_META,
+  TILE_TEXTURE_PATHS,
+} from '../../shared/constants';
 import { getHexCornerPoints } from '../../shared/engine/HexGrid';
-import { NumberToken } from './NumberToken';
+// NumberToken component preserved for future use with extracted original tokens
+export { NumberToken } from './NumberToken';
 
 export interface HexagonProps {
   hex: Hex;
@@ -33,6 +38,8 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
   }) => {
     const isSea = hex.terrain === 'SEA';
     const isFog = hex.terrain === 'FOG';
+    const isRedNumber = hex.numberToken === 6 || hex.numberToken === 8;
+    const pips = hex.numberToken ? PROBABILITY_PIPS[hex.numberToken] || 0 : 0;
 
     // Local coordinates centered at (0, 0)
     const outerCorners = getHexCornerPoints(0, 0, hexSize);
@@ -65,7 +72,11 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
           />
         )}
 
-        {isSea && <polygon points={outerPoints} fill="url(#sea-depth-grad)" />}
+        {/* 2. CLASSIC CATAN CARDBOARD BASE RIM */}
+        <polygon
+          points={outerPoints}
+          fill={isFog ? '#1e293b' : isSea ? 'url(#sea-depth-grad)' : '#dac6a0'}
+        />
 
         {/* 3. HIGH-RES AUTHENTIC ORIGINAL CATAN TERRAIN ILLUSTRATION OR FOG */}
         {isFog ? (
@@ -100,6 +111,14 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
           </g>
         ) : !isSea ? (
           <g clipPath="url(#hex-outer-surface-clip)">
+            {/* Solid Fallback Base */}
+            <rect
+              x={-hexSize}
+              y={-hexSize}
+              width={hexSize * 2}
+              height={hexSize * 2}
+              fill={TERRAIN_META[hex.terrain].fill}
+            />
             {/* High-Resolution Original Terrain Tile from Board Game */}
             <image
               href={TILE_TEXTURE_PATHS[hex.terrain]}
@@ -107,7 +126,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               y={-hexSize}
               width={hexSize * 1.73205}
               height={hexSize * 2}
-              preserveAspectRatio="xMidYMid slice"
+              preserveAspectRatio="none"
             />
             {/* Subtle Inner Edge Shading for Tabletop Cardboard Depth */}
             <rect
@@ -235,9 +254,63 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
           </g>
         )}
 
-        {/* 6. TRANSPARENT PNG NUMBER TOKEN */}
+        {/* 6. 3D PARCHMENT NUMBER TOKEN WITH CAST SHADOW (Classic Design) */}
         {!isSea && !isFog && hex.numberToken !== null && (
-          <NumberToken number={hex.numberToken} isRedConflict={isRedConflict} lowEndPcMode={lowEndPcMode} />
+          <g
+            transform="translate(0, 12)"
+            className="pointer-events-none"
+            filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+          >
+            {/* 3D Token Rim Thickness */}
+            <circle cx={0} cy={2.2} r={17} fill="#4a2c11" />
+            {/* Main Aged Parchment Disc */}
+            <circle
+              cx={0}
+              cy={0}
+              r={17}
+              fill="url(#parchment-token-grad)"
+              stroke={isRedConflict ? '#ef4444' : isRedNumber ? '#b91c1c' : '#78350f'}
+              strokeWidth={isRedConflict ? 2.8 : isRedNumber ? 2.2 : 1.8}
+            />
+            {/* Inner Engraved Ring */}
+            <circle
+              cx={0}
+              cy={0}
+              r={14.2}
+              fill="none"
+              stroke={isRedNumber ? 'rgba(185, 28, 28, 0.35)' : 'rgba(120, 53, 15, 0.28)'}
+              strokeWidth={0.8}
+            />
+            {/* Number Typography */}
+            <text
+              x={0}
+              y={2}
+              textAnchor="middle"
+              dominantBaseline="alphabetic"
+              fill={isRedNumber ? '#b91c1c' : '#1c1917'}
+              fontWeight={isRedNumber ? '900' : '800'}
+              fontSize={isRedNumber ? '15.5' : '13.5'}
+              fontFamily="Cinzel, Georgia, serif"
+            >
+              {hex.numberToken}
+            </text>
+            {/* Probability Pips */}
+            <g transform="translate(0, 9.5)">
+              {Array.from({ length: pips }).map((_, idx) => {
+                const totalWidth = (pips - 1) * 3.8;
+                const cx = -totalWidth / 2 + idx * 3.8;
+                return (
+                  <circle
+                    key={idx}
+                    cx={cx}
+                    cy={0}
+                    r={1.35}
+                    fill={isRedNumber ? '#b91c1c' : '#44403c'}
+                  />
+                );
+              })}
+            </g>
+          </g>
         )}
 
         {/* 7. CUBIC COORDINATES OVERLAY (q, r, s) */}

@@ -48,10 +48,21 @@ it('conserva la sala tras errores de opciones, cambio de transporte, desconexió
     socket.once('ROOM_JOINED', payload => { socket.off('ACTION_ERROR', reject); r(payload.state); });
     socket.once('ACTION_ERROR', reject); socket.emit(event, { ...identity, roomCode, options });
   });
-  const action = (socket: Socket, roomCode: string, value: GameAction) => new Promise<GameState>((r, reject) => {
-    const fail = (error: { message: string }) => { socket.off('ROOM_STATE', success); reject(new Error(error.message)); };
-    const success = (state: GameState) => { socket.off('ACTION_ERROR', fail); r(state); };
-    socket.once('ROOM_STATE', success); socket.once('ACTION_ERROR', fail);
+  const action = (socket: Socket, roomCode: string, value: GameAction, predicate?: (s: GameState) => boolean) => new Promise<GameState>((r, reject) => {
+    const onState = (state: GameState) => {
+      if (!predicate || predicate(state)) {
+        socket.off('ROOM_STATE', onState);
+        socket.off('ACTION_ERROR', onError);
+        r(state);
+      }
+    };
+    const onError = (error: { message: string }) => {
+      socket.off('ROOM_STATE', onState);
+      socket.off('ACTION_ERROR', onError);
+      reject(new Error(error.message));
+    };
+    socket.on('ROOM_STATE', onState);
+    socket.once('ACTION_ERROR', onError);
     socket.emit('GAME_ACTION', { roomCode, playerId: identity.playerId, action: value });
   });
   try {
@@ -74,7 +85,12 @@ it('conserva la sala tras errores de opciones, cambio de transporte, desconexió
     const replacement = await connect();
     await roomJoined(replacement, 'JOIN_ROOM', roomCode);
     first.disconnect();
-    configured = await action(replacement, roomCode, { type: 'UPDATE_CONFIG', config: { victoryPointsTarget: 15 } });
+    configured = await action(
+      replacement,
+      roomCode,
+      { type: 'UPDATE_CONFIG', config: { victoryPointsTarget: 15 } },
+      (s) => s.config.victoryPointsTarget === 15
+    );
     expect(configured.players[0].connected).toBe(true);
     replacement.disconnect();
     await delay(5200); // The old four-second expiry used to delete this room.
