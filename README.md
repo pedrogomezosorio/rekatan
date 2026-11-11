@@ -6,16 +6,16 @@ Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
 ---
 
-## Descargas (v2.0 — Expansión Navegantes)
+## Descargas (v3.0 — Expansión Ciudades y Caballeros & Navegantes)
 
 Las versiones ejecutables para escritorio se encuentran disponibles en la sección de [Releases de GitHub](https://github.com/pedrogomezosorio/rekatan/releases/latest).
 
 | Sistema Operativo | Tipo de Paquete | Archivo | Enlace de Descarga |
 | :--- | :--- | :--- | :--- |
-| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.0.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.0.0-arm64.dmg) |
-| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.0.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.0.0-arm64-mac.zip) |
-| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.0.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.0.0.exe) |
-| **Windows** | Ejecutable Portable | `Catan Tabletop 2.0.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.0.0.exe) |
+| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-3.0.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-3.0.0-arm64.dmg) |
+| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-3.0.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-3.0.0-arm64-mac.zip) |
+| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 3.0.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.3.0.0.exe) |
+| **Windows** | Ejecutable Portable | `Catan Tabletop 3.0.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.3.0.0.exe) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
 
 > 💡 **Todas las versiones y notas de la actualización:**  
@@ -63,6 +63,15 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
   - Sistema íntegro de **Fichas Catán**: bonificaciones de colonización insular (`+2 PV`), dones tribales (`+1 PV`, cartas y puertos), fardos de tela indígena, resistencia de fortalezas pirata frente a buques de guerra y fases de construcción de Maravillas.
 - **Montaje Variable (Sección 4):** El botón *Regenerar Escenario de Navegantes* conserva intacta la silueta de las islas y el mar, barajando exclusivamente los terrenos, números o puertos permitidos por el reglamento de cada escenario.
 
+### Expansión: Ciudades y Caballeros (3 a 6 Jugadores)
+- **Economía y Nuevas Mercancías (Commodities):** Producción dual en ciudades para Bosque (**Papel**), Pastos (**Tela**) y Montañas (**Moneda**), con ilustraciones en alta resolución y abanico de recursos adaptativo.
+- **Tirada de 3 Dados & Flota Bárbara:** Dado de Evento con caras de Barco Bárbaro y Castillos (Ciencia, Política y Comercio). Pista de ataque bárbaro de 7 casillas, cálculo de defensas (*Fuerza de Catán* vs *Fuerza Bárbara*), título de **Defensor de Catán** (+1 PV) y degradación de ciudades en caso de derrota.
+- **Caballeros en el Tablero:** Emplazamiento en vértices, 3 rangos (**Básico**, **Fuerte**, **Poderoso**), estados activo/inactivo (activación con Trigo), combate/desplazamiento de caballeros rivales y expulsión del Ladrón.
+- **Mejoras de Ciudad & Metrópolis:** 3 ramas de progreso (Ciencia, Política, Comercio) con 5 niveles de desarrollo, habilidades pasivas (*Acueducto*, *Fortaleza*, *Comercio Mercantil*) y disputa de **Metrópolis** (+2 PV).
+- **Murallas de Ciudad:** Construcción bajo ciudades para aumentar en +2 el límite seguro de cartas ante el 7 (hasta 13 cartas).
+- **3 Mazos de Cartas de Progreso:** Mazo de Ciencia (Verde), Política (Azul) y Comercio (Amarillo) con ilustraciones oficiales en PNG y cartas jugables según evento y dado rojo.
+- **Fase Especial de Construcción (5-6 Jugadores):** Reglas oficiales para partidas de 5 y 6 jugadores, totalmente combinable con los escenarios de Navegantes.
+
 ### Dinámica de Juego y Notificaciones Visuales
 - **Animación secuencial de recursos:** Al arrojar los dados, los materiales se distribuyen paulatinamente desde el hexágono productor hacia el casillero individual de cada jugador beneficiado en la interfaz.
 - **Lanzamiento de dados central:** Ventana informativa en el eje central de la pantalla con visualización en gran escala de los resultados numéricos y tiempo de retención legible sin bloqueo de la vista de cartas.
@@ -86,7 +95,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 - **Backend:** Node.js, Express, Socket.io, Vite (en modo middleware para desarrollo).
 - **Entorno de Escritorio:** Electron, Electron Builder.
-- **Pruebas Unitarias:** Vitest (reglas de Ciudades y Caballeros, creación de salas, contratos Socket.io y validación del motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
+- **Pruebas Unitarias:** Vitest (266 tests cubriendo reglas completas de Ciudades y Caballeros, creación de salas, contratos Socket.io, validación del motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
 
 ---
 
