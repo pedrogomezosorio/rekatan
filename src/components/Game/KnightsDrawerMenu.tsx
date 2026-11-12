@@ -96,7 +96,9 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
     {
       id: 'EXPEL_ROBBER',
       title: 'Expulsar Ladrón',
-      subtitle: 'Usa un caballero activo contiguo al hexágono del Ladrón para desplazarlo',
+      subtitle: canExpelNow
+        ? 'Usa un caballero activo contiguo al hexágono del Ladrón para desplazarlo'
+        : 'Requiere un caballero activo (de un turno anterior) contiguo al Ladrón o Pirata',
       remainingLabel: 'Sin coste de cartas',
       icon: <Footprints className="w-5 h-5 text-red-400" />,
       cost: {},

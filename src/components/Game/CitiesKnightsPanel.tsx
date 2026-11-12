@@ -54,6 +54,8 @@ interface Props {
   onStartKnightMode?: (mode: ActiveKnightMode) => void;
   onStartMerchantMode?: () => void;
   onStartDiplomatMode?: () => void;
+  onStartBishopMode?: () => void;
+  onStartIntrigueMode?: () => void;
   onStartWallMode?: () => void;
   isDiceAnimating?: boolean;
 }
@@ -137,6 +139,8 @@ export function CitiesKnightsPanel({
   onStartKnightMode,
   onStartMerchantMode,
   onStartDiplomatMode,
+  onStartBishopMode,
+  onStartIntrigueMode,
   onStartWallMode,
   isDiceAnimating = false,
 }: Props) {
@@ -177,13 +181,35 @@ export function CitiesKnightsPanel({
 
   useEffect(() => {
     setGift(createEmptyResources());
-    setChoiceVertex('');
     setChoiceCard('');
     setDefenseKnights(
       Object.values(s.board.vertices)
         .filter((v) => v.knight?.playerId === playerId && v.knight.active)
         .map((v) => v.id)
     );
+    if (myChoice?.kind === 'RETREAT' && myChoice.vertexIds?.length === 1) {
+      setChoiceVertex(myChoice.vertexIds[0]);
+    } else if (
+      myChoice?.kind === 'CITY_LOSS' &&
+      Object.values(s.board.vertices).filter((v) => v.playerId === playerId && v.building === 'CITY' && !v.metropolis).length === 1
+    ) {
+      setChoiceVertex(
+        Object.values(s.board.vertices).filter((v) => v.playerId === playerId && v.building === 'CITY' && !v.metropolis)[0].id
+      );
+    } else if (
+      myChoice?.kind === 'DESERTER' &&
+      Object.values(s.board.vertices).filter((v) => v.knight?.playerId === playerId).length === 1
+    ) {
+      setChoiceVertex(
+        Object.values(s.board.vertices).filter((v) => v.knight?.playerId === playerId)[0].id
+      );
+    } else if (myChoice?.kind === 'DESERTER_PLACE') {
+      const recruits = knightRecruitVertices(s, playerId);
+      if (recruits.length === 1) setChoiceVertex(recruits[0]);
+      else setChoiceVertex('');
+    } else {
+      setChoiceVertex('');
+    }
   }, [myChoice?.kind, myChoice?.playerId, s.turn.turnNumber, playerId, s.board.vertices]);
 
   useEffect(() => () => onHighlightVertex?.(null), [onHighlightVertex]);
@@ -344,12 +370,19 @@ export function CitiesKnightsPanel({
       {/* Main Expansion Dialog */}
       {open && (
         <div
-          className="cities-knights-dialog fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          className="cities-knights-dialog fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-pointer"
           role="dialog"
           aria-modal="true"
           aria-label="Ciudades y Caballeros"
+          onClick={() => {
+            setOpen(false);
+            onHighlightVertex?.(null);
+          }}
         >
-          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-gradient-to-b from-[#1e140d] to-[#120a06] border-2 border-[#d4af37]/70 rounded-3xl p-5 space-y-4 text-stone-100 shadow-[0_20px_70px_rgba(0,0,0,0.95)]">
+          <div
+            className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-gradient-to-b from-[#1e140d] to-[#120a06] border-2 border-[#d4af37]/70 rounded-3xl p-5 space-y-4 text-stone-100 shadow-[0_20px_70px_rgba(0,0,0,0.95)] cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center border-b border-[#d4af37]/30 pb-3">
               <div className="flex items-center gap-2.5">
                 <Castle className="w-6 h-6 text-amber-400" />
@@ -794,45 +827,187 @@ export function CitiesKnightsPanel({
                       </button>
                     )}
 
+                    {card.type === 'BISHOP' && (
+                      <button
+                        type="button"
+                        className={`${button} w-full py-2.5 bg-gradient-to-r from-red-700 to-rose-700 text-white font-black`}
+                        disabled={!actionAllowed}
+                        onClick={() => {
+                          setOpen(false);
+                          onStartBishopMode?.();
+                        }}
+                      >
+                        👑 Mover Ladrón con Obispo en el mapa
+                      </button>
+                    )}
+
+                    {card.type === 'INTRIGUE' && (
+                      <button
+                        type="button"
+                        className={`${button} w-full py-2.5 bg-gradient-to-r from-purple-700 to-indigo-700 text-white font-black`}
+                        disabled={!actionAllowed}
+                        onClick={() => {
+                          setOpen(false);
+                          onStartIntrigueMode?.();
+                        }}
+                      >
+                        ⚔️ Expulsar Caballero rival en el mapa
+                      </button>
+                    )}
+
                     {neededRival && (
-                      <div className="space-y-1 text-xs">
-                        <label className="font-bold text-stone-300">Jugador rival objetivo</label>
-                        <select
-                          className={field}
-                          value={payload.targetPlayerId || ''}
-                          onChange={(e) => setData({ targetPlayerId: e.target.value })}
-                        >
-                          <option value="">Selecciona un rival…</option>
-                          {rivalOptions.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name}
-                            </option>
-                          ))}
-                        </select>
+                      <div className="space-y-2 text-xs">
+                        <label className="font-bold text-stone-300 block">
+                          {card.type === 'SPY'
+                            ? '1. Elige al rival cuyas cartas de progreso espiarás'
+                            : card.type === 'MASTER_MERCHANT'
+                            ? 'Elige un rival con más puntos de victoria'
+                            : 'Jugador rival objetivo'}
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {s.players
+                            .filter((p) => p.id !== me.id)
+                            .map((p) => {
+                              const isSelected = payload.targetPlayerId === p.id;
+                              const isSelectable =
+                                card.type === 'MASTER_MERCHANT'
+                                  ? p.publicVictoryPoints > me.publicVictoryPoints
+                                  : card.type === 'DESERTER'
+                                  ? ownKnights(s, p.id).length > 0
+                                  : true;
+                              const pProgressCount = p.citiesKnights?.progressCards?.length ?? 0;
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  disabled={!isSelectable}
+                                  onClick={() => setData({ targetPlayerId: p.id, targetCardId: undefined })}
+                                  className={`p-2.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                                    isSelected
+                                      ? 'bg-amber-500/30 border-amber-400 shadow-md shadow-amber-500/20 scale-[1.02]'
+                                      : isSelectable
+                                      ? 'bg-black/50 border-stone-800 hover:border-stone-600 text-stone-200'
+                                      : 'bg-black/20 border-stone-900 opacity-40 cursor-not-allowed text-stone-500'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="w-3.5 h-3.5 rounded-full border border-white/40 shrink-0"
+                                      style={{ backgroundColor: PLAYER_COLORS[p.color].primary }}
+                                    />
+                                    <span className="font-extrabold text-xs text-stone-100 truncate">
+                                      {p.name}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 flex items-center justify-between text-[10px] text-stone-400">
+                                    <span>{p.publicVictoryPoints} PV</span>
+                                    {card.type === 'SPY' ? (
+                                      <span className="text-amber-300 font-mono font-bold">
+                                        {pProgressCount} {pProgressCount === 1 ? 'carta' : 'cartas'}
+                                      </span>
+                                    ) : (
+                                      <span>{cardCount(p.resources)} cartas</span>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+
+                    {card.type === 'SPY' && target && (
+                      <div className="space-y-2 text-xs pt-2 border-t border-white/10">
+                        <label className="font-bold text-amber-200 block">
+                          2. Elige la carta de progreso que deseas robar a {target.name}:
+                        </label>
+                        {target.citiesKnights?.progressCards?.length ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {target.citiesKnights.progressCards.map((c) => {
+                              const isSelected = payload.targetCardId === c.id;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setData({ targetCardId: c.id })}
+                                  className={`p-2 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                                    isSelected
+                                      ? 'bg-amber-500/40 border-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.4)] scale-[1.03]'
+                                      : 'bg-black/50 border-stone-800 hover:border-stone-600'
+                                  }`}
+                                >
+                                  <div>
+                                    <img
+                                      src={PROGRESS_CARD_IMAGE_PATHS[c.type]}
+                                      alt=""
+                                      className="h-20 mx-auto object-contain drop-shadow"
+                                    />
+                                    <strong className="block text-amber-100 text-xs mt-1 font-display">
+                                      {PROGRESS_CARDS[c.type].name}
+                                    </strong>
+                                    <span className="block text-[10px] text-stone-300 line-clamp-2 mt-0.5">
+                                      {PROGRESS_CARDS[c.type].description}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1.5 flex justify-between items-center text-[9px]">
+                                    <span
+                                      style={{ color: BRANCH_META[c.branch].color }}
+                                      className="font-black uppercase"
+                                    >
+                                      {BRANCH_META[c.branch].name}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-black/40 text-amber-200 font-bold">
+                                      {isSelected ? 'Elegida ✓' : 'Robar'}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-amber-300/80 bg-black/40 p-2.5 rounded-xl border border-white/5">
+                            {target.name} no tiene cartas de progreso en la mano actualmente.
+                          </p>
+                        )}
                       </div>
                     )}
 
                     {neededResource && (
-                      <div className="space-y-1 text-xs">
-                        <label className="font-bold text-stone-300">Tipo de carta / recurso</label>
-                        <select
-                          className={field}
-                          value={payload.resource || ''}
-                          onChange={(e) => setData({ resource: e.target.value as TradeCardType })}
-                        >
-                          <option value="">Selecciona un tipo…</option>
-                          {resourceOptions(
-                            card.type === 'COMMODITY_MONOPOLY'
-                              ? COMMODITIES
-                              : card.type === 'RESOURCE_MONOPOLY'
-                              ? ALL_RESOURCES
-                              : ALL_TRADE_CARDS
-                          ).map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.name}
-                            </option>
-                          ))}
-                        </select>
+                      <div className="space-y-2 text-xs">
+                        <label className="font-bold text-stone-300 block">
+                          {card.type === 'COMMODITY_MONOPOLY'
+                            ? 'Elige la mercancía para el monopolio'
+                            : card.type === 'RESOURCE_MONOPOLY'
+                            ? 'Elige la materia prima para el monopolio'
+                            : 'Elige el tipo de carta para el comercio 2:1 con la banca'}
+                        </label>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                          {(card.type === 'COMMODITY_MONOPOLY'
+                            ? COMMODITIES
+                            : card.type === 'RESOURCE_MONOPOLY'
+                            ? ALL_RESOURCES
+                            : ALL_TRADE_CARDS
+                          ).map((r) => {
+                            const isSelected = payload.resource === r;
+                            return (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => setData({ resource: r as TradeCardType })}
+                                className={`p-2.5 rounded-2xl border text-center flex flex-col items-center gap-1.5 transition cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-amber-500/35 border-amber-400 font-bold scale-[1.03] shadow-md shadow-amber-500/25'
+                                    : 'bg-black/50 border-stone-800 hover:border-stone-700 text-stone-300'
+                                }`}
+                              >
+                                <ResourceIcon resource={r as ResourceType} size={28} />
+                                <span className="text-[11px] text-amber-100 font-semibold truncate">
+                                  {RESOURCE_META[r]?.name || r}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
@@ -866,7 +1041,7 @@ export function CitiesKnightsPanel({
                       />
                     )}
 
-                    {!['MERCHANT', 'DIPLOMAT', 'ENGINEER'].includes(card.type) && (
+                    {!['MERCHANT', 'DIPLOMAT', 'ENGINEER', 'BISHOP', 'INTRIGUE'].includes(card.type) && (
                       <button
                         type="button"
                         className={`${button} w-full`}
@@ -874,7 +1049,10 @@ export function CitiesKnightsPanel({
                           s.turn.isPausedByHost ||
                           !(card.type === 'ALCHEMIST'
                             ? s.phase === 'WAITING_FOR_DICE' && s.turn.activePlayerId === me.id
-                            : actionAllowed)
+                            : actionAllowed) ||
+                          (card.type === 'SPY' && (!payload.targetPlayerId || !payload.targetCardId)) ||
+                          (neededResource && !payload.resource) ||
+                          (card.type === 'DESERTER' && !payload.targetPlayerId)
                         }
                         onClick={() =>
                           dispatchAction({
@@ -1108,6 +1286,126 @@ export function CitiesKnightsPanel({
               </div>
             )}
 
+            {myChoice.kind === 'RETREAT' && (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-300">
+                  Tu caballero ha sido desplazado. Selecciona a qué cruce conectado y libre debe retirarse (puedes seleccionarlo aquí o pulsar en el mapa):
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {myChoice.vertexIds.map((vId) => {
+                    const isSelected = choiceVertex === vId;
+                    return (
+                      <button
+                        key={vId}
+                        type="button"
+                        onClick={() => {
+                          setChoiceVertex(vId);
+                          onHighlightVertex?.(vId);
+                        }}
+                        className={`p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600/50 border-amber-400 text-white shadow-lg'
+                            : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600'
+                        }`}
+                      >
+                        <div>
+                          <span className="font-extrabold text-xs block text-amber-200">
+                            Cruce en {location(s, vId)}
+                          </span>
+                          <span className="text-[10px] text-stone-400 block mt-0.5">
+                            Libre y accesible por tus caminos
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl bg-stone-900 border border-white/10 text-xs font-mono font-bold text-amber-100">
+                          {isSelected ? 'Seleccionado' : 'Elegir'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {myChoice.kind === 'DESERTER' && (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-300">
+                  Un rival ha jugado la carta Desertor. Elige cuál de tus caballeros debe desertar:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {ownKnightVertices.map((v) => {
+                    const isSelected = choiceVertex === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => {
+                          setChoiceVertex(v.id);
+                          onHighlightVertex?.(v.id);
+                        }}
+                        className={`p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-red-700/50 border-red-400 text-white shadow-lg'
+                            : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600'
+                        }`}
+                      >
+                        <div>
+                          <span className="font-extrabold text-xs block text-amber-200">
+                            Caballero Nivel {v.knight!.rank} ({v.knight!.active ? 'Activo' : 'Inactivo'})
+                          </span>
+                          <span className="text-[10px] text-stone-400 block mt-0.5">
+                            Cruce en {location(s, v.id)}
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl bg-stone-900 border border-white/10 text-xs font-mono font-bold text-amber-100">
+                          {isSelected ? 'Seleccionado' : 'Elegir'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {myChoice.kind === 'DESERTER_PLACE' && (
+              <div className="space-y-3">
+                <p className="text-xs text-stone-300">
+                  ¡Has reclutado un caballero desertor! Elige un cruce libre conectado a tus caminos para colocarlo:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {knightRecruitVertices(s, me.id).map((vId) => {
+                    const isSelected = choiceVertex === vId;
+                    return (
+                      <button
+                        key={vId}
+                        type="button"
+                        onClick={() => {
+                          setChoiceVertex(vId);
+                          onHighlightVertex?.(vId);
+                        }}
+                        className={`p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-600/50 border-amber-400 text-white shadow-lg'
+                            : 'bg-black/40 border-stone-800 text-stone-300 hover:border-stone-600'
+                        }`}
+                      >
+                        <div>
+                          <span className="font-extrabold text-xs block text-amber-200">
+                            Cruce en {location(s, vId)}
+                          </span>
+                          <span className="text-[10px] text-stone-400 block mt-0.5">
+                            Libre y conectado a tus caminos
+                          </span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl bg-stone-900 border border-white/10 text-xs font-mono font-bold text-amber-100">
+                          {isSelected ? 'Seleccionado' : 'Elegir'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {myChoice.kind === 'GIFT' && (
               <div className="space-y-3">
                 <HandSelection
@@ -1129,7 +1427,7 @@ export function CitiesKnightsPanel({
               type="button"
               className={`${button} w-full py-2.5 text-sm bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 text-stone-950 font-black`}
               disabled={
-                myChoice.kind === 'CITY_LOSS'
+                ['CITY_LOSS', 'RETREAT', 'DESERTER', 'DESERTER_PLACE'].includes(myChoice.kind)
                   ? !choiceVertex
                   : myChoice.kind === 'GIFT'
                   ? cardCount(gift) !== myChoice.amount

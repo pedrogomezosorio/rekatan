@@ -2853,7 +2853,6 @@ export function applyGameAction(
     }
 
     case 'MOVE_ROBBER': {
-      if (!isRobberUnlocked(state)) return { state: prevState, error: 'El ladrón espera al primer asalto bárbaro.' };
       if (state.phase !== 'ROBBER_MOVE' || state.turn.activePlayerId !== playerId) {
         return { state: prevState, error: 'No puedes mover el Ladrón ahora.' };
       }
@@ -2895,7 +2894,10 @@ export function applyGameAction(
           ? 'el Desierto'
           : `${TERRAIN_META[targetHex.terrain].name} (${targetHex.numberToken})`;
 
-      if (candidates.length === 0) {
+      const isExpelledByKnight = state.turn.robberOrPirateMode === 'ROBBER';
+      state.turn.robberOrPirateMode = null;
+
+      if (isExpelledByKnight || candidates.length === 0) {
         state.robberStealCandidates = [];
         state.phase = 'MAIN_PHASE';
         state.lastEvent = {
@@ -2907,7 +2909,11 @@ export function applyGameAction(
         };
         addLog(
           state,
-          `${actor.name} ${keptSameHex ? 'mantuvo el Ladrón en' : 'movió el Ladrón a'} ${hexLabel} (sin víctimas con cartas para robar).`,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Ladrón en' : 'movió el Ladrón a'} ${hexLabel}${
+            isExpelledByKnight
+              ? ' (ahuyentado por un caballero, sin robo).'
+              : ' (sin víctimas con cartas para robar).'
+          }`,
           'ROBBER',
           actor.id
         );
@@ -3005,7 +3011,6 @@ export function applyGameAction(
     }
 
     case 'MOVE_PIRATE': {
-      if (!isRobberUnlocked(state)) return { state: prevState, error: 'El pirata espera al primer asalto bárbaro.' };
       if (state.config.seafarersPirateMode === 'PACIFIC_NO_PIRATE') {
         return { state: prevState, error: 'El Barco Pirata está desactivado en esta partida.' };
       }
@@ -3037,8 +3042,10 @@ export function applyGameAction(
       }
 
       const candidates = Array.from(candidateSet);
+      const isExpelledByKnight = state.turn.robberOrPirateMode === 'PIRATE';
+      state.turn.robberOrPirateMode = null;
 
-      if (candidates.length === 0) {
+      if (isExpelledByKnight || candidates.length === 0) {
         state.robberStealCandidates = [];
         state.phase = 'MAIN_PHASE';
         state.lastEvent = {
@@ -3050,7 +3057,11 @@ export function applyGameAction(
         };
         addLog(
           state,
-          `${actor.name} ${keptSameHex ? 'mantuvo el Barco Pirata en' : 'movió el Barco Pirata al'} Mar (sin barcos rivales con cartas para saquear).`,
+          `${actor.name} ${keptSameHex ? 'mantuvo el Barco Pirata en' : 'movió el Barco Pirata al'} Mar${
+            isExpelledByKnight
+              ? ' (ahuyentado por un caballero, sin saqueo).'
+              : ' (sin barcos rivales con cartas para saquear).'
+          }`,
           'ROBBER',
           actor.id
         );

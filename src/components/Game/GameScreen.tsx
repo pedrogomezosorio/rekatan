@@ -1,5 +1,5 @@
 import { CitiesKnightsPanel } from './CitiesKnightsPanel';
-import { hasCitiesKnights } from '../../shared/citiesKnightsConfig';
+import { hasCitiesKnights, BRANCH_META, PROGRESS_CARDS } from '../../shared/citiesKnightsConfig';
 import {
   cityCost,
   freeRank,
@@ -294,23 +294,50 @@ export const GameScreen: React.FC = () => {
         }
       }
 
-      // 4. Development Card Bought by Human or Bot
+      // 4. Development Card Bought / Progress Card Received by Human or Bot
       if (ev.type === 'DEV_CARD_BOUGHT') {
         const buyer = gameState.players.find((p) => p.id === ev.buyerPlayerId);
         const buyerName = ev.buyerPlayerName || buyer?.name || 'Un jugador';
+        const isCK = hasCitiesKnights(gameState.config) || Boolean(ev.progressFlight) || Boolean(ev.eventDie);
+        const branchName = ev.progressFlight?.branch
+          ? BRANCH_META[ev.progressFlight.branch]?.name
+          : ev.eventDie && ev.eventDie !== 'BARBARIAN'
+          ? BRANCH_META[ev.eventDie as keyof typeof BRANCH_META]?.name
+          : undefined;
         setNoticeQueue((prev) => [
           ...prev,
           {
             id: `BUY_DEV_${ev.nonce}`,
             kind: 'DEV_CARD',
-            message: `${buyerName} compró una Carta de Desarrollo`,
+            message: isCK
+              ? `${buyerName} obtuvo una Carta de Progreso${branchName ? ` (${branchName})` : ''}`
+              : `${buyerName} compró una Carta de Desarrollo`,
             durationMs: 3800,
-            giveItems: [
-              { resource: 'SHEEP', amount: 1 },
-              { resource: 'WHEAT', amount: 1 },
-              { resource: 'ORE', amount: 1 },
-            ],
+            giveItems: isCK
+              ? undefined
+              : [
+                  { resource: 'SHEEP', amount: 1 },
+                  { resource: 'WHEAT', amount: 1 },
+                  { resource: 'ORE', amount: 1 },
+                ],
             isBotActor: buyer?.isBot,
+          },
+        ]);
+        return;
+      }
+
+      // 4b. Progress Card Played (Ciudades y Caballeros)
+      if (ev.type === ('PROGRESS_CARD_PLAYED' as never)) {
+        const anyEv = ev as unknown as { actorPlayerName?: string; actorPlayerId?: string; progressCardType?: keyof typeof PROGRESS_CARDS; nonce: number };
+        const actorName = anyEv.actorPlayerName || gameState.players.find((p) => p.id === anyEv.actorPlayerId)?.name || 'Un jugador';
+        const cardTitle = anyEv.progressCardType ? PROGRESS_CARDS[anyEv.progressCardType]?.name || anyEv.progressCardType : 'Progreso';
+        setNoticeQueue((prev) => [
+          ...prev,
+          {
+            id: `PLAY_PROG_${anyEv.nonce}`,
+            kind: 'DEV_CARD',
+            message: `${actorName} jugó la Carta de Progreso: ${cardTitle}`,
+            durationMs: 3800,
           },
         ]);
         return;
@@ -470,6 +497,21 @@ export const GameScreen: React.FC = () => {
 
       const waitingDice = gameState.phase === 'WAITING_FOR_DICE' && isMyTurn;
       if (isPausedByHost || waitingDice || gameState.phase === 'GAME_OVER') return;
+
+      if (key === 'escape') {
+        e.preventDefault();
+        setIsBuildDrawerOpen(false);
+        setShowDevModal(false);
+        setShowTradeModal(false);
+        setIsKnightsDrawerOpen(false);
+        setBuildMode(null);
+        setActiveKnightMode(null);
+        setSelectedKnightMoveFrom(null);
+        setIsPlacingMerchant(false);
+        setActiveProgressCard(null);
+        setSelectedDiplomatEdgeId(null);
+        return;
+      }
 
       if (key === 'c') {
         e.preventDefault();
@@ -725,20 +767,25 @@ export const GameScreen: React.FC = () => {
     (me.resources.WHEAT || 0) >= 1 &&
     ownKnights(gameState, playerId).some((v) => !v.knight!.active);
 
+  const currentRobberHexId =
+    gameState?.board.robberHexId ||
+    Object.values(gameState?.board.hexes || {}).find((h) => h.hasRobber)?.id ||
+    '';
+  const currentPirateHexId = gameState?.board.pirateHexId || '';
+
   const canExpelRobberNow =
     isCitiesKnights &&
     isMyTurn &&
     !isPausedByHost &&
     !isWaitingForMandatoryDice &&
     phase === 'MAIN_PHASE' &&
-    isRobberUnlocked(gameState) &&
     ownKnights(gameState, playerId).some(
       (v) =>
         v.knight!.active &&
         v.knight!.activatedOnTurn < gameState.turn.turnNumber &&
         v.knight!.actedOnTurn !== gameState.turn.turnNumber &&
-        (v.hexIds.includes(gameState.board.robberHexId || '') ||
-          (Boolean(gameState.board.pirateHexId) && v.hexIds.includes(gameState.board.pirateHexId!)))
+        ((Boolean(currentRobberHexId) && v.hexIds.includes(currentRobberHexId)) ||
+          (Boolean(currentPirateHexId) && v.hexIds.includes(currentPirateHexId)))
     );
 
   const canMoveKnightNow =
@@ -794,8 +841,8 @@ export const GameScreen: React.FC = () => {
             v.knight!.active &&
             v.knight!.activatedOnTurn < gameState.turn.turnNumber &&
             v.knight!.actedOnTurn !== gameState.turn.turnNumber &&
-            (v.hexIds.includes(gameState.board.robberHexId || '') ||
-              (Boolean(gameState.board.pirateHexId) && v.hexIds.includes(gameState.board.pirateHexId!)))
+            ((Boolean(currentRobberHexId) && v.hexIds.includes(currentRobberHexId)) ||
+              (Boolean(currentPirateHexId) && v.hexIds.includes(currentPirateHexId)))
         )
         .map((v) => v.id);
     }
@@ -829,7 +876,16 @@ export const GameScreen: React.FC = () => {
     }
     if (activeProgressCard?.type === 'INTRIGUE') {
       return Object.values(gameState.board.vertices)
-        .filter((v) => v.knight && v.knight.playerId !== playerId)
+        .filter(
+          (v) =>
+            v.knight &&
+            v.knight.playerId !== playerId &&
+            v.adjacentEdgeIds.some(
+              (id) =>
+                gameState.board.edges[id]?.playerId === playerId &&
+                Boolean(gameState.board.edges[id]?.building)
+            )
+        )
         .map((v) => v.id);
     }
     const myChoice = gameState.citiesKnights?.choices.find((c) => c.playerId === playerId);
@@ -873,7 +929,7 @@ export const GameScreen: React.FC = () => {
     }
     if (activeProgressCard?.type === 'BISHOP') {
       return Object.values(gameState.board.hexes)
-        .filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG' && h.id !== gameState.board.robberHexId)
+        .filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG' && h.id !== currentRobberHexId)
         .map((h) => h.id);
     }
     return [];
@@ -928,8 +984,8 @@ export const GameScreen: React.FC = () => {
     }
     if (activeKnightMode === 'EXPEL_ROBBER') {
       const isPirate =
-        Boolean(gameState.board.pirateHexId) &&
-        gameState.board.vertices[vertexId]?.hexIds.includes(gameState.board.pirateHexId!);
+        Boolean(currentPirateHexId) &&
+        gameState.board.vertices[vertexId]?.hexIds.includes(currentPirateHexId);
       dispatchAction({ type: 'EXPEL_ROBBER', vertexId, mode: isPirate ? 'PIRATE' : 'ROBBER' });
       setActiveKnightMode(null);
       return;
@@ -1439,8 +1495,8 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Wall Helper floating banner */}
-          {isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || buildMode === 'CITY_WALL') && (
+          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Bishop / Intrigue / Wall Helper floating banner */}
+          {isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || activeProgressCard?.type === 'BISHOP' || activeProgressCard?.type === 'INTRIGUE' || buildMode === 'CITY_WALL') && (
             <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-3 bg-[#1e140d]/95 border-2 border-amber-400 text-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto animate-pulse">
                 <Swords className="w-4 h-4 text-amber-400 shrink-0" />
@@ -1452,6 +1508,8 @@ export const GameScreen: React.FC = () => {
                   {activeKnightMode === 'MOVE_KNIGHT_FROM' && (!selectedKnightMoveFrom ? 'Paso 1: Haz clic en el Caballero activo que quieres mover' : 'Paso 2: Haz clic en la intersección destino conectada')}
                   {isPlacingMerchant && 'Haz clic en un hexágono de recurso iluminado para colocar al Mercader (comercio 2:1 y +1 PV)'}
                   {activeProgressCard?.type === 'DIPLOMAT' && (!selectedDiplomatEdgeId ? 'Haz clic en una carretera o barco abierto para retirarlo' : 'Paso 2: Haz clic en una arista libre conectada para reubicar tu pieza')}
+                  {activeProgressCard?.type === 'BISHOP' && 'Haz clic en un hexágono para mover al Ladrón con el Obispo y robar a los rivales adyacentes'}
+                  {activeProgressCard?.type === 'INTRIGUE' && 'Haz clic en un caballero rival conectado a tus caminos para expulsarlo'}
                   {buildMode === 'CITY_WALL' && 'Haz clic en una de tus Ciudades iluminadas para construir una Muralla (2 arcillas)'}
                 </span>
                 {activeProgressCard?.type === 'DIPLOMAT' && selectedDiplomatEdgeId && (
@@ -1716,6 +1774,18 @@ export const GameScreen: React.FC = () => {
                 if (diplomatCard) {
                   setActiveProgressCard(diplomatCard);
                   setSelectedDiplomatEdgeId(null);
+                }
+              }}
+              onStartBishopMode={() => {
+                const bishopCard = me?.citiesKnights?.progressCards.find((c) => c.type === 'BISHOP');
+                if (bishopCard) {
+                  setActiveProgressCard(bishopCard);
+                }
+              }}
+              onStartIntrigueMode={() => {
+                const intrigueCard = me?.citiesKnights?.progressCards.find((c) => c.type === 'INTRIGUE');
+                if (intrigueCard) {
+                  setActiveProgressCard(intrigueCard);
                 }
               }}
               onStartWallMode={() => setBuildMode('CITY_WALL')}

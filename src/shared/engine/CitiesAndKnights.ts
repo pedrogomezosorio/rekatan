@@ -324,7 +324,6 @@ function playProgress(s: GameState, p: PlayerState, card: ProgressCard, data: Pr
     }
     case 'BISHOP': {
       const h = s.board.hexes[data.hexId || ''];
-      requireRule(isRobberUnlocked(s), 'El ladrón permanece inmóvil hasta el primer asalto bárbaro.');
       requireRule(h && h.terrain !== 'SEA' && h.terrain !== 'FOG' && h.id !== s.board.robberHexId, 'Elige otro terreno para el ladrón.');
       for (const hex of Object.values(s.board.hexes)) hex.hasRobber = hex.id === h.id;
       s.board.robberHexId = h.id;
@@ -425,8 +424,11 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
     case 'EXPEL_ROBBER': {
       const v = s.board.vertices[action.vertexId]; const k = v?.knight;
       const mode = action.mode || 'ROBBER';
-      requireRule(isActionPhase(s, id) && isRobberUnlocked(s) && k?.playerId === id && k.active && k.activatedOnTurn < s.turn.turnNumber && k.actedOnTurn !== s.turn.turnNumber, 'Ese caballero aún no puede expulsar al ladrón/pirata.');
-      requireRule(v.hexIds.includes((mode === 'PIRATE' ? s.board.pirateHexId : s.board.robberHexId) || ''), 'El caballero debe estar junto al ladrón/pirata.');
+      const rHex = s.board.robberHexId || Object.values(s.board.hexes).find(h => h.hasRobber)?.id || '';
+      const pHex = s.board.pirateHexId || '';
+      const targetHex = mode === 'PIRATE' ? pHex : rHex;
+      requireRule(isActionPhase(s, id) && k?.playerId === id && k.active && k.activatedOnTurn < s.turn.turnNumber && k.actedOnTurn !== s.turn.turnNumber, 'Ese caballero aún no puede expulsar al ladrón/pirata.');
+      requireRule(Boolean(targetHex) && v.hexIds.includes(targetHex), 'El caballero debe estar junto al ladrón/pirata.');
       k!.active = false; k!.actedOnTurn = s.turn.turnNumber; s.turn.robberOrPirateMode = mode; s.phase = 'ROBBER_MOVE'; break;
     }
     case 'BUILD_CITY_WALL': {
@@ -456,6 +458,13 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
       p.citiesKnights!.progressCards = p.citiesKnights!.progressCards.filter(c => c.id !== card!.id);
       playProgress(s, p, card!, action.payload || {}, hooks, ctx);
       ck.decks[card!.branch].push(card!);
+      s.lastEvent = {
+        nonce: (s.lastEvent?.nonce || 0) + 1,
+        type: 'PROGRESS_CARD_PLAYED',
+        progressCardType: card!.type,
+        actorPlayerId: id,
+        actorPlayerName: p.name,
+      } as never;
       log(s, `${p.name} juega ${PROGRESS_CARDS[card!.type].name}.`); break;
     }
     case 'COMMERCIAL_HARBOR_TRADE': {

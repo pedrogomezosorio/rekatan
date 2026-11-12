@@ -258,9 +258,10 @@ describe('Caballeros y red de caminos', () => {
     knight(s, 'P1', 1, true, a); knight(s, 'P1', 1, true, b); expect(knightReachableVertices(s, 'P1', a)).toContain(c);
     s.board.vertices[b].knight!.playerId = 'P2'; expect(knightReachableVertices(s, 'P1', a)).not.toContain(c);
   });
-  it('expulsa el ladrón sólo desde un cruce adyacente y tras el primer ataque', () => {
+  it('expulsa el ladrón sólo desde un cruce adyacente', () => {
     let s = game(); const h = s.board.hexes[s.board.robberHexId!]; const v = Object.values(s.board.vertices).find(v => v.hexIds.includes(h.id))!; knight(s, 'P1', 1, true, v.id);
-    expect(applyGameAction(s, 'P1', { type: 'EXPEL_ROBBER', vertexId: v.id }).error).toBeDefined(); s.citiesKnights!.firstAttackResolved = true;
+    const nonAdjacent = Object.values(s.board.vertices).find(other => !other.hexIds.includes(h.id))!;
+    expect(applyGameAction(s, 'P1', { type: 'EXPEL_ROBBER', vertexId: nonAdjacent.id }).error).toBeDefined();
     s = act(s, { type: 'EXPEL_ROBBER', vertexId: v.id }); expect(s.phase).toBe('ROBBER_MOVE'); expect(s.board.vertices[v.id].knight!.active).toBe(false);
   });
 });
