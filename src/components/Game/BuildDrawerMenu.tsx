@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Anchor, Castle, Hammer, Home, Route, Ship, Sparkles, X } from 'lucide-react';
+import { Anchor, Castle, Hammer, Home, Route, ShieldAlert, Ship, Sparkles, X } from 'lucide-react';
 import { BUILDING_COSTS, RESOURCE_META } from '../../shared/constants';
 import { PlayerState, ResourceType } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
-export type ActiveBuildMode = 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | null;
+export type ActiveBuildMode = 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | 'CITY_WALL' | null;
 
 interface BuildDrawerMenuProps {
   isOpen: boolean;
@@ -26,10 +26,13 @@ interface BuildDrawerMenuProps {
   isRoadBuildingDev?: boolean;
   onFinishRoadBuilding?: () => void;
   isSeafarers?: boolean;
+  isCitiesKnights?: boolean;
+  canBuildWallNow?: boolean;
+  onBuildWall?: () => void;
 }
 
 interface BuildOptionSpec {
-  id: 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | 'DEV_CARD';
+  id: 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | 'CITY_WALL' | 'DEV_CARD';
   title: string;
   subtitle: string;
   remainingLabel: string;
@@ -58,10 +61,13 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   isRoadBuildingDev,
   onFinishRoadBuilding,
   isSeafarers = false,
+  isCitiesKnights = false,
+  canBuildWallNow = false,
+  onBuildWall,
 }) => {
   const options: BuildOptionSpec[] = [
     {
-      id: 'ROAD',
+      id: 'ROAD' as const,
       title: 'Carretera',
       subtitle: 'Conecta tus rutas comerciales y costas',
       remainingLabel: `${me.roadsLeft} disp.`,
@@ -108,7 +114,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
         ]
       : []),
     {
-      id: 'SETTLEMENT',
+      id: 'SETTLEMENT' as const,
       title: 'Poblado',
       subtitle: '+1 Punto de Victoria y cosecha recursos',
       remainingLabel: `${me.settlementsLeft} disp.`,
@@ -121,7 +127,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       },
     },
     {
-      id: 'CITY',
+      id: 'CITY' as const,
       title: 'Ciudad',
       subtitle: '+2 Puntos de Victoria y doble producción',
       remainingLabel: `${me.citiesLeft} disp.`,
@@ -133,19 +139,37 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
         onToggleOpen();
       },
     },
-    {
-      id: 'DEV_CARD',
-      title: 'Carta de Desarrollo',
-      subtitle: 'Caballero, Progreso o +1 PV Secreto',
-      remainingLabel: `${devDeckRemaining} en mazo`,
-      icon: <Sparkles className="w-5 h-5 text-purple-300" />,
-      cost: BUILDING_COSTS.DEV_CARD,
-      canExecute: canBuyDevCardNow,
-      onTrigger: () => {
-        onBuyDevCard();
-        onToggleOpen();
-      },
-    },
+    ...(isCitiesKnights
+      ? [
+          {
+            id: 'CITY_WALL' as const,
+            title: 'Muralla',
+            subtitle: 'Añade muralla a una ciudad (+2 cartas seguras ante 7)',
+            remainingLabel: 'Máx. 3 murallas',
+            icon: <ShieldAlert className="w-5 h-5 text-amber-400" />,
+            cost: { BRICK: 2 } as Partial<Record<ResourceType, number>>,
+            canExecute: (me.resources.BRICK || 0) >= 2 && !disabledBeforeDice,
+            onTrigger: () => {
+              onSelectBuildMode('CITY_WALL');
+              onToggleOpen();
+            },
+          },
+        ]
+      : [
+          {
+            id: 'DEV_CARD' as const,
+            title: 'Carta de Desarrollo',
+            subtitle: 'Caballero, Progreso o +1 PV Secreto',
+            remainingLabel: `${devDeckRemaining} en mazo`,
+            icon: <Sparkles className="w-5 h-5 text-purple-300" />,
+            cost: BUILDING_COSTS.DEV_CARD,
+            canExecute: canBuyDevCardNow,
+            onTrigger: () => {
+              onBuyDevCard();
+              onToggleOpen();
+            },
+          },
+        ]),
   ];
 
   const anyOptionAvailable =
@@ -180,6 +204,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       MOVE_SHIP: 'Mover Barco',
       SETTLEMENT: 'Poblado',
       CITY: 'Ciudad',
+      CITY_WALL: 'Muralla',
     };
 
     return (

@@ -56,14 +56,14 @@ describe('Ciudades y Caballeros: preparación y compatibilidad', () => {
     expect(canBuyDevCard(s, 'P1').allowed).toBe(false); expect(s.config.victoryPointsTarget).toBe(13);
     expect(game(true).bank.COIN).toBe(18);
   });
-  it('funda un poblado sin recursos y después una ciudad con un recurso básico por terreno', () => {
+  it('funda un poblado con recursos iniciales y después una ciudad con un recurso básico por terreno', () => {
     let s = game(); s.phase = 'ORDER_ROLL';
     s = act(s, { type: 'SET_CUSTOM_PLAYER_ORDER', playerIds: ['P1', 'P2', 'P3'] }); s = act(s, { type: 'CONFIRM_TURN_ORDER' });
     for (let n = 0; n < 6; n++) {
       const id = s.turn.activePlayerId; const v = getValidSettlementVertices(s, id)[0]; const before = countTotalResources(s.players.find(p => p.id === id)!.resources);
       s = act(s, { type: 'PLACE_SETTLEMENT', vertexId: v }, id);
       expect(s.board.vertices[v].building).toBe(n < 3 ? 'SETTLEMENT' : 'CITY');
-      if (n < 3) expect(countTotalResources(s.players.find(p => p.id === id)!.resources)).toBe(before);
+      expect(countTotalResources(s.players.find(p => p.id === id)!.resources)).toBeGreaterThan(before);
       s = act(s, { type: 'PLACE_ROAD', edgeId: getValidRoadEdges(s, id)[0] }, id);
     }
     expect(s.phase).toBe('WAITING_FOR_DICE'); expect(s.turn.activePlayerId).toBe('P1');

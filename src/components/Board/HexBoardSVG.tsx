@@ -56,6 +56,14 @@ export interface HexBoardSVGProps {
   onCustomSetPort?: (edgeId: string, port: PortType | null) => void;
   lowEndPcMode?: boolean;
   lastEvent?: GameState['lastEvent'];
+  isCitiesKnights?: boolean;
+  validCKVertexIds?: string[];
+  validCKEdgeIds?: string[];
+  validCKHexIds?: string[];
+  onCKVertexClick?: (vertexId: string) => void;
+  onCKEdgeClick?: (edgeId: string) => void;
+  onCKHexClick?: (hexId: string) => void;
+  onMerchantClick?: () => void;
 }
 
 export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
@@ -81,6 +89,14 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   onCustomSetPort,
   lowEndPcMode = false,
   lastEvent,
+  isCitiesKnights = false,
+  validCKVertexIds = [],
+  validCKEdgeIds = [],
+  validCKHexIds = [],
+  onCKVertexClick,
+  onCKEdgeClick,
+  onCKHexClick,
+  onMerchantClick,
 }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const showCoords = false;
@@ -285,6 +301,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const validShipSet = useMemo(() => new Set(validShipIds), [validShipIds]);
   const validMovableShipSet = useMemo(() => new Set(validMovableShipIds), [validMovableShipIds]);
   const producingSet = useMemo(() => new Set(producingHexIds), [producingHexIds]);
+  const validCKVertexSet = useMemo(() => new Set(validCKVertexIds), [validCKVertexIds]);
+  const validCKEdgeSet = useMemo(() => new Set(validCKEdgeIds), [validCKEdgeIds]);
+  const validCKHexSet = useMemo(() => new Set(validCKHexIds), [validCKHexIds]);
 
   // Local clipPath polygon points centered at (0, 0)
   const innerClipPoints = useMemo(
@@ -450,6 +469,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const handleHexInteraction = (hex: Hex) => {
     if (didMoveRef.current) return;
+    if (validCKHexSet.has(hex.id)) {
+      onCKHexClick?.(hex.id);
+      return;
+    }
     if (hex.terrain === 'SEA' && !board.pirateHexId) return;
 
     if (editorTool?.active) {
@@ -486,6 +509,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       return;
     }
 
+    if (validCKEdgeSet.has(edge.id)) {
+      onCKEdgeClick?.(edge.id);
+      return;
+    }
+
     if (
       validRoadSet.has(edge.id) ||
       validShipSet.has(edge.id) ||
@@ -497,6 +525,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const handleVertexInteraction = (vertex: Vertex) => {
     if (didMoveRef.current) return;
+    if (validCKVertexSet.has(vertex.id)) {
+      onCKVertexClick?.(vertex.id);
+      return;
+    }
     if (validSettlementSet.has(vertex.id) || validCitySet.has(vertex.id)) {
       onVertexClick?.(vertex.id);
     }
@@ -534,7 +566,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       {/* Tabletop Camera Controls (Dark Walnut & Antique Gold) */}
       <div
         className={`tablet-zoom-controls absolute z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
-          editorTool ? 'bottom-4 left-4' : 'bottom-3 left-[210px] sm:left-[236px]'
+          editorTool
+            ? 'bottom-4 left-4'
+            : isCitiesKnights
+            ? 'bottom-3 right-[275px] md:right-[290px] xl:right-[325px]'
+            : 'bottom-3 left-[210px] sm:left-[236px]'
         }`}
       >
         <button
@@ -643,26 +679,36 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const isPlayable = Boolean(board.hexes[hex.id]);
             const isRobberTarget = isPlayable && isMovingRobber && !isSea && hex.terrain !== 'FOG';
             const isPirateTarget = isPlayable && (isMovingPirate || (isMovingRobber && board.pirateHexId !== undefined)) && isSea;
+            const isCKHexTarget = isPlayable && validCKHexSet.has(hex.id);
             const isSwapSelected = swapSourceHexId === hex.id;
             const isRedConflict = redConflictHexIds.has(hex.id);
             const isInteractive = Boolean(
-              isRobberTarget || isPirateTarget || (editorTool?.active && !isSea)
+              isRobberTarget || isPirateTarget || isCKHexTarget || (editorTool?.active && !isSea)
             );
 
             return (
-              <Hexagon
-                key={hex.id}
-                hex={hex}
-                hexSize={board.hexSize}
-                isProducing={isProducing}
-                isRobberTarget={isRobberTarget || isPirateTarget}
-                isSwapSelected={isSwapSelected}
-                isRedConflict={isRedConflict}
-                showCoords={showCoords}
-                isInteractive={isInteractive}
-                lowEndPcMode={lowEndPcMode}
-                onSelect={isPlayable ? handleHexInteraction : () => {}}
-              />
+              <g key={hex.id}>
+                <Hexagon
+                  hex={hex}
+                  hexSize={board.hexSize}
+                  isProducing={isProducing}
+                  isRobberTarget={isRobberTarget || isPirateTarget || isCKHexTarget}
+                  isSwapSelected={isSwapSelected}
+                  isRedConflict={isRedConflict}
+                  showCoords={showCoords}
+                  isInteractive={isInteractive}
+                  lowEndPcMode={lowEndPcMode}
+                  onSelect={isPlayable ? handleHexInteraction : () => {}}
+                />
+                {isCKHexTarget && (
+                  <g transform={`translate(${hex.center.x}, ${hex.center.y})`} pointerEvents="none">
+                    <circle r={38} fill="rgba(245, 158, 11, 0.25)" stroke="#fbbf24" strokeWidth={3} className={lowEndPcMode ? undefined : 'animate-ping'} />
+                    <circle r={30} fill="rgba(245, 158, 11, 0.45)" stroke="#fef3c7" strokeWidth={2.5} />
+                    <circle r={13} fill="#b45309" stroke="#fef3c7" strokeWidth={2} />
+                    <text y={4.5} textAnchor="middle" fill="#fef3c7" fontSize={12} fontWeight="900">👑</text>
+                  </g>
+                )}
+              </g>
             );
           })}
 
@@ -843,7 +889,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             const isPortEditTarget = Boolean(
               editorTool?.active && editorTool.mode === 'SET_PORT' && edge.isCoastal
             );
-            const isInteractiveEdge = isValidRoad || isValidShip || isMovableShip || isPortEditTarget;
+            const isValidCKEdge = validCKEdgeSet.has(edge.id);
+            const isInteractiveEdge = isValidRoad || isValidShip || isMovableShip || isPortEditTarget || isValidCKEdge;
             const owner = edge.playerId ? playerMap.get(edge.playerId) : null;
             const colorCfg = owner ? PLAYER_COLORS[owner.color] : null;
             const isLongest = longestRoadEdgesSet.has(edge.id);
@@ -1083,6 +1130,21 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
+                {/* Pulsing Valid C&K Edge Target (Diplomat / road / ship) */}
+                {isValidCKEdge && (
+                  <rect
+                    x={-halfLen}
+                    y={-6}
+                    width={halfLen * 2}
+                    height={12}
+                    rx={6}
+                    fill="rgba(52, 211, 153, 0.35)"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    className={lowEndPcMode ? undefined : 'animate-pulse'}
+                  />
+                )}
+
                 {isPortEditTarget && (
                   <line
                     x1={-halfLen}
@@ -1099,11 +1161,24 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
             );
           })}
 
-          {board.merchant && board.hexes[board.merchant.hexId] && <g transform={`translate(${board.hexes[board.merchant.hexId].center.x + 26}, ${board.hexes[board.merchant.hexId].center.y - 12})`} pointerEvents="none"><circle r={14} fill="#dbb552" stroke={PLAYER_COLORS[playerMap.get(board.merchant.playerId)?.color || 'WHITE'].primary} strokeWidth={5}/><text textAnchor="middle" y={5} fontSize={16} fill="#332513">M</text><title>Comerciante: {playerMap.get(board.merchant.playerId)?.name}</title></g>}
+          {board.merchant && board.hexes[board.merchant.hexId] && (
+            <g
+              transform={`translate(${board.hexes[board.merchant.hexId].center.x + 26}, ${board.hexes[board.merchant.hexId].center.y - 12})`}
+              onClick={onMerchantClick}
+              className={onMerchantClick ? 'cursor-pointer hover:scale-110 transition' : undefined}
+              pointerEvents={onMerchantClick ? 'all' : 'none'}
+            >
+              <circle r={14} fill="#dbb552" stroke={PLAYER_COLORS[playerMap.get(board.merchant.playerId)?.color || 'WHITE'].primary} strokeWidth={5}/>
+              <text textAnchor="middle" y={5} fontSize={16} fill="#332513">M</text>
+              <title>Comerciante: {playerMap.get(board.merchant.playerId)?.name}{onMerchantClick ? ' (Clic para reubicar)' : ''}</title>
+            </g>
+          )}
           {/* 4. VERTICES LAYER (3D Settlements & Cities with Spring Drop Animation) */}
           {vertexList.map((vertex) => {
             const isValidSettlement = validSettlementSet.has(vertex.id);
             const isValidCity = validCitySet.has(vertex.id);
+            const isValidCKVertex = validCKVertexSet.has(vertex.id);
+            const isInteractiveVertex = isValidSettlement || isValidCity || isValidCKVertex;
             const owner = vertex.playerId ? playerMap.get(vertex.playerId) : null;
             const colorCfg = owner ? PLAYER_COLORS[owner.color] : null;
             const isJustBuiltVertex = highlightedBuiltItem?.vertexId === vertex.id;
@@ -1113,11 +1188,11 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 key={vertex.id}
                 transform={`translate(${vertex.x}, ${vertex.y})`}
                 onClick={() => handleVertexInteraction(vertex)}
-                className={isValidSettlement || isValidCity ? 'cursor-pointer' : undefined}
-                pointerEvents={isValidSettlement || isValidCity ? 'all' : undefined}
+                className={isInteractiveVertex ? 'cursor-pointer' : undefined}
+                pointerEvents={isInteractiveVertex ? 'all' : undefined}
               >
                 {/* Invisible Touch / Click Hit Target for Vertices (52px diameter on tablet) */}
-                {(isValidSettlement || isValidCity) && (
+                {isInteractiveVertex && (
                   <circle
                     cx={0}
                     cy={0}
@@ -1416,6 +1491,40 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                       strokeWidth={2.5}
                       strokeDasharray="4 2"
                     />
+                  </g>
+                )}
+
+                {/* Pulsing Valid C&K Knight / City Loss / Wall Target */}
+                {isValidCKVertex && (
+                  <g pointerEvents="none">
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={17}
+                      fill="rgba(16, 185, 129, 0.28)"
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      className={lowEndPcMode ? undefined : 'animate-ping'}
+                    />
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={13}
+                      fill="#059669"
+                      stroke="#ecfdf5"
+                      strokeWidth={2.2}
+                      className="shadow-lg"
+                    />
+                    <text
+                      x={0}
+                      y={3.5}
+                      textAnchor="middle"
+                      fill="#ecfdf5"
+                      fontSize={11}
+                      fontWeight="900"
+                    >
+                      ⚔
+                    </text>
                   </g>
                 )}
 

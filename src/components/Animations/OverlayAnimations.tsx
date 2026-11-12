@@ -8,12 +8,17 @@ import {
   ResourceType,
   RobberStealEvent,
 } from '../../shared/types';
+import type { EventDie, ProgressCardType } from '../../shared/citiesKnightsTypes';
+import { BRANCH_META } from '../../shared/citiesKnightsConfig';
 import {
   CARD_BACK_PATHS,
   DEV_CARD_IMAGE_PATHS,
   PLAYER_COLORS,
+  PROGRESS_BACK_IMAGE_PATHS,
+  PROGRESS_CARD_IMAGE_PATHS,
   RESOURCE_CARD_PATHS,
   RESOURCE_META,
+  TERRAIN_META,
 } from '../../shared/constants';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
@@ -56,6 +61,8 @@ interface DevCardFlight {
   startY: number;
   endX: number;
   endY: number;
+  cardImage?: string;
+  cardLabel?: string;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -105,6 +112,8 @@ interface DiceRollStage {
   stage: 'SPINNING' | 'LANDED';
   displayDice: [number, number];
   finalDice: [number, number];
+  displayEventDie?: EventDie;
+  finalEventDie?: EventDie;
   isSeven: boolean;
   totalSum: number;
 }
@@ -193,6 +202,8 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       const finalDice = ev.dice;
       const isSeven = finalDice[0] + finalDice[1] === 7;
       const totalSum = finalDice[0] + finalDice[1];
+      const finalEventDie = ev.eventDie ?? gameState.citiesKnights?.eventDie ?? undefined;
+      const eventCandidates: EventDie[] = ['BARBARIAN', 'BARBARIAN', 'BARBARIAN', 'SCIENCE', 'POLITICS', 'TRADE'];
 
       setActiveDiceStage({
         stage: 'SPINNING',
@@ -200,7 +211,9 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           Math.floor(Math.random() * 6) + 1,
           Math.floor(Math.random() * 6) + 1,
         ],
+        displayEventDie: finalEventDie ? eventCandidates[Math.floor(Math.random() * eventCandidates.length)] : undefined,
         finalDice,
+        finalEventDie,
         isSeven,
         totalSum,
       });
@@ -271,11 +284,13 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       ev.robberAffectedPlayerIds.includes(currentPlayerId)
     ) {
       const mover = gameState.players.find((p) => p.id === ev.robberMovedByPlayerId);
-      const targetHex = gameState.board.hexes[ev.robberTargetHexId];
-      const terrainLabel =
-        targetHex && targetHex.terrain !== 'DESERT' && targetHex.terrain !== 'SEA'
-          ? `${RESOURCE_META[targetHex.terrain as ResourceType].terrainName} (${targetHex.numberToken})`
-          : 'tu terreno';
+      const targetHex = ev.robberTargetHexId ? gameState.board.hexes[ev.robberTargetHexId] : undefined;
+      let terrainLabel = 'tu terreno';
+      if (targetHex && targetHex.terrain !== 'DESERT' && targetHex.terrain !== 'SEA') {
+        const meta = (RESOURCE_META as Record<string, { terrainName?: string; name?: string }>)[targetHex.terrain]
+          || (TERRAIN_META as Record<string, { terrainName?: string; name?: string }>)[targetHex.terrain];
+        terrainLabel = meta ? `${meta.terrainName || meta.name} (${targetHex.numberToken || ''})` : 'tu terreno';
+      }
 
       enqueueCentralAlert({
         id: `ALERT_ROBBER_${ev.nonce}`,
@@ -347,27 +362,38 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       setActiveSteal(ev.steal);
     }
 
-    // 6. Development Card Purchase Sliding & Spinning Flight Animation
-    if (ev.type === 'DEV_CARD_BOUGHT' && ev.buyerPlayerId) {
+    // 6. Development / Progress Card Purchase/Draw Sliding & Spinning Flight Animation
+    if ((ev.type === 'DEV_CARD_BOUGHT' || ev.progressFlight) && (ev.buyerPlayerId || ev.progressFlight?.playerId)) {
       const liveState = latestGameStateRef.current;
+      const buyerId = ev.buyerPlayerId || ev.progressFlight!.playerId;
       const origin = resolveDeckScreenCenter();
-      const target = resolvePlayerCasilleroCenter(ev.buyerPlayerId, liveState);
+      const target = resolvePlayerCasilleroCenter(buyerId, liveState);
       const buyerName =
         ev.buyerPlayerName ||
-        liveState.players.find((p) => p.id === ev.buyerPlayerId)?.name ||
+        liveState.players.find((p) => p.id === buyerId)?.name ||
         'Jugador';
       const flightId = `DEV_FLIGHT_${ev.nonce}_${Date.now()}`;
+      const cardImage = ev.progressFlight?.cardType
+        ? PROGRESS_CARD_IMAGE_PATHS[ev.progressFlight.cardType as ProgressCardType]
+        : ev.progressFlight?.branch
+        ? PROGRESS_BACK_IMAGE_PATHS[ev.progressFlight.branch]
+        : CARD_BACK_PATHS.development;
+      const cardLabel = ev.progressFlight?.cardName
+        ? `Progreso: ${ev.progressFlight.cardName}`
+        : 'Carta de Progreso';
 
       setActiveDevCardFlights((prev) => [
         ...prev,
         {
           id: flightId,
-          buyerPlayerId: ev.buyerPlayerId!,
+          buyerPlayerId: buyerId,
           buyerPlayerName: buyerName,
           startX: origin.x,
           startY: origin.y,
           endX: target.x,
           endY: target.y,
+          cardImage,
+          cardLabel,
         },
       ]);
 
@@ -381,6 +407,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   useEffect(() => {
     if (!activeDiceStage || activeDiceStage.stage !== 'SPINNING') return;
 
+    const eventCandidates: EventDie[] = ['BARBARIAN', 'BARBARIAN', 'BARBARIAN', 'SCIENCE', 'POLITICS', 'TRADE'];
     const interval = setInterval(() => {
       setActiveDiceStage((prev) => {
         if (!prev || prev.stage !== 'SPINNING') return prev;
@@ -390,6 +417,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
             Math.floor(Math.random() * 6) + 1,
             Math.floor(Math.random() * 6) + 1,
           ],
+          displayEventDie: prev.finalEventDie ? eventCandidates[Math.floor(Math.random() * eventCandidates.length)] : undefined,
         };
       });
     }, 65);
@@ -402,6 +430,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           ...prev,
           stage: 'LANDED',
           displayDice: prev.finalDice,
+          displayEventDie: prev.finalEventDie,
         };
       });
     }, 1000);
@@ -475,13 +504,23 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
               {activeDiceStage.stage === 'SPINNING' ? (
                 <div className="flex flex-col items-center justify-center my-6">
                   {/* Rolling Dice Animation during the 1.0s spinning phase */}
-                  <div className="flex items-center gap-6">
-                    <DieFace value={activeDiceStage.displayDice[0]} isRolling={true} />
-                    <span className="text-3xl font-black text-amber-400 animate-pulse">+</span>
-                    <DieFace value={activeDiceStage.displayDice[1]} isRolling={true} />
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <DieFace value={activeDiceStage.displayDice[0]} isRolling={true} isRedDie={Boolean(activeDiceStage.displayEventDie || activeDiceStage.finalEventDie)} />
+                      <span className="text-2xl sm:text-3xl font-black text-amber-400 animate-pulse">+</span>
+                      <DieFace value={activeDiceStage.displayDice[1]} isRolling={true} />
+                    </div>
+                    {Boolean(activeDiceStage.displayEventDie || activeDiceStage.finalEventDie) && (
+                      <>
+                        <div className="h-10 w-0.5 bg-amber-500/30" />
+                        <EventDieFace event={activeDiceStage.displayEventDie || 'BARBARIAN'} isRolling={true} />
+                      </>
+                    )}
                   </div>
                   <div className="mt-6 text-xs sm:text-sm font-bold text-amber-200/90 animate-pulse">
-                    Rodando los dados sobre la mesa...
+                    {Boolean(activeDiceStage.displayEventDie || activeDiceStage.finalEventDie)
+                      ? 'Rodando los 3 dados sobre la mesa...'
+                      : 'Rodando los dados sobre la mesa...'}
                   </div>
                 </div>
               ) : (
@@ -502,11 +541,24 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                     {activeDiceStage.totalSum}
                   </motion.div>
 
-                  {/* Individual 2D6 Die Faces Beneath */}
-                  <div className="flex items-center gap-5 mt-4">
-                    <DieFace value={activeDiceStage.finalDice[0]} isRolling={false} />
-                    <span className="text-2xl font-black text-amber-400/80">+</span>
-                    <DieFace value={activeDiceStage.finalDice[1]} isRolling={false} />
+                  {/* Individual Die Faces Beneath */}
+                  <div className="flex items-center gap-4 sm:gap-6 mt-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <DieFace value={activeDiceStage.finalDice[0]} isRolling={false} isRedDie={Boolean(activeDiceStage.finalEventDie)} />
+                      <span className="text-2xl font-black text-amber-400/80">+</span>
+                      <DieFace value={activeDiceStage.finalDice[1]} isRolling={false} />
+                    </div>
+                    {activeDiceStage.finalEventDie && (
+                      <>
+                        <div className="h-10 w-0.5 bg-amber-500/30" />
+                        <div className="flex flex-col items-center gap-1">
+                          <EventDieFace event={activeDiceStage.finalEventDie} isRolling={false} />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                            {activeDiceStage.finalEventDie === 'BARBARIAN' ? 'Bárbaros' : BRANCH_META[activeDiceStage.finalEventDie].name}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div
@@ -518,6 +570,10 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                   >
                     {activeDiceStage.isSeven
                       ? 'Salió un 7 — El Ladrón entra en acción'
+                      : activeDiceStage.finalEventDie === 'BARBARIAN'
+                      ? 'Avance bárbaro hacia las costas de Catán'
+                      : activeDiceStage.finalEventDie
+                      ? `Acontecimiento: Ciudad de ${BRANCH_META[activeDiceStage.finalEventDie].name}`
                       : 'Recolección de recursos...'}
                   </div>
                 </>
@@ -745,15 +801,15 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
             <ShieldAlert className="w-6 h-6 text-red-400 shrink-0" />
             <div className="text-xs sm:text-sm">
               <div className="font-bold text-red-100">
-                {gameState.players.find((p) => p.id === activeSteal.thiefId)?.name} robó 1 carta a{' '}
-                {gameState.players.find((p) => p.id === activeSteal.victimId)?.name}
+                {gameState.players.find((p) => p.id === activeSteal.thiefId)?.name || 'Un jugador'} robó 1 carta a{' '}
+                {gameState.players.find((p) => p.id === activeSteal.victimId)?.name || 'otro jugador'}
               </div>
               {(currentPlayerId === activeSteal.thiefId ||
-                currentPlayerId === activeSteal.victimId) && (
+                currentPlayerId === activeSteal.victimId) && activeSteal.resource && (
                 <div className="flex items-center gap-1.5 text-amber-300 font-semibold mt-0.5">
                   <span>Recurso robado:</span>
                   <ResourceIcon resource={activeSteal.resource} size={15} />
-                  <span>{RESOURCE_META[activeSteal.resource].name}</span>
+                  <span>{RESOURCE_META[activeSteal.resource]?.name || activeSteal.resource}</span>
                 </div>
               )}
             </div>
@@ -859,7 +915,7 @@ const ResourceDistributionFlightCard: React.FC<{
   );
 };
 
-const DieFace: React.FC<{ value: number; isRolling?: boolean }> = ({ value, isRolling }) => {
+const DieFace: React.FC<{ value: number; isRolling?: boolean; isRedDie?: boolean }> = ({ value, isRolling, isRedDie }) => {
   return (
     <motion.div
       animate={
@@ -876,9 +932,45 @@ const DieFace: React.FC<{ value: number; isRolling?: boolean }> = ({ value, isRo
           ? { duration: 0.28, repeat: Infinity, ease: 'linear' }
           : { duration: 0.5, type: 'spring', stiffness: 220, damping: 16 }
       }
-      className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#fffbeb] via-[#fef3c7] to-[#fde68a] border-4 border-[#b45309] shadow-[0_8px_25px_rgba(0,0,0,0.85)] flex items-center justify-center text-3xl sm:text-4xl font-black font-serif text-stone-900 select-none"
+      className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl ${
+        isRedDie
+          ? 'bg-gradient-to-br from-red-600 via-rose-700 to-red-900 border-4 border-amber-400 text-white'
+          : 'bg-gradient-to-br from-[#fffbeb] via-[#fef3c7] to-[#fde68a] border-4 border-[#b45309] text-stone-900'
+      } shadow-[0_8px_25px_rgba(0,0,0,0.85)] flex items-center justify-center text-3xl sm:text-4xl font-black font-serif select-none`}
     >
       {value}
+    </motion.div>
+  );
+};
+
+const EventDieFace: React.FC<{ event: EventDie; isRolling?: boolean }> = ({ event, isRolling }) => {
+  const meta = {
+    BARBARIAN: { name: 'Bárbaros', border: 'border-red-600', bg: 'bg-stone-900', img: '/assets/cities-knights/events/barbarian.svg' },
+    SCIENCE: { name: 'Ciencia', border: 'border-emerald-500', bg: 'bg-emerald-950', img: '/assets/cities-knights/events/science.svg' },
+    POLITICS: { name: 'Política', border: 'border-blue-500', bg: 'bg-blue-950', img: '/assets/cities-knights/events/politics.svg' },
+    TRADE: { name: 'Comercio', border: 'border-amber-500', bg: 'bg-amber-950', img: '/assets/cities-knights/events/trade.svg' },
+  }[event] || { name: 'Bárbaros', border: 'border-red-600', bg: 'bg-stone-900', img: '/assets/cities-knights/events/barbarian.svg' };
+
+  return (
+    <motion.div
+      animate={
+        isRolling
+          ? {
+              rotate: [0, 90, 180, 270, 360],
+              scale: [0.9, 1.12, 0.95, 1.1, 1],
+              y: [0, -12, 4, -8, 0],
+            }
+          : { rotate: 0, scale: 1, y: 0 }
+      }
+      transition={
+        isRolling
+          ? { duration: 0.28, repeat: Infinity, ease: 'linear' }
+          : { duration: 0.5, type: 'spring', stiffness: 220, damping: 16 }
+      }
+      className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl ${meta.bg} border-4 ${meta.border} shadow-[0_8px_25px_rgba(0,0,0,0.85)] flex flex-col items-center justify-center p-2 select-none relative`}
+      title={`Dado de Acontecimientos: ${meta.name}`}
+    >
+      <img src={meta.img} alt={meta.name} className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
     </motion.div>
   );
 };
@@ -941,13 +1033,13 @@ const DevCardPurchaseFlightCard: React.FC<{
       >
         <div className="w-16 h-24 rounded-xl overflow-hidden border border-amber-300/80 shadow-lg relative bg-stone-900">
           <img
-            src={CARD_BACK_PATHS.development}
-            alt="Carta de Desarrollo"
+            src={flight.cardImage || CARD_BACK_PATHS.development}
+            alt={flight.cardLabel || "Carta de Desarrollo"}
             className="w-full h-full object-cover"
           />
         </div>
-        <span className="text-[10px] font-black text-amber-300 mt-1 uppercase tracking-wider">
-          Para {flight.buyerPlayerName}
+        <span className="text-[10px] font-black text-amber-300 mt-1 uppercase tracking-wider text-center max-w-[140px] truncate">
+          {flight.cardLabel || `Para ${flight.buyerPlayerName}`}
         </span>
       </motion.div>
     </>

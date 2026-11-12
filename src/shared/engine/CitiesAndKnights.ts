@@ -1,7 +1,7 @@
 import { ALL_RESOURCES, ALL_TRADE_CARDS, BUILDING_COSTS, createEmptyResources } from '../constants';
 import { BRANCH_META, CK_BRANCHES, COMMODITIES, PROGRESS_CARDS, cardCount, emptyCKPlayer, hasCitiesKnights } from '../citiesKnightsConfig';
 import type { BoardKnight, CardBundle, CKChoice, EventDie, ImprovementBranch, ProgressCard, ProgressPayload, RuleContext } from '../citiesKnightsTypes';
-import type { GameAction, GameState, PlayerState, ResourceFlightEvent, ResourceType, TradeCardType, Vertex } from '../types';
+import type { Edge, GameAction, GameState, PlayerState, ResourceFlightEvent, ResourceType, TradeCardType, Vertex } from '../types';
 import { updateLongestRoadAward } from './LongestRoad';
 
 export interface CKHooks {
@@ -16,8 +16,21 @@ const requireRule = (condition: unknown, message: string): void => { if (!condit
 const vertices = (s: GameState): Vertex[] => Object.values(s.board.vertices);
 const player = (s: GameState, id: string): PlayerState => s.players.find(p => p.id === id)!;
 const cities = (s: GameState, id: string): Vertex[] => vertices(s).filter(v => v.playerId === id && v.building === 'CITY');
-const ownKnights = (s: GameState, id: string): Vertex[] => vertices(s).filter(v => v.knight?.playerId === id);
-const freeRank = (s: GameState, id: string, rank: number): boolean => ownKnights(s, id).filter(v => v.knight!.rank === rank).length < 2;
+export const ownKnights = (s: GameState, id: string): Vertex[] => vertices(s).filter(v => v.knight?.playerId === id);
+export const freeRank = (s: GameState, id: string, rank: number): boolean => ownKnights(s, id).filter(v => v.knight!.rank === rank).length < 2;
+export function isOpenEdge(s: GameState, edge: Edge): boolean {
+  if (!edge.building || !edge.playerId) return false;
+  return edge.vertexIds.some((id: string) => {
+    const v = s.board.vertices[id];
+    if (!v) return false;
+    if (v.building && v.playerId === edge.playerId) return false;
+    if (v.knight?.playerId === edge.playerId) return false;
+    const hasOtherOwnEdge = v.adjacentEdgeIds.some(
+      eid => eid !== edge.id && s.board.edges[eid]?.playerId === edge.playerId && s.board.edges[eid]?.building
+    );
+    return !hasOtherOwnEdge;
+  });
+}
 const isBuildPhase = (s: GameState, id: string): boolean => s.turn.activePlayerId === id && (s.phase === 'MAIN_PHASE' || s.phase === 'SPECIAL_BUILD_PHASE');
 const isActionPhase = (s: GameState, id: string): boolean => s.turn.activePlayerId === id && s.phase === 'MAIN_PHASE';
 function log(s: GameState, message: string): void {
@@ -119,6 +132,14 @@ function draw(s: GameState, id: string, branch: ImprovementBranch): void {
     p.citiesKnights!.progressCards.push(card);
     if (p.citiesKnights!.progressCards.length > 4 && id !== s.turn.activePlayerId && !ck.choices.some(c => c.kind === 'PROGRESS_DISCARD' && c.playerId === id)) ck.choices.push({ kind: 'PROGRESS_DISCARD', playerId: id });
   }
+  s.lastEvent = {
+    nonce: (s.lastEvent?.nonce || 0) + 1,
+    type: 'DEV_CARD_BOUGHT',
+    buyerPlayerId: id,
+    buyerPlayerName: p.name,
+    eventDie: ck.eventDie || undefined,
+    progressFlight: { playerId: id, branch, cardType: card.type, cardName: PROGRESS_CARDS[card.type].name },
+  };
 }
 
 export function resolveBarbarianAttack(s: GameState, participating?: Set<string>): void {
@@ -146,6 +167,13 @@ export function resolveBarbarianAttack(s: GameState, participating?: Set<string>
   ck.barbarianPosition = 0;
   ck.firstAttackResolved = true;
   ck.lastBattle = { barbarians, defenders, contributions, won, defenderIds, victimIds };
+  s.lastEvent = {
+    nonce: (s.lastEvent?.nonce || 0) + 1,
+    type: 'DICE_ROLLED',
+    dice: s.turn.diceRoll || undefined,
+    eventDie: 'BARBARIAN',
+    barbarianAttack: { barbarians, defenders, won, victimIds, defenderIds },
+  };
   log(s, `Asalto bárbaro: defensa ${defenders}, bárbaros ${barbarians}. ${won ? 'Catán se defiende.' : 'Catán pierde; los jugadores afectados eligen una ciudad.'}`);
 }
 function inTurnOrder(s: GameState): PlayerState[] {
@@ -274,7 +302,7 @@ function playProgress(s: GameState, p: PlayerState, card: ProgressCard, data: Pr
     }
     case 'DIPLOMAT': {
       const e = s.board.edges[data.edgeId || ''];
-      requireRule(e?.building && e.vertexIds.some(id => { const v = s.board.vertices[id]; return !(v.building && v.playerId === e.playerId || v.knight?.playerId === e.playerId) && !v.adjacentEdgeIds.some(eid => eid !== e.id && s.board.edges[eid].playerId === e.playerId && s.board.edges[eid].building); }), 'Elige una carretera o barco con un extremo abierto.');
+      requireRule(isOpenEdge(s, e), 'Elige una carretera o barco con un extremo abierto.');
       const ownerId = e.playerId!; const piece = e.building!; e.building = null; e.playerId = null;
       if (piece === 'ROAD') player(s, ownerId).roadsLeft++;
       else player(s, ownerId).shipsLeft = (player(s, ownerId).shipsLeft || 0) + 1;
@@ -332,6 +360,12 @@ export function rollCitiesKnightsDice(s: GameState, dice: [number, number], even
   const ck = s.citiesKnights!;
   ck.eventDie = event; ck.pendingDice = dice;
   s.turn.diceRoll = dice; s.turn.hasRolledDice = true;
+  s.lastEvent = {
+    nonce: (s.lastEvent?.nonce || 0) + 1,
+    type: 'DICE_ROLLED',
+    dice,
+    eventDie: event,
+  };
   if (event === 'BARBARIAN') {
     ck.barbarianPosition++;
     if (ck.barbarianPosition >= 7) {
@@ -435,8 +469,9 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
       break;
     }
     case 'RESOLVE_CK_CHOICE': {
-      const choice = ck.choices[0]; requireRule(choice?.playerId === id && s.phase === 'CK_CHOICE', 'La decisión corresponde a otro jugador.');
-      ck.choices.shift();
+      const choiceIndex = ck.choices.findIndex(c => c.playerId === id);
+      requireRule(choiceIndex !== -1 && s.phase === 'CK_CHOICE', 'No tienes ninguna decisión pendiente.');
+      const [choice] = ck.choices.splice(choiceIndex, 1);
       switch (choice.kind) {
         case 'BARBARIAN_DEFENSE': {
           const ids = action.vertexIds || [];

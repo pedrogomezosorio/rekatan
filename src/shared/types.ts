@@ -1,4 +1,14 @@
-import type { BoardKnight, CardBundle, CitiesKnightsAction, CitiesKnightsPlayer, CitiesKnightsState, ImprovementBranch, TradeCardType } from './citiesKnightsTypes';
+import type {
+  BoardKnight,
+  CardBundle,
+  CitiesKnightsAction,
+  CitiesKnightsPlayer,
+  CitiesKnightsState,
+  ImprovementBranch,
+  TradeCardType,
+  EventDie,
+  ProgressCardType,
+} from './citiesKnightsTypes';
 export type { CommodityType, TradeCardType, CardBundle, ImprovementBranch, EventDie, ProgressCardType, ProgressCard, BoardKnight } from './citiesKnightsTypes';
 export type ResourceType = 'WOOD' | 'BRICK' | 'SHEEP' | 'WHEAT' | 'ORE';
 
@@ -427,6 +437,20 @@ export interface GameState {
     yearOfPlentyResources?: [ResourceType, ResourceType];
     buyerPlayerId?: string;
     buyerPlayerName?: string;
+    eventDie?: EventDie;
+    progressFlight?: {
+      playerId: string;
+      branch: ImprovementBranch;
+      cardType?: ProgressCardType;
+      cardName?: string;
+    };
+    barbarianAttack?: {
+      barbarians: number;
+      defenders: number;
+      won: boolean;
+      victimIds: string[];
+      defenderIds: string[];
+    };
     builtItem?: {
       type: 'SETTLEMENT' | 'CITY' | 'ROAD' | 'SHIP';
       vertexId?: string;

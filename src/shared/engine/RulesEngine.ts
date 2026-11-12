@@ -1371,6 +1371,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
         nonce: nextNonce,
         type: 'DICE_ROLLED',
         dice: [d1, d2],
+        eventDie: state.citiesKnights?.eventDie || undefined,
         producingHexIds: [],
       };
       refreshTurnDeadline(state, state.actionTimestamp);
@@ -1405,6 +1406,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
         nonce: nextNonce,
         type: 'ROBBER_DISCARDED',
         dice: [d1, d2],
+        eventDie: state.citiesKnights?.eventDie || undefined,
         discards: discardEvents,
       };
       refreshTurnDeadline(state, state.actionTimestamp);
@@ -1442,6 +1444,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
         nonce: nextNonce,
         type: 'DICE_ROLLED',
         dice: [d1, d2],
+        eventDie: state.citiesKnights?.eventDie || undefined,
         discards: discardEvents.length > 0 ? discardEvents : undefined,
       };
       refreshTurnDeadline(state, state.actionTimestamp);
@@ -1598,6 +1601,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
       nonce: nextNonce,
       type: 'RESOURCES_PRODUCED',
       dice: [d1, d2],
+      eventDie: state.citiesKnights?.eventDie || undefined,
       producingHexIds: producingHexes.map((h) => h.id),
       flights,
     };
@@ -2332,7 +2336,9 @@ export function applyGameAction(
         state.phase = isFirstSetup ? 'SETUP_ROAD_1' : 'SETUP_ROAD_2';
         refreshTurnDeadline(state, state.actionTimestamp);
 
-        const giveInitialResources = hasCitiesKnights(state.config) ? !isFirstSetup : state.config.initialSettlementsGiveResources !== false;
+        const giveInitialResources = hasCitiesKnights(state.config)
+          ? true
+          : state.config.initialSettlementsGiveResources !== false;
         const flights: ResourceFlightEvent[] = [];
         const gainedNames: string[] = [];
 
