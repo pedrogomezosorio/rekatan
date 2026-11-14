@@ -1,7 +1,7 @@
 {
   "name": "catan-online-tabletop",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Catan Online Tabletop — Edición de Escritorio Multijugador 3D",
   "author": "Catan Studio Clone",
   "main": "electron/main.cjs",

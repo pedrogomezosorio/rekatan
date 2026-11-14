@@ -6,16 +6,16 @@ Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
 ---
 
-## Descargas (v2.1 — Expansión Ciudades y Caballeros & Navegantes)
+## Descargas (v2.2 — Ciudades y Caballeros & Navegantes)
 
 Las versiones ejecutables para escritorio se encuentran disponibles en la sección de [Releases de GitHub](https://github.com/pedrogomezosorio/rekatan/releases/latest).
 
 | Sistema Operativo | Tipo de Paquete | Archivo | Enlace de Descarga |
 | :--- | :--- | :--- | :--- |
-| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.1.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.1.0-arm64.dmg) |
-| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.1.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.1.0-arm64-mac.zip) |
-| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.1.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.1.0.exe) |
-| **Windows** | Ejecutable Portable | `Catan Tabletop 2.1.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.1.0.exe) |
+| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.2.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.2.0-arm64.dmg) |
+| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.2.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.2.0-arm64-mac.zip) |
+| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.2.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.2.0.exe) |
+| **Windows** | Ejecutable Portable | `Catan Tabletop 2.2.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.2.0.exe) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
 
 > 💡 **Todas las versiones y notas de la actualización:**  
@@ -64,20 +64,20 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **Montaje Variable (Sección 4):** El botón *Regenerar Escenario de Navegantes* conserva intacta la silueta de las islas y el mar, barajando exclusivamente los terrenos, números o puertos permitidos por el reglamento de cada escenario.
 
 ### Expansión: Ciudades y Caballeros (3 a 6 Jugadores)
-- **Economía y Nuevas Mercancías (Commodities):** Producción dual en ciudades para Bosque (**Papel**), Pastos (**Tela**) y Montañas (**Moneda**), con ilustraciones en alta resolución y abanico de recursos adaptativo.
-- **Tirada de 3 Dados & Flota Bárbara:** Dado de Evento con caras de Barco Bárbaro y Castillos (Ciencia, Política y Comercio). Pista de ataque bárbaro de 7 casillas, cálculo de defensas (*Fuerza de Catán* vs *Fuerza Bárbara*), título de **Defensor de Catán** (+1 PV) y degradación de ciudades en caso de derrota.
-- **Caballeros en el Tablero:** Emplazamiento en vértices, 3 rangos (**Básico**, **Fuerte**, **Poderoso**), estados activo/inactivo (activación con Trigo), combate/desplazamiento de caballeros rivales y expulsión del Ladrón.
-- **Mejoras de Ciudad & Metrópolis:** 3 ramas de progreso (Ciencia, Política, Comercio) con 5 niveles de desarrollo, habilidades pasivas (*Acueducto*, *Fortaleza*, *Comercio Mercantil*) y disputa de **Metrópolis** (+2 PV).
-- **Murallas de Ciudad:** Construcción bajo ciudades para aumentar en +2 el límite seguro de cartas ante el 7 (hasta 13 cartas).
-- **3 Mazos de Cartas de Progreso:** Mazo de Ciencia (Verde), Política (Azul) y Comercio (Amarillo) con ilustraciones oficiales en PNG y cartas jugables según evento y dado rojo.
+- **Economía y Nuevas Mercancías (Commodities):** Producción dual en ciudades para Bosque (**Papel**), Pastos (**Tela**) y Montañas (**Moneda**), con ilustraciones en alta resolución, abanico de recursos adaptativo y recursos iniciales en la primera ronda de fundación.
+- **Tirada de 3 Dados & Flota Bárbara:** Popup central con 3 dados 3D (2 numéricos + **Dado de Acontecimiento** con Barco Bárbaro y Castillos de Ciencia, Política y Comercio), pista bárbara de 7 casillas, desglose visual de fuerza defensiva, título de **Campeador / Defensor de Catán** (`+1 PV`) y animación simultánea en el tablero para ciudades degradadas a poblados tras una derrota.
+- **Caballeros en el Tablero (Menú Dedicado):** Acciones visuales directas desde la barra inferior (**Colocar**, **Ascender**, **Activar**, **Mover** y **Expulsar Ladrón**) con resaltado en vivo de vértices válidos en el tablero, combates de desplazamiento y menú propio de retirada.
+- **Mejoras de Ciudad & Metrópolis:** HUD clicable con acceso exclusivo a las 3 ramas de progreso (**Ciencia**, **Política** y **Comercio**, niveles 1–5), habilidades pasivas (*Acueducto*, *Fortaleza*, *Comercio Mercantil*) y disputa de **Metrópolis** (`+2 PV`).
+- **Murallas de Ciudad:** Construcción bajo ciudades para aumentar en `+2` el límite seguro de cartas ante el 7 (hasta 13 cartas).
+- **3 Mazos de Cartas de Progreso (Ciencia, Política y Comercio):** Menú propio de **Progreso (`D`)** con contadores de mazo, interacción mediante mapa o cajitas clicables (sin selectores desplegables) —incluyendo **Alquimista**, **Ingeniero**, **Herrero**, **Inventor**, **Espía**, **Diplomático**, **Mercader** y **Puerto de Mercancías**—, vuelos de dorsos escaneados hacia el casillero y alertas centrales coloreadas por rama al jugar cada carta.
 - **Fase Especial de Construcción (5-6 Jugadores):** Reglas oficiales para partidas de 5 y 6 jugadores, totalmente combinable con los escenarios de Navegantes.
 
 ### Dinámica de Juego y Notificaciones Visuales
-- **Animación secuencial de recursos:** Al arrojar los dados, los materiales se distribuyen paulatinamente desde el hexágono productor hacia el casillero individual de cada jugador beneficiado en la interfaz.
-- **Lanzamiento de dados central:** Ventana informativa en el eje central de la pantalla con visualización en gran escala de los resultados numéricos y tiempo de retención legible sin bloqueo de la vista de cartas.
-- **Mazo de cartas de desarrollo físico:** Representación tridimensional en mesa del mazo restante con su ilustración original. Al comprar una carta, esta realiza una animación de giro y traslación directa hacia el inventario del comprador.
-- **Resaltado de construcciones:** Iluminación localizada temporal sobre vértices y aristas al colocarse carreteras, poblados o catedrales para facilitar el seguimiento de las acciones de los rivales.
-- **Alertas de eventos críticos:** Avisos destacados en pantalla ante el despliegue de cartas de Caballero o el asalto del Ladrón sobre parcelas ocupadas por el usuario.
+- **Animación secuencial de recursos y progreso:** Al arrojar los dados o recibir cartas de progreso/desarrollo, los materiales y dorsos escaneados vuelan hacia el casillero individual de cada jugador y pueden inspeccionarse en abanico al acercar el cursor a perfiles o al botón de **Progreso / Desarrollo**.
+- **Lanzamiento de dados central:** Ventana informativa en el eje central de la pantalla con visualización 3D de los dados numéricos y del dado de acontecimiento sin bloquear la vista de cartas.
+- **Mazo de cartas de desarrollo físico y visibilidad marítima:** Representación tridimensional del mazo restante y corredor marítimo iluminado para identificar y desplazar barcos en Navegantes.
+- **Resaltado de construcciones e interacciones en mapa:** Iluminación localizada en vértices, aristas y hexágonos para colocación, mejoras, caballeros, mercader e inventor.
+- **Alertas de eventos críticos:** Avisos destacados en pantalla ante el asalto del Ladrón o la activación de Cartas de Progreso con temática visual de cada sector.
 
 ### Inteligencia Artificial
 - **Bots autónomos integrados:** Algoritmo de toma de decisiones heurístico que gestiona la fase de tiradas iniciales, colocación de poblados en puntos estratégicos de alta frecuencia estadística, construcción de infraestructuras y comercio marítimo.
