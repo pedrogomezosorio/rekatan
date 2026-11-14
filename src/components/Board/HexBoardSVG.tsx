@@ -155,6 +155,33 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     playerId: string;
   } | null>(null);
 
+  // Track cities downgraded to settlements by Barbarian Attacks
+  const [downgradedVertexIds, setDowngradedVertexIds] = useState<string[]>([]);
+  const prevVertexBuildingsRef = useRef<Record<string, string | null>>({});
+
+  useEffect(() => {
+    const prevMap = prevVertexBuildingsRef.current;
+    const newlyDowngraded: string[] = [];
+    for (const v of Object.values(board.vertices)) {
+      if (prevMap[v.id] === 'CITY' && v.building === 'SETTLEMENT') {
+        newlyDowngraded.push(v.id);
+      }
+      prevMap[v.id] = v.building;
+    }
+    if (lastEvent?.downgradedCityVertexIds?.length) {
+      for (const vid of lastEvent.downgradedCityVertexIds) {
+        if (!newlyDowngraded.includes(vid)) newlyDowngraded.push(vid);
+      }
+    }
+    if (newlyDowngraded.length > 0) {
+      setDowngradedVertexIds((prev) => Array.from(new Set([...prev, ...newlyDowngraded])));
+      const timer = setTimeout(() => {
+        setDowngradedVertexIds((prev) => prev.filter((id) => !newlyDowngraded.includes(id)));
+      }, 4800);
+      return () => clearTimeout(timer);
+    }
+  }, [board.vertices, lastEvent?.nonce, lastEvent?.downgradedCityVertexIds]);
+
   useEffect(() => {
     if (lastEvent?.builtItem) {
       setHighlightedBuiltItem(lastEvent.builtItem);
@@ -1114,19 +1141,75 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </g>
                 )}
 
-                {/* Movable Ship Endpoints Highlight */}
+                {/* Movable Ship Endpoints Highlight (Clear Maritime Selection & Origin Beacon) */}
                 {isMovableShip && (
-                  <g className="animate-bounce">
-                    <ellipse
-                      cx={0}
-                      cy={0}
-                      rx={halfLen + 3}
-                      ry={8}
-                      fill="none"
+                  <g className="pointer-events-none">
+                    {/* Glowing Maritime Corridor */}
+                    <line
+                      x1={-halfLen - 2}
+                      y1={0}
+                      x2={halfLen + 2}
+                      y2={0}
                       stroke={isSelectedMovableShip ? '#f59e0b' : '#38bdf8'}
-                      strokeWidth={3}
-                      strokeDasharray="4 2"
+                      strokeWidth={13}
+                      strokeLinecap="round"
+                      opacity={0.45}
+                      className={lowEndPcMode ? undefined : 'animate-pulse'}
                     />
+                    <rect
+                      x={-halfLen - 2}
+                      y={-7}
+                      width={halfLen * 2 + 4}
+                      height={14}
+                      rx={7}
+                      fill={isSelectedMovableShip ? 'rgba(245, 158, 11, 0.25)' : 'rgba(14, 165, 233, 0.22)'}
+                      stroke={isSelectedMovableShip ? '#fde047' : '#7dd3fc'}
+                      strokeWidth={2.2}
+                      strokeDasharray={isSelectedMovableShip ? undefined : '5 3'}
+                    />
+                    {/* Upright Floating Badge (Counter-rotated so text/icon is always horizontal) */}
+                    <g transform={`rotate(${-angleDeg})`}>
+                      <circle
+                        cx={0}
+                        cy={0}
+                        r={12}
+                        fill={isSelectedMovableShip ? '#d97706' : '#0284c7'}
+                        stroke={isSelectedMovableShip ? '#fef08a' : '#e0f2fe'}
+                        strokeWidth={2}
+                      />
+                      <text
+                        x={0}
+                        y={4}
+                        textAnchor="middle"
+                        fill="#ffffff"
+                        fontSize="11"
+                        fontWeight="900"
+                      >
+                        {isSelectedMovableShip ? '⛵' : '⇄'}
+                      </text>
+                      <g transform="translate(0, -20)">
+                        <rect
+                          x={-28}
+                          y={-8}
+                          width={56}
+                          height={15}
+                          rx={5}
+                          fill={isSelectedMovableShip ? 'rgba(180, 83, 9, 0.95)' : 'rgba(3, 105, 161, 0.95)'}
+                          stroke={isSelectedMovableShip ? '#fde047' : '#7dd3fc'}
+                          strokeWidth={1.2}
+                        />
+                        <text
+                          x={0}
+                          y={2.5}
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize="7.5"
+                          fontWeight="900"
+                        >
+                          {isSelectedMovableShip ? 'ORIGEN' : 'MOVER'}
+                        </text>
+                      </g>
+                    </g>
                   </g>
                 )}
 
@@ -1553,6 +1636,66 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                       className="animate-ping"
                       style={{ animationDuration: '2s' }}
                     />
+                  </g>
+                )}
+
+                {/* Barbarian Attack: City Reduced to Settlement Animation */}
+                {downgradedVertexIds.includes(vertex.id) && (
+                  <g className="pointer-events-none">
+                    {/* Expanding Fiery Shockwaves */}
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={30}
+                      fill="rgba(239, 68, 68, 0.28)"
+                      stroke="#ef4444"
+                      strokeWidth={3}
+                      className="animate-ping"
+                      style={{ animationDuration: '1.2s' }}
+                    />
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={23}
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth={2.5}
+                      strokeDasharray="5 3"
+                      className="animate-spin"
+                      style={{ animationDuration: '4s' }}
+                    />
+                    {/* Crumbling Ghost City Outline */}
+                    <polygon
+                      points="-14,11 -14,-4 -7,-12 0,-4 0,-16 8,-23 16,-16 16,11"
+                      fill="rgba(239, 68, 68, 0.35)"
+                      stroke="#fca5a5"
+                      strokeWidth={1.8}
+                      strokeDasharray="3 2"
+                      className="animate-pulse"
+                    />
+                    {/* Floating Reduction Badge */}
+                    <g transform="translate(0, -34)">
+                      <rect
+                        x={-52}
+                        y={-11}
+                        width={104}
+                        height={20}
+                        rx={7}
+                        fill="rgba(127, 29, 29, 0.96)"
+                        stroke="#f87171"
+                        strokeWidth={1.5}
+                      />
+                      <text
+                        x={0}
+                        y={3}
+                        textAnchor="middle"
+                        fill="#fef2f2"
+                        fontSize="8.5"
+                        fontWeight="900"
+                      >
+                        🔥 CIUDAD → POBLADO
+                      </text>
+                    </g>
                   </g>
                 )}
               </g>

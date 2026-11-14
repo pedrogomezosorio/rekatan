@@ -132,13 +132,16 @@ function draw(s: GameState, id: string, branch: ImprovementBranch): void {
     p.citiesKnights!.progressCards.push(card);
     if (p.citiesKnights!.progressCards.length > 4 && id !== s.turn.activePlayerId && !ck.choices.some(c => c.kind === 'PROGRESS_DISCARD' && c.playerId === id)) ck.choices.push({ kind: 'PROGRESS_DISCARD', playerId: id });
   }
+  const flightItem = { playerId: id, branch, cardType: card.type, cardName: PROGRESS_CARDS[card.type].name };
+  const existingFlights = s.lastEvent?.progressFlights || [];
   s.lastEvent = {
     nonce: (s.lastEvent?.nonce || 0) + 1,
     type: 'DEV_CARD_BOUGHT',
     buyerPlayerId: id,
     buyerPlayerName: p.name,
     eventDie: ck.eventDie || undefined,
-    progressFlight: { playerId: id, branch, cardType: card.type, cardName: PROGRESS_CARDS[card.type].name },
+    progressFlight: flightItem,
+    progressFlights: [...existingFlights, flightItem],
   };
 }
 
@@ -186,7 +189,22 @@ function finishChoices(s: GameState, hooks: CKHooks): void {
   if (ck.pendingDice) {
     const dice = ck.pendingDice;
     delete ck.pendingDice;
+    const preDiceEvent = s.lastEvent;
     hooks.resolveDice(s, dice);
+    if (s.lastEvent && preDiceEvent) {
+      if (preDiceEvent.progressFlight && !s.lastEvent.progressFlight) {
+        s.lastEvent.progressFlight = preDiceEvent.progressFlight;
+      }
+      if (preDiceEvent.progressFlights?.length) {
+        s.lastEvent.progressFlights = preDiceEvent.progressFlights;
+      }
+      if (preDiceEvent.barbarianAttack && !s.lastEvent.barbarianAttack) {
+        s.lastEvent.barbarianAttack = preDiceEvent.barbarianAttack;
+      }
+      if (preDiceEvent.downgradedCityVertexIds?.length) {
+        s.lastEvent.downgradedCityVertexIds = preDiceEvent.downgradedCityVertexIds;
+      }
+    }
     if (ck.choices.length) s.phase = 'CK_CHOICE';
   } else s.phase = 'MAIN_PHASE';
   hooks.score(s);
@@ -231,6 +249,12 @@ function loseCity(s: GameState, p: PlayerState, vertexId?: string): void {
   if (p.settlementsLeft > 0) { p.settlementsLeft--; p.citiesLeft++; }
   else v.isDowngradedCity = true;
   if (cities(s, p.id).length === 0) p.citiesKnights!.improvements = { SCIENCE: 0, POLITICS: 0, TRADE: 0 };
+  const prevDowngraded = s.lastEvent?.downgradedCityVertexIds || [];
+  s.lastEvent = {
+    nonce: (s.lastEvent?.nonce || 0) + 1,
+    type: 'BUILDING_PLACED',
+    downgradedCityVertexIds: [...new Set([...prevDowngraded, v.id])],
+  };
   log(s, `${p.name} pierde una ciudad y su muralla. Pasa a ser un poblado.`);
 }
 function promote(s: GameState, p: PlayerState, id: string, free: boolean): void {
@@ -271,14 +295,14 @@ function playProgress(s: GameState, p: PlayerState, card: ProgressCard, data: Pr
     }
     case 'INVENTOR': {
       const ids = data.hexIds || [];
-      requireRule(ids.length === 2 && ids[0] !== ids[1] && ids.every(id => { const h = s.board.hexes[id]; return h?.numberToken && ![2, 12, 6, 8].includes(h.numberToken) && adjacentOwn(id); }), 'Elige dos terrenos propios con números intercambiables (no 2, 12, 6 ni 8).');
+      requireRule(ids.length === 2 && ids[0] !== ids[1] && ids.every(id => { const h = s.board.hexes[id]; return h?.numberToken && ![2, 12, 6, 8].includes(h.numberToken); }), 'Elige dos terrenos con números intercambiables (no 2, 12, 6 ni 8).');
       const [a, b] = ids.map(id => s.board.hexes[id]); [a.numberToken, b.numberToken] = [b.numberToken, a.numberToken]; break;
     }
     case 'IRRIGATION': case 'MINING': {
       const resource = card.type === 'IRRIGATION' ? 'WHEAT' : 'ORE';
-      const count = Object.values(s.board.hexes).filter(h => h.terrain === resource && adjacentOwn(h.id)).length;
-      requireRule(count > 0, 'La carta necesita un edificio junto al terreno correspondiente.');
-      take(s, p, resource, 2 * count); break;
+      const matchingHexes = Object.values(s.board.hexes).filter(h => h.terrain === resource && adjacentOwn(h.id));
+      requireRule(matchingHexes.length > 0, 'La carta necesita un edificio junto al terreno correspondiente.');
+      take(s, p, resource, 2 * matchingHexes.length); break;
     }
     case 'WEDDING':
       for (const rival of inTurnOrder(s).filter(r => r.id !== p.id && r.totalVictoryPoints > p.totalVictoryPoints && cardCount(r.resources))) ck.choices.push({ kind: 'GIFT', playerId: rival.id, beneficiaryId: p.id, amount: Math.min(2, cardCount(rival.resources)) });
@@ -349,7 +373,18 @@ function playProgress(s: GameState, p: PlayerState, card: ProgressCard, data: Pr
       requireRule(allowed.includes(data.resource as never), 'Tipo de carta inválido para este monopolio.');
       for (const rival of s.players.filter(r => r.id !== p.id)) transfer(rival, p, data.resource!, Math.min(commodity ? 1 : 2, rival.resources[data.resource!] || 0)); break;
     }
-    case 'COMMERCIAL_HARBOR': effects.harborPartners = s.players.filter(r => r.id !== p.id).map(r => r.id); break;
+    case 'COMMERCIAL_HARBOR': {
+      effects.harborPartners = s.players.filter(r => r.id !== p.id).map(r => r.id);
+      if (data.targetPlayerId && data.resource && effects.harborPartners.includes(data.targetPlayerId) && ALL_RESOURCES.includes(data.resource as ResourceType) && (p.resources[data.resource] || 0) > 0) {
+        const rival = player(s, data.targetPlayerId);
+        if (COMMODITIES.some(r => (rival.resources[r] || 0) > 0)) {
+          effects.harborPartners = effects.harborPartners.filter(pid => pid !== rival.id);
+          transfer(p, rival, data.resource, 1);
+          ck.choices.push({ kind: 'GIFT', playerId: rival.id, beneficiaryId: p.id, amount: 1, commodityOnly: true });
+        }
+      }
+      break;
+    }
     case 'PRINTER': case 'CONSTITUTION': throw new Error('Los puntos de victoria se aplican al recibir la carta.');
   }
 }
@@ -458,13 +493,29 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
       p.citiesKnights!.progressCards = p.citiesKnights!.progressCards.filter(c => c.id !== card!.id);
       playProgress(s, p, card!, action.payload || {}, hooks, ctx);
       ck.decks[card!.branch].push(card!);
+      const nextNonce = (s.lastEvent?.nonce || 0) + 1;
+      const adjacentOwn = (hexId: string): boolean => vertices(s).some(v => v.playerId === p.id && v.building && v.hexIds.includes(hexId));
+      const bonusFlights: ResourceFlightEvent[] | undefined =
+        card!.type === 'IRRIGATION' || card!.type === 'MINING'
+          ? Object.values(s.board.hexes)
+              .filter(h => h.terrain === (card!.type === 'IRRIGATION' ? 'WHEAT' : 'ORE') && adjacentOwn(h.id))
+              .map((h, idx) => ({
+                id: `CK_${card!.type}_${nextNonce}_${h.id}_${idx}`,
+                hexId: h.id,
+                playerId: id,
+                resource: (card!.type === 'IRRIGATION' ? 'WHEAT' : 'ORE') as ResourceType,
+                amount: 2,
+              }))
+          : s.lastEvent?.flights;
       s.lastEvent = {
-        nonce: (s.lastEvent?.nonce || 0) + 1,
-        type: 'PROGRESS_CARD_PLAYED',
+        ...s.lastEvent,
+        nonce: nextNonce,
+        type: card!.type === 'ALCHEMIST' && s.lastEvent?.type ? s.lastEvent.type : 'PROGRESS_CARD_PLAYED',
         progressCardType: card!.type,
         actorPlayerId: id,
         actorPlayerName: p.name,
-      } as never;
+        flights: bonusFlights,
+      };
       log(s, `${p.name} juega ${PROGRESS_CARDS[card!.type].name}.`); break;
     }
     case 'COMMERCIAL_HARBOR_TRADE': {
@@ -606,7 +657,7 @@ export function citiesKnightsBotActions(s: GameState, id: string): GameAction[] 
       case 'ALCHEMIST': continue;
       case 'ENGINEER': payload.vertexId = cities(s, id).find(v => !v.cityWall)?.id; break;
       case 'SMITH': payload.vertexIds = own.filter(v => v.knight!.rank < 3 && v.knight!.promotedOnTurn !== s.turn.turnNumber && (v.knight!.rank < 2 || p.citiesKnights!.improvements.POLITICS >= 3)).slice(0, 2).map(v => v.id); break;
-      case 'INVENTOR': payload.hexIds = Object.values(s.board.hexes).filter(h => h.numberToken && ![2, 12, 6, 8].includes(h.numberToken) && adjacentOwn(h.id)).slice(0, 2).map(h => h.id); break;
+      case 'INVENTOR': payload.hexIds = Object.values(s.board.hexes).filter(h => h.numberToken && ![2, 12, 6, 8].includes(h.numberToken)).slice(0, 2).map(h => h.id); break;
       case 'DESERTER': payload.targetPlayerId = rivals.find(r => ownKnights(s, r.id).length)?.id; break;
       case 'SPY': { const rival = rivals.find(r => r.citiesKnights!.progressCards.length); payload.targetPlayerId = rival?.id; payload.targetCardId = rival?.citiesKnights!.progressCards[0]?.id; break; }
       case 'INTRIGUE': payload.vertexId = vertices(s).find(v => v.knight && v.knight.playerId !== id && v.adjacentEdgeIds.some(e => s.board.edges[e].playerId === id))?.id; break;
@@ -618,7 +669,15 @@ export function citiesKnightsBotActions(s: GameState, id: string): GameAction[] 
         if (!higher) continue; payload.targetPlayerId = higher.id; const bundle: CardBundle = createEmptyResources(); let left = Math.min(2, cardCount(higher.resources));
         for (const r of ALL_TRADE_CARDS) { const n = Math.min(left, higher.resources[r] || 0); bundle[r] = n; left -= n; } payload.resources = bundle; break;
       }
-      case 'DIPLOMAT': payload.edgeId = Object.values(s.board.edges).find(e => e.building === 'ROAD' && e.playerId !== id)?.id; break;
+      case 'COMMERCIAL_HARBOR': {
+        const harborRival = rivals.find(r => COMMODITIES.some(c => (r.resources[c] || 0) > 0));
+        const harborRes = ALL_RESOURCES.find(r => (p.resources[r] || 0) > 0);
+        if (!harborRival || !harborRes) continue;
+        payload.targetPlayerId = harborRival.id;
+        payload.resource = harborRes;
+        break;
+      }
+      case 'DIPLOMAT': payload.edgeId = Object.values(s.board.edges).find(e => e.playerId !== id && isOpenEdge(s, e))?.id; break;
     }
     actions.push({ type: 'PLAY_PROGRESS_CARD', cardId: card.id, payload });
   }

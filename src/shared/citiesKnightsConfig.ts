@@ -19,7 +19,7 @@ export const PROGRESS_CARDS: Record<ProgressCardType, { name: string; branch: Im
   CRANE: { name: 'Grúa', branch: 'SCIENCE', count: 2, description: 'La siguiente mejora de ciudad este turno cuesta una mercancía menos.' },
   PRINTER: { name: 'Imprenta', branch: 'SCIENCE', count: 1, description: 'Un punto de victoria público inmediato.' },
   ENGINEER: { name: 'Ingeniero', branch: 'SCIENCE', count: 1, description: 'Construye una muralla gratis.' },
-  INVENTOR: { name: 'Inventor', branch: 'SCIENCE', count: 2, description: 'Intercambia dos números de terrenos donde tienes un poblado o ciudad, excepto 2, 12, 6 y 8.' },
+  INVENTOR: { name: 'Inventor', branch: 'SCIENCE', count: 2, description: 'Intercambia dos fichas de número del tablero, excepto 2, 12, 6 y 8.' },
   IRRIGATION: { name: 'Irrigación', branch: 'SCIENCE', count: 2, description: 'Dos trigos por cada campo distinto junto a tus edificios.' },
   MEDICINE: { name: 'Medicina', branch: 'SCIENCE', count: 2, description: 'La siguiente ciudad cuesta dos minerales y un trigo.' },
   MINING: { name: 'Minería', branch: 'SCIENCE', count: 2, description: 'Dos minerales por cada montaña distinta junto a tus edificios.' },

@@ -29,6 +29,7 @@ interface BuildDrawerMenuProps {
   isCitiesKnights?: boolean;
   canBuildWallNow?: boolean;
   onBuildWall?: () => void;
+  hasMedicineDiscount?: boolean;
 }
 
 interface BuildOptionSpec {
@@ -64,6 +65,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   isCitiesKnights = false,
   canBuildWallNow = false,
   onBuildWall,
+  hasMedicineDiscount = false,
 }) => {
   const options: BuildOptionSpec[] = [
     {
@@ -128,11 +130,15 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
     },
     {
       id: 'CITY' as const,
-      title: 'Ciudad',
-      subtitle: '+2 Puntos de Victoria y doble producción',
+      title: hasMedicineDiscount ? 'Ciudad (Medicina Activa)' : 'Ciudad',
+      subtitle: hasMedicineDiscount
+        ? '¡Descuento Medicina! Solo 2 minerales y 1 trigo'
+        : '+2 Puntos de Victoria y doble producción',
       remainingLabel: `${me.citiesLeft} disp.`,
       icon: <Castle className="w-5 h-5 text-yellow-300" />,
-      cost: BUILDING_COSTS.CITY,
+      cost: hasMedicineDiscount
+        ? ({ ORE: 2, WHEAT: 1 } as Partial<Record<ResourceType, number>>)
+        : BUILDING_COSTS.CITY,
       canExecute: canBuildCityNow,
       onTrigger: () => {
         onSelectBuildMode('CITY');

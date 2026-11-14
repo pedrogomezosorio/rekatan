@@ -50,6 +50,7 @@ import {
   BUILDING_COSTS,
   CARD_BACK_PATHS,
   countTotalResources,
+  PROGRESS_BACK_IMAGE_PATHS,
   RESOURCE_CARD_PATHS,
   RESOURCE_META,
 } from '../../shared/constants';
@@ -103,6 +104,8 @@ export const GameScreen: React.FC = () => {
   const [isPlacingMerchant, setIsPlacingMerchant] = useState(false);
   const [activeProgressCard, setActiveProgressCard] = useState<ProgressCard | null>(null);
   const [selectedDiplomatEdgeId, setSelectedDiplomatEdgeId] = useState<string | null>(null);
+  const [selectedInventorHexIds, setSelectedInventorHexIds] = useState<string[]>([]);
+  const [selectedSmithVertexIds, setSelectedSmithVertexIds] = useState<string[]>([]);
   const [buildMode, setBuildMode] = useState<ActiveBuildMode>(null);
   const [selectedMovableShipId, setSelectedMovableShipId] = useState<string | null>(null);
   const [isBuildDrawerOpen, setIsBuildDrawerOpen] = useState(false);
@@ -496,7 +499,8 @@ export const GameScreen: React.FC = () => {
       }
 
       const waitingDice = gameState.phase === 'WAITING_FOR_DICE' && isMyTurn;
-      if (isPausedByHost || waitingDice || gameState.phase === 'GAME_OVER') return;
+      if (isPausedByHost || gameState.phase === 'GAME_OVER') return;
+      if (waitingDice && !(key === 'd' && hasCitiesKnights(gameState.config)) && key !== 'escape') return;
 
       if (key === 'escape') {
         e.preventDefault();
@@ -510,6 +514,8 @@ export const GameScreen: React.FC = () => {
         setIsPlacingMerchant(false);
         setActiveProgressCard(null);
         setSelectedDiplomatEdgeId(null);
+        setSelectedInventorHexIds([]);
+        setSelectedSmithVertexIds([]);
         return;
       }
 
@@ -799,7 +805,10 @@ export const GameScreen: React.FC = () => {
         v.knight!.active &&
         v.knight!.activatedOnTurn < gameState.turn.turnNumber &&
         v.knight!.actedOnTurn !== gameState.turn.turnNumber &&
-        knightReachableVertices(gameState, playerId, v.id).length > 0
+        knightReachableVertices(gameState, playerId, v.id).some((vid) => {
+          const targetK = gameState.board.vertices[vid]?.knight;
+          return !targetK || (targetK.playerId !== playerId && targetK.rank < v.knight!.rank);
+        })
     );
 
   const myDefense = isCitiesKnights
@@ -846,6 +855,13 @@ export const GameScreen: React.FC = () => {
         )
         .map((v) => v.id);
     }
+    if (selectedKnightMoveFrom) {
+      const movingK = gameState.board.vertices[selectedKnightMoveFrom]?.knight;
+      return knightReachableVertices(gameState, playerId, selectedKnightMoveFrom).filter((vid) => {
+        const targetK = gameState.board.vertices[vid]?.knight;
+        return !targetK || (targetK.playerId !== playerId && Boolean(movingK) && targetK.rank < movingK!.rank);
+      });
+    }
     if (activeKnightMode === 'MOVE_KNIGHT_FROM') {
       return ownKnights(gameState, playerId)
         .filter(
@@ -853,12 +869,12 @@ export const GameScreen: React.FC = () => {
             v.knight!.active &&
             v.knight!.activatedOnTurn < gameState.turn.turnNumber &&
             v.knight!.actedOnTurn !== gameState.turn.turnNumber &&
-            knightReachableVertices(gameState, playerId, v.id).length > 0
+            knightReachableVertices(gameState, playerId, v.id).some((vid) => {
+              const targetK = gameState.board.vertices[vid]?.knight;
+              return !targetK || (targetK.playerId !== playerId && targetK.rank < v.knight!.rank);
+            })
         )
         .map((v) => v.id);
-    }
-    if (selectedKnightMoveFrom) {
-      return knightReachableVertices(gameState, playerId, selectedKnightMoveFrom);
     }
     if (buildMode === 'CITY_WALL') {
       const ownWallCount = Object.values(gameState.board.vertices).filter(
@@ -870,8 +886,23 @@ export const GameScreen: React.FC = () => {
         .map((v) => v.id);
     }
     if (activeProgressCard?.type === 'ENGINEER') {
+      const ownWallCount = Object.values(gameState.board.vertices).filter(
+        (v) => v.playerId === playerId && v.cityWall
+      ).length;
+      if (ownWallCount >= 3) return [];
       return Object.values(gameState.board.vertices)
         .filter((v) => v.playerId === playerId && v.building === 'CITY' && !v.cityWall)
+        .map((v) => v.id);
+    }
+    if (activeProgressCard?.type === 'SMITH') {
+      return ownKnights(gameState, playerId)
+        .filter(
+          (v) =>
+            v.knight!.rank < 3 &&
+            v.knight!.promotedOnTurn !== gameState.turn.turnNumber &&
+            (v.knight!.rank !== 2 || (me?.citiesKnights?.improvements.POLITICS || 0) >= 3) &&
+            freeRank(gameState, playerId, v.knight!.rank + 1)
+        )
         .map((v) => v.id);
     }
     if (activeProgressCard?.type === 'INTRIGUE') {
@@ -932,8 +963,13 @@ export const GameScreen: React.FC = () => {
         .filter((h) => h.terrain !== 'SEA' && h.terrain !== 'FOG' && h.id !== currentRobberHexId)
         .map((h) => h.id);
     }
+    if (activeProgressCard?.type === 'INVENTOR') {
+      return Object.values(gameState.board.hexes)
+        .filter((h) => h.numberToken && ![2, 12, 6, 8].includes(h.numberToken))
+        .map((h) => h.id);
+    }
     return [];
-  }, [isCitiesKnights, gameState, isPlacingMerchant, activeProgressCard, playerId]);
+  }, [isCitiesKnights, gameState, isPlacingMerchant, activeProgressCard, playerId, currentRobberHexId]);
 
   const validCKEdgeIds = useMemo(() => {
     if (!isCitiesKnights || !gameState) return [];
@@ -990,10 +1026,6 @@ export const GameScreen: React.FC = () => {
       setActiveKnightMode(null);
       return;
     }
-    if (activeKnightMode === 'MOVE_KNIGHT_FROM') {
-      setSelectedKnightMoveFrom(vertexId);
-      return;
-    }
     if (selectedKnightMoveFrom) {
       dispatchAction({
         type: 'MOVE_KNIGHT',
@@ -1002,6 +1034,10 @@ export const GameScreen: React.FC = () => {
       });
       setSelectedKnightMoveFrom(null);
       setActiveKnightMode(null);
+      return;
+    }
+    if (activeKnightMode === 'MOVE_KNIGHT_FROM') {
+      setSelectedKnightMoveFrom(vertexId);
       return;
     }
     if (buildMode === 'CITY_WALL') {
@@ -1017,6 +1053,25 @@ export const GameScreen: React.FC = () => {
           payload: { vertexId },
         });
         setActiveProgressCard(null);
+        return;
+      }
+      if (activeProgressCard.type === 'SMITH') {
+        const next = selectedSmithVertexIds.includes(vertexId)
+          ? selectedSmithVertexIds.filter((id) => id !== vertexId)
+          : selectedSmithVertexIds.length < 2
+          ? [...selectedSmithVertexIds, vertexId]
+          : [selectedSmithVertexIds[1], vertexId];
+        if (next.length === 2 || validCKVertexIds.length <= 1) {
+          dispatchAction({
+            type: 'PLAY_PROGRESS_CARD',
+            cardId: activeProgressCard.id,
+            payload: { vertexIds: next },
+          });
+          setSelectedSmithVertexIds([]);
+          setActiveProgressCard(null);
+        } else {
+          setSelectedSmithVertexIds(next);
+        }
         return;
       }
     }
@@ -1043,6 +1098,25 @@ export const GameScreen: React.FC = () => {
     if (activeProgressCard?.type === 'BISHOP') {
       dispatchAction({ type: 'PLAY_PROGRESS_CARD', cardId: activeProgressCard.id, payload: { hexId } });
       setActiveProgressCard(null);
+      return;
+    }
+    if (activeProgressCard?.type === 'INVENTOR') {
+      if (selectedInventorHexIds.includes(hexId)) {
+        setSelectedInventorHexIds((prev) => prev.filter((id) => id !== hexId));
+        return;
+      }
+      const next = [...selectedInventorHexIds, hexId];
+      if (next.length >= 2) {
+        dispatchAction({
+          type: 'PLAY_PROGRESS_CARD',
+          cardId: activeProgressCard.id,
+          payload: { hexIds: [next[0], next[1]] },
+        });
+        setSelectedInventorHexIds([]);
+        setActiveProgressCard(null);
+      } else {
+        setSelectedInventorHexIds(next);
+      }
       return;
     }
   };
@@ -1495,8 +1569,8 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Bishop / Intrigue / Wall Helper floating banner */}
-          {isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || activeProgressCard?.type === 'BISHOP' || activeProgressCard?.type === 'INTRIGUE' || buildMode === 'CITY_WALL') && (
+          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Bishop / Intrigue / Engineer / Inventor / Smith / Wall Helper floating banner */}
+          {isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || activeProgressCard?.type === 'BISHOP' || activeProgressCard?.type === 'INTRIGUE' || activeProgressCard?.type === 'ENGINEER' || activeProgressCard?.type === 'INVENTOR' || activeProgressCard?.type === 'SMITH' || buildMode === 'CITY_WALL') && (
             <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-3 bg-[#1e140d]/95 border-2 border-amber-400 text-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto animate-pulse">
                 <Swords className="w-4 h-4 text-amber-400 shrink-0" />
@@ -1510,6 +1584,9 @@ export const GameScreen: React.FC = () => {
                   {activeProgressCard?.type === 'DIPLOMAT' && (!selectedDiplomatEdgeId ? 'Haz clic en una carretera o barco abierto para retirarlo' : 'Paso 2: Haz clic en una arista libre conectada para reubicar tu pieza')}
                   {activeProgressCard?.type === 'BISHOP' && 'Haz clic en un hexágono para mover al Ladrón con el Obispo y robar a los rivales adyacentes'}
                   {activeProgressCard?.type === 'INTRIGUE' && 'Haz clic en un caballero rival conectado a tus caminos para expulsarlo'}
+                  {activeProgressCard?.type === 'ENGINEER' && 'Ingeniero: Haz clic en una de tus Ciudades sin muralla para construir una Muralla GRATIS'}
+                  {activeProgressCard?.type === 'INVENTOR' && `Inventor: Haz clic en el ${selectedInventorHexIds.length === 0 ? '1.er' : '2.º'} hexágono iluminado para intercambiar sus números (${selectedInventorHexIds.length}/2)`}
+                  {activeProgressCard?.type === 'SMITH' && `Fragua: Haz clic en 1 o 2 de tus caballeros iluminados para ascenderlos gratis (${selectedSmithVertexIds.length}/2)`}
                   {buildMode === 'CITY_WALL' && 'Haz clic en una de tus Ciudades iluminadas para construir una Muralla (2 arcillas)'}
                 </span>
                 {activeProgressCard?.type === 'DIPLOMAT' && selectedDiplomatEdgeId && (
@@ -1529,6 +1606,23 @@ export const GameScreen: React.FC = () => {
                     Retirar a la mano
                   </button>
                 )}
+                {activeProgressCard?.type === 'SMITH' && selectedSmithVertexIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dispatchAction({
+                        type: 'PLAY_PROGRESS_CARD',
+                        cardId: activeProgressCard.id,
+                        payload: { vertexIds: selectedSmithVertexIds },
+                      });
+                      setSelectedSmithVertexIds([]);
+                      setActiveProgressCard(null);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-[10px] font-black cursor-pointer"
+                  >
+                    Ascender ({selectedSmithVertexIds.length})
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1537,6 +1631,8 @@ export const GameScreen: React.FC = () => {
                     setIsPlacingMerchant(false);
                     setActiveProgressCard(null);
                     setSelectedDiplomatEdgeId(null);
+                    setSelectedInventorHexIds([]);
+                    setSelectedSmithVertexIds([]);
                     if (buildMode === 'CITY_WALL') setBuildMode(null);
                   }}
                   className="px-2 py-1 rounded-lg bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-black cursor-pointer"
@@ -1742,6 +1838,19 @@ export const GameScreen: React.FC = () => {
                     <Dices className="w-6 h-6 stroke-[2.5]" />
                     <span>Lanzar Dados</span>
                   </motion.button>
+
+                  {isCitiesKnights && me.citiesKnights?.progressCards.some((c) => c.type === 'ALCHEMIST') && (
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => window.dispatchEvent(new Event('open-cities-knights'))}
+                      className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                      <span>🧪 Usar Alquimista (Elegir Dados)</span>
+                    </motion.button>
+                  )}
                 </motion.div>
               </motion.div>
             )}
@@ -1789,6 +1898,18 @@ export const GameScreen: React.FC = () => {
                 }
               }}
               onStartWallMode={() => setBuildMode('CITY_WALL')}
+              onStartEngineerMode={(card) => {
+                setActiveProgressCard(card);
+                setBuildMode(null);
+              }}
+              onStartInventorMode={(card) => {
+                setSelectedInventorHexIds([]);
+                setActiveProgressCard(card);
+              }}
+              onStartSmithMode={(card) => {
+                setSelectedSmithVertexIds([]);
+                setActiveProgressCard(card);
+              }}
             />
           )}
 
@@ -1878,6 +1999,7 @@ export const GameScreen: React.FC = () => {
                 onFinishRoadBuilding={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
                 isSeafarers={isSeafarers}
                 isCitiesKnights={isCitiesKnights}
+                hasMedicineDiscount={Boolean(gameState.citiesKnights?.turnEffects?.medicine)}
               />
 
               {/* 2. Intercambiar / Comerciar (I) */}
@@ -1926,35 +2048,73 @@ export const GameScreen: React.FC = () => {
                 </button>
               )}
               {/* 3. Cartas de Desarrollo / Progreso (D) */}
-              <button
-                type="button"
-                disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
-                onClick={() => {
-                  if (isCitiesKnights) {
-                    window.dispatchEvent(new Event('open-cities-knights'));
-                  } else {
-                    setShowDevModal(true);
-                  }
-                }}
-                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
-                  isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
-                    ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
-                    : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
-                }`}
-                title={isCitiesKnights ? "Ver tus Cartas de Progreso (Atajo: D)" : "Ver o comprar Cartas de Desarrollo (Atajo: D)"}
-              >
-                <span className="flex items-center gap-1.5 truncate">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate">
-                    {isCitiesKnights
-                      ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
-                      : `Desarrollo (${unplayedDevCount})`}
+              <div className="relative group/progbtn w-full">
+                <button
+                  type="button"
+                  disabled={isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)}
+                  onClick={() => {
+                    if (isCitiesKnights) {
+                      window.dispatchEvent(new Event('open-cities-knights'));
+                    } else {
+                      setShowDevModal(true);
+                    }
+                  }}
+                  className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
+                    isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)
+                      ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
+                      : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
+                  }`}
+                  title={isCitiesKnights ? "Ver tus Cartas de Progreso y Mazos (Atajo: D)" : "Ver o comprar Cartas de Desarrollo (Atajo: D)"}
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">
+                      {isCitiesKnights
+                        ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
+                        : `Desarrollo (${unplayedDevCount})`}
+                    </span>
+                    {isCitiesKnights && (gameState.citiesKnights?.turnEffects?.harborPartners?.length ?? 0) > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-stone-950 text-[9px] font-black animate-bounce">
+                        ⚓
+                      </span>
+                    )}
                   </span>
-                </span>
-                <span className="px-1.5 py-0.5 rounded bg-black/35 text-[9px] font-mono text-amber-300/80">
-                  D
-                </span>
-              </button>
+                  <span className="px-1.5 py-0.5 rounded bg-black/35 text-[9px] font-mono text-amber-300/80">
+                    D
+                  </span>
+                </button>
+
+                {/* Hover Card Backs Fan Preview on the Progreso / Desarrollo Button */}
+                {((isCitiesKnights && (me.citiesKnights?.progressCards.length ?? 0) > 0) ||
+                  (!isCitiesKnights && unplayedDevCount > 0)) && (
+                  <div className="hidden group-hover/progbtn:flex absolute bottom-[calc(100%+8px)] left-0 z-50 p-2.5 rounded-2xl bg-[#160f0a]/98 border-2 border-[#d4af37]/70 shadow-[0_15px_40px_rgba(0,0,0,0.95)] flex-col items-center gap-1.5 pointer-events-none min-w-[160px]">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-300">
+                      {isCitiesKnights ? 'Dorsos de tus Cartas de Progreso' : 'Dorsos de Desarrollo en Mano'}
+                    </span>
+                    <div className="flex items-center justify-center -space-x-2 py-1">
+                      {isCitiesKnights
+                        ? me.citiesKnights?.progressCards.map((c, idx) => (
+                            <img
+                              key={c.id}
+                              src={PROGRESS_BACK_IMAGE_PATHS[c.branch]}
+                              alt={BRANCH_META[c.branch].name}
+                              style={{ transform: `rotate(${(idx - (me.citiesKnights!.progressCards.length - 1) / 2) * 8}deg)` }}
+                              className="w-11 h-16 object-cover rounded-md border border-amber-300/80 shadow-lg bg-stone-900"
+                            />
+                          ))
+                        : Array.from({ length: Math.min(unplayedDevCount, 6) }).map((_, idx) => (
+                            <img
+                              key={idx}
+                              src={CARD_BACK_PATHS.development}
+                              alt="Dorso de Desarrollo"
+                              style={{ transform: `rotate(${(idx - (Math.min(unplayedDevCount, 6) - 1) / 2) * 8}deg)` }}
+                              className="w-11 h-16 object-cover rounded-md border border-amber-300/80 shadow-lg bg-stone-900"
+                            />
+                          ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* 4. Caballeros (K) - Exclusivo Ciudades y Caballeros */}
               {isCitiesKnights && (
@@ -2405,13 +2565,25 @@ interface PlayerSummaryCardProps {
 
 /**
  * Renders a small horizontal fan opened towards the left (`abanico abierto hacia la izquierda`)
- * using the extracted resource card reverse with the number
- * of resource cards held by that player.
+ * using the extracted resource card reverse and scanned progress/development card backs held by that player.
  */
-const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards }) => {
-  if (totalCards <= 0) return null;
+const ProfileHorizontalCardFan: React.FC<{
+  totalCards: number;
+  devBackUrls?: string[];
+}> = ({ totalCards, devBackUrls = [] }) => {
+  const totalCombined = totalCards + devBackUrls.length;
+  if (totalCombined <= 0) return null;
 
-  const displayCount = Math.min(totalCards, 12);
+  const resourceDisplayCount = Math.min(totalCards, 10);
+  const devDisplayUrls = devBackUrls.slice(0, 4);
+  const allFanCards: Array<{ src: string; isDev: boolean }> = [
+    ...Array.from({ length: resourceDisplayCount }, () => ({
+      src: CARD_BACK_PATHS.resource,
+      isDev: false,
+    })),
+    ...devDisplayUrls.map((src) => ({ src, isDev: true })),
+  ];
+  const displayCount = allFanCards.length;
   const mid = (displayCount - 1) / 2;
   const angleStep = Math.min(6.8, 48 / Math.max(1, displayCount));
   const yStep = Math.min(4.6, 34 / Math.max(1, displayCount));
@@ -2419,20 +2591,18 @@ const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards
   return (
     <div
       className="absolute right-[calc(100%-3px)] inset-y-0 w-10 pointer-events-none select-none"
-      title={`${totalCards} carta${totalCards === 1 ? '' : 's'} en mano`}
+      title={`${totalCards} recurso(s) y ${devBackUrls.length} carta(s) de progreso/desarrollo`}
     >
       <AnimatePresence mode="popLayout">
-        {Array.from({ length: displayCount }).map((_, idx) => {
+        {allFanCards.map((item, idx) => {
           const offsetFromCenter = idx - mid;
-          // Fan opens towards the left: rotated -90deg around exact center (50% 50%),
-          // so offsetFromCenter === 0 sits at the exact vertical midpoint of the profile rectangle.
           const rotateDeg = -90 - offsetFromCenter * angleStep;
           const translateY = offsetFromCenter * yStep;
           const archPushRightX = Math.abs(offsetFromCenter) * 1.15;
 
           return (
             <motion.div
-              key={`mini-fan-card-${idx}`}
+              key={`mini-fan-card-${idx}-${item.isDev ? 'dev' : 'res'}`}
               initial={{ opacity: 0, x: 14, scale: 0.6, rotate: -90 }}
               animate={{
                 opacity: 1,
@@ -2447,11 +2617,13 @@ const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards
                 zIndex: 10 + idx,
                 transformOrigin: '50% 50%',
               }}
-              className="absolute right-0 top-1/2 -mt-[16px] w-[21px] h-[32px] rounded-[3.5px] overflow-hidden border border-stone-300/75 shadow-[0_3px_8px_rgba(0,0,0,0.88)] bg-[#1a1510]"
+              className={`absolute right-0 top-1/2 -mt-[16px] w-[21px] h-[32px] rounded-[3.5px] overflow-hidden border ${
+                item.isDev ? 'border-amber-300 ring-1 ring-amber-400/50' : 'border-stone-300/75'
+              } shadow-[0_3px_8px_rgba(0,0,0,0.88)] bg-[#1a1510]`}
             >
               <img
-                src={CARD_BACK_PATHS.resource}
-                alt="Dorso de recurso"
+                src={item.src}
+                alt={item.isDev ? 'Dorso de progreso/desarrollo' : 'Dorso de recurso'}
                 draggable={false}
                 className="w-full h-full object-fill select-none pointer-events-none"
               />
@@ -2460,9 +2632,9 @@ const ProfileHorizontalCardFan: React.FC<{ totalCards: number }> = ({ totalCards
         })}
       </AnimatePresence>
 
-      {totalCards > 12 && (
+      {totalCombined > 12 && (
         <span className="absolute -left-2 top-1/2 -translate-y-1/2 z-30 px-1 py-0.2 rounded bg-stone-950/90 border border-amber-400/70 text-[8px] font-mono font-black text-amber-300 shadow">
-          x{totalCards}
+          x{totalCombined}
         </span>
       )}
     </div>
@@ -2490,18 +2662,46 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
     : player.devCards.filter((c) => !c.played && c.type !== 'VICTORY_POINT').length +
       player.devCards.filter((c) => c.type === 'VICTORY_POINT').length);
 
+  const devBackUrls: string[] = player.citiesKnights
+    ? player.citiesKnights.progressCards.map((c) => PROGRESS_BACK_IMAGE_PATHS[c.branch])
+    : Array.from({ length: unplayedDevs }, () => CARD_BACK_PATHS.development);
+
   return (
     <div
       id={`player-casillero-${player.id}`}
-      className={`tablet-player-card ${
+      className={`tablet-player-card group/profile ${
         useCompactLayout ? 'tablet-player-card-compact' : ''
       } relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto`}
       style={playerCardStyle(player.color, isActiveTurn)}
     >
-      {/* Left Horizontal Resource Card Fan (Opened towards the left - Hidden on Tablet) */}
+      {/* Left Horizontal Resource & Progress Card Fan (Opened towards the left - Hidden on Tablet) */}
       <div className="profile-card-fan">
-        {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} />}
+        {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} devBackUrls={devBackUrls} />}
       </div>
+
+      {/* Hover Popover showing Scanned Progress / Development Card Backs when approaching the profile */}
+      {devBackUrls.length > 0 && (
+        <div className="hidden group-hover/profile:flex absolute right-[calc(100%+42px)] top-1/2 -translate-y-1/2 z-50 p-2.5 rounded-2xl bg-[#140d08]/98 border-2 border-[#d4af37]/80 shadow-[0_15px_45px_rgba(0,0,0,0.95)] flex-col items-center gap-1.5 pointer-events-none min-w-[140px]">
+          <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 whitespace-nowrap">
+            {player.citiesKnights
+              ? `Progreso de ${player.name} (${devBackUrls.length})`
+              : `Desarrollo de ${player.name} (${devBackUrls.length})`}
+          </span>
+          <div className="flex items-center justify-center -space-x-2 py-1">
+            {devBackUrls.map((src, idx) => (
+              <img
+                key={`${player.id}_back_${idx}`}
+                src={src}
+                alt="Dorso escaneado"
+                style={{
+                  transform: `rotate(${(idx - (devBackUrls.length - 1) / 2) * 8}deg)`,
+                }}
+                className="w-11 h-16 object-cover rounded-md border border-amber-300/85 shadow-lg bg-stone-900"
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 1. TABLET SINGLE-ROW COMPACT VIEW (pointer: coarse) */}
       <div className="tablet-player-single-row w-full items-center justify-between gap-1 text-white">

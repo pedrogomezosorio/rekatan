@@ -8,8 +8,8 @@ import {
   ResourceType,
   RobberStealEvent,
 } from '../../shared/types';
-import type { EventDie, ProgressCardType } from '../../shared/citiesKnightsTypes';
-import { BRANCH_META } from '../../shared/citiesKnightsConfig';
+import type { EventDie, ImprovementBranch, ProgressCardType } from '../../shared/citiesKnightsTypes';
+import { BRANCH_META, PROGRESS_CARDS } from '../../shared/citiesKnightsConfig';
 import {
   CARD_BACK_PATHS,
   DEV_CARD_IMAGE_PATHS,
@@ -45,7 +45,9 @@ interface CentralAlertPayload {
     | 'MONOPOLY_PLAYED'
     | 'YEAR_OF_PLENTY_PLAYED'
     | 'ROAD_BUILDING_PLAYED'
+    | 'PROGRESS_CARD_PLAYED'
     | 'ROBBER_ON_MY_HEX';
+  branch?: ImprovementBranch;
   title: string;
   subtitle: string;
   actorName?: string;
@@ -176,6 +178,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   };
 
   const lastSeenNonceRef = useRef<number>(0);
+  const lastAnimatedDiceTurnRef = useRef<number>(-1);
   const sequenceRunIdRef = useRef<number>(0);
   const latestGameStateRef = useRef<GameState>(gameState);
 
@@ -191,6 +194,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
     const isOrderPhase = gameState.phase === 'ORDER_ROLL';
 
     // 1. Extra-Large Slow Center Dice Roll (1.0s spinning + 2.0s landed) on ANY main-game dice roll
+    // Only spin once per turnNumber so resolving CK_CHOICE (e.g. city loss after barbarians) does not repeat the dice roll!
     const hasMainGameDice =
       Boolean(ev.dice) &&
       !isOrderPhase &&
@@ -198,7 +202,13 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         ev.type === 'RESOURCES_PRODUCED' ||
         ev.type === 'ROBBER_DISCARDED');
 
-    if (hasMainGameDice && ev.dice) {
+    const shouldSpinDice =
+      hasMainGameDice &&
+      Boolean(ev.dice) &&
+      lastAnimatedDiceTurnRef.current !== gameState.turn.turnNumber;
+
+    if (shouldSpinDice && ev.dice) {
+      lastAnimatedDiceTurnRef.current = gameState.turn.turnNumber;
       const finalDice = ev.dice;
       const isSeven = finalDice[0] + finalDice[1] === 7;
       const totalSum = finalDice[0] + finalDice[1];
@@ -277,6 +287,26 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       }
     }
 
+    // Case A2: Someone plays a Cities & Knights Progress Card (Science = Green, Politics = Blue, Trade = Yellow)
+    if (ev.progressCardType) {
+      const meta = PROGRESS_CARDS[ev.progressCardType];
+      if (meta) {
+        const actorName =
+          ev.actorPlayerName ||
+          gameState.players.find((p) => p.id === ev.actorPlayerId)?.name ||
+          'Un jugador';
+        enqueueCentralAlert({
+          id: `ALERT_PROGRESS_${ev.nonce}_${ev.progressCardType}`,
+          kind: 'PROGRESS_CARD_PLAYED',
+          branch: meta.branch,
+          title: meta.name,
+          subtitle: `${actorName}: ${meta.description}`,
+          actorName,
+          cardImage: PROGRESS_CARD_IMAGE_PATHS[ev.progressCardType],
+        });
+      }
+    }
+
     // Case B: Someone places (or keeps) the Robber on one of the local player's terrains
     if (
       ev.robberTargetHexId &&
@@ -307,7 +337,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
     if (ev.flights && ev.flights.length > 0) {
       const flightsToRun = [...ev.flights];
       // Wait for dice (1.0s spin + 2.5s landed display + buffer) before starting resource flights!
-      const waitForDiceMs = hasMainGameDice ? 3650 : 150;
+      const waitForDiceMs = shouldSpinDice ? 3650 : 150;
       const runId = ++sequenceRunIdRef.current;
 
       void (async () => {
@@ -363,9 +393,56 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
     }
 
     // 6. Development / Progress Card Purchase/Draw Sliding & Spinning Flight Animation
-    if ((ev.type === 'DEV_CARD_BOUGHT' || ev.progressFlight) && (ev.buyerPlayerId || ev.progressFlight?.playerId)) {
+    const progressList =
+      ev.progressFlights && ev.progressFlights.length > 0
+        ? ev.progressFlights
+        : ev.progressFlight
+        ? [ev.progressFlight]
+        : [];
+
+    if (progressList.length > 0) {
+      const waitMs = shouldSpinDice ? 3400 : 100;
+      progressList.forEach((pf, idx) => {
+        setTimeout(() => {
+          const liveState = latestGameStateRef.current;
+          const origin = resolveDeckScreenCenter();
+          const target = resolvePlayerCasilleroCenter(pf.playerId, liveState);
+          const buyerName =
+            liveState.players.find((p) => p.id === pf.playerId)?.name || 'Jugador';
+          const flightId = `PROG_FLIGHT_${ev.nonce}_${pf.playerId}_${idx}_${Date.now()}`;
+          // Always fly the scanned card back toward the profile so rivals see the branch back
+          const cardImage = pf.branch
+            ? PROGRESS_BACK_IMAGE_PATHS[pf.branch]
+            : CARD_BACK_PATHS.development;
+          const branchLabel = pf.branch ? BRANCH_META[pf.branch].name : 'Progreso';
+          const cardLabel =
+            pf.playerId === currentPlayerId && pf.cardName
+              ? `${branchLabel}: ${pf.cardName}`
+              : `Carta de ${branchLabel}`;
+
+          setActiveDevCardFlights((prev) => [
+            ...prev,
+            {
+              id: flightId,
+              buyerPlayerId: pf.playerId,
+              buyerPlayerName: buyerName,
+              startX: origin.x,
+              startY: origin.y,
+              endX: target.x,
+              endY: target.y,
+              cardImage,
+              cardLabel,
+            },
+          ]);
+
+          setTimeout(() => {
+            setActiveDevCardFlights((prev) => prev.filter((f) => f.id !== flightId));
+          }, 2950);
+        }, waitMs + idx * 650);
+      });
+    } else if (ev.type === 'DEV_CARD_BOUGHT' && ev.buyerPlayerId) {
       const liveState = latestGameStateRef.current;
-      const buyerId = ev.buyerPlayerId || ev.progressFlight!.playerId;
+      const buyerId = ev.buyerPlayerId;
       const origin = resolveDeckScreenCenter();
       const target = resolvePlayerCasilleroCenter(buyerId, liveState);
       const buyerName =
@@ -373,14 +450,6 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         liveState.players.find((p) => p.id === buyerId)?.name ||
         'Jugador';
       const flightId = `DEV_FLIGHT_${ev.nonce}_${Date.now()}`;
-      const cardImage = ev.progressFlight?.cardType
-        ? PROGRESS_CARD_IMAGE_PATHS[ev.progressFlight.cardType as ProgressCardType]
-        : ev.progressFlight?.branch
-        ? PROGRESS_BACK_IMAGE_PATHS[ev.progressFlight.branch]
-        : CARD_BACK_PATHS.development;
-      const cardLabel = ev.progressFlight?.cardName
-        ? `Progreso: ${ev.progressFlight.cardName}`
-        : 'Carta de Progreso';
 
       setActiveDevCardFlights((prev) => [
         ...prev,
@@ -392,8 +461,8 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           startY: origin.y,
           endX: target.x,
           endY: target.y,
-          cardImage,
-          cardLabel,
+          cardImage: CARD_BACK_PATHS.development,
+          cardLabel: 'Carta de Desarrollo',
         },
       ]);
 
@@ -606,11 +675,68 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         ))}
       </AnimatePresence>
 
-      {/* 3. CENTRAL CRITICAL ALERTS (PROGRESS CARDS IN PALE BLUE | KNIGHT & ROBBER IN RED) */}
+      {/* 3. CENTRAL CRITICAL ALERTS (SCIENCE = GREEN | POLITICS = BLUE | TRADE = YELLOW | KNIGHT & ROBBER = RED) */}
       <AnimatePresence mode="wait">
         {centralAlert && (() => {
           const isRed =
             centralAlert.kind === 'ROBBER_ON_MY_HEX' || centralAlert.kind === 'KNIGHT_PLAYED';
+          const branch = centralAlert.branch;
+          const theme = isRed
+            ? {
+                backdrop:
+                  'bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)]',
+                cardBox:
+                  'bg-gradient-to-b from-[#330a0a]/98 via-[#1f0606]/98 to-[#0e0202]/98 border-red-500 shadow-[0_0_100px_rgba(220,38,38,0.9)]',
+                imgBorder: 'border-amber-400/80',
+                iconBox: 'bg-red-950 border-red-400 text-red-200',
+                kicker: 'text-red-300/90',
+                title: 'text-red-50',
+                subtitle: 'text-red-200/95',
+                pill: 'bg-black/65 border-amber-400/70 text-amber-100',
+                btn: 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400/60 shadow-red-950/80',
+              }
+            : branch === 'SCIENCE'
+            ? {
+                backdrop:
+                  'bg-[radial-gradient(circle_at_center,rgba(22,163,74,0.48)_0%,rgba(5,28,14,0.86)_100%)]',
+                cardBox:
+                  'bg-gradient-to-b from-[#0b3b21]/98 via-[#072615]/98 to-[#03130a]/98 border-emerald-400 shadow-[0_0_95px_rgba(16,185,129,0.82)]',
+                imgBorder: 'border-emerald-300/90',
+                iconBox: 'bg-emerald-950 border-emerald-400 text-emerald-200',
+                kicker: 'text-emerald-300/95',
+                title: 'text-emerald-50',
+                subtitle: 'text-emerald-100/95',
+                pill: 'bg-emerald-950/85 border-emerald-300/80 text-emerald-100',
+                btn: 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-stone-950 border border-emerald-300/80 shadow-emerald-950/80',
+              }
+            : branch === 'TRADE'
+            ? {
+                backdrop:
+                  'bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.48)_0%,rgba(36,24,4,0.86)_100%)]',
+                cardBox:
+                  'bg-gradient-to-b from-[#422d08]/98 via-[#291b04]/98 to-[#140d02]/98 border-amber-400 shadow-[0_0_95px_rgba(245,158,11,0.85)]',
+                imgBorder: 'border-amber-200/90',
+                iconBox: 'bg-amber-950 border-amber-400 text-amber-200',
+                kicker: 'text-amber-300/95',
+                title: 'text-amber-50',
+                subtitle: 'text-amber-100/95',
+                pill: 'bg-amber-950/85 border-amber-300/80 text-amber-100',
+                btn: 'bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-stone-950 border border-amber-200/80 shadow-amber-950/80',
+              }
+            : {
+                backdrop:
+                  'bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.45)_0%,rgba(10,24,48,0.86)_100%)]',
+                cardBox:
+                  'bg-gradient-to-b from-[#13325c]/98 via-[#0b1f3b]/98 to-[#061121]/98 border-sky-400 shadow-[0_0_95px_rgba(56,189,248,0.8)]',
+                imgBorder: 'border-sky-200/90',
+                iconBox: 'bg-sky-900/90 border-sky-300 text-sky-200',
+                kicker: 'text-sky-300/95',
+                title: 'text-sky-50',
+                subtitle: 'text-sky-100/95',
+                pill: 'bg-sky-950/85 border-sky-300/80 text-sky-100',
+                btn: 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white border border-sky-300/60 shadow-sky-950/80',
+              };
+
           return (
             <motion.div
               key={centralAlert.id}
@@ -622,11 +748,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
               }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.55 }}
-              className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px] cursor-pointer pointer-events-auto ${
-                isRed
-                  ? 'bg-[radial-gradient(circle_at_center,rgba(127,29,29,0.62)_0%,rgba(28,5,5,0.86)_100%)]'
-                  : 'bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.42)_0%,rgba(12,28,48,0.84)_100%)]'
-              }`}
+              className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px] cursor-pointer pointer-events-auto ${theme.backdrop}`}
               onClick={() => setCentralAlertQueue((prev) => prev.slice(1))}
             >
               <motion.div
@@ -635,11 +757,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                 exit={{ scale: 0.88, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`relative flex flex-col items-center text-center max-w-xl mx-4 px-8 sm:px-10 py-7 sm:py-8 rounded-3xl border-4 pointer-events-auto ${
-                  isRed
-                    ? 'bg-gradient-to-b from-[#330a0a]/98 via-[#1f0606]/98 to-[#0e0202]/98 border-red-500 shadow-[0_0_100px_rgba(220,38,38,0.9)]'
-                    : 'bg-gradient-to-b from-[#163654]/98 via-[#0e243b]/98 to-[#071525]/98 border-sky-300 shadow-[0_0_95px_rgba(125,211,252,0.78)]'
-                }`}
+                className={`relative flex flex-col items-center text-center max-w-xl mx-4 px-8 sm:px-10 py-7 sm:py-8 rounded-3xl border-4 pointer-events-auto ${theme.cardBox}`}
               >
                 {/* Instant dismiss button with generous touch target */}
                 <button
@@ -656,9 +774,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                 </button>
                 {centralAlert.cardImage ? (
                   <div
-                    className={`w-24 h-36 rounded-xl overflow-hidden border-2 shadow-[0_12px_30px_rgba(0,0,0,0.9)] mb-4 ${
-                      isRed ? 'border-amber-400/80' : 'border-sky-200/90'
-                    }`}
+                    className={`w-24 h-36 rounded-xl overflow-hidden border-2 shadow-[0_12px_30px_rgba(0,0,0,0.9)] mb-4 ${theme.imgBorder}`}
                   >
                     <img
                       src={centralAlert.cardImage}
@@ -668,42 +784,34 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                   </div>
                 ) : (
                   <div
-                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center mb-4 shadow-lg ${
-                      isRed ? 'bg-red-950 border-red-400' : 'bg-sky-900/90 border-sky-300'
-                    }`}
+                    className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center mb-4 shadow-lg ${theme.iconBox}`}
                   >
                     {centralAlert.kind === 'KNIGHT_PLAYED' ? (
-                      <Swords className="w-9 h-9 text-red-200" />
+                      <Swords className="w-9 h-9" />
                     ) : (
-                      <ShieldAlert
-                        className={`w-9 h-9 ${isRed ? 'text-red-200' : 'text-sky-200'}`}
-                      />
+                      <ShieldAlert className="w-9 h-9" />
                     )}
                   </div>
                 )}
 
                 <span
-                  className={`text-[11px] font-black uppercase tracking-[0.28em] mb-1 ${
-                    isRed ? 'text-red-300/90' : 'text-sky-200/95'
-                  }`}
+                  className={`text-[11px] font-black uppercase tracking-[0.28em] mb-1 ${theme.kicker}`}
                 >
                   {centralAlert.kind === 'ROBBER_ON_MY_HEX'
                     ? 'Alerta Crítica de Partida'
                     : centralAlert.kind === 'KNIGHT_PLAYED'
                     ? 'Carta de Caballero en Juego'
+                    : branch
+                    ? `Carta de Progreso • ${BRANCH_META[branch].name}`
                     : 'Carta de Progreso Jugada'}
                 </span>
                 <h2
-                  className={`text-2xl sm:text-4xl font-black font-serif tracking-wide drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)] ${
-                    isRed ? 'text-red-50' : 'text-sky-50'
-                  }`}
+                  className={`text-2xl sm:text-4xl font-black font-serif tracking-wide drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)] ${theme.title}`}
                 >
                   {centralAlert.title}
                 </h2>
                 <p
-                  className={`text-sm sm:text-base font-semibold mt-2.5 max-w-md leading-relaxed ${
-                    isRed ? 'text-red-200/95' : 'text-sky-100/95'
-                  }`}
+                  className={`text-sm sm:text-base font-semibold mt-2.5 max-w-md leading-relaxed ${theme.subtitle}`}
                 >
                   {centralAlert.subtitle}
                 </p>
@@ -713,11 +821,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                     {centralAlert.resources.map((res, i) => (
                       <span
                         key={`${res}_${i}`}
-                        className={`px-3.5 py-1.5 rounded-2xl border-2 text-xs sm:text-sm font-black inline-flex items-center gap-2 shadow-lg ${
-                          isRed
-                            ? 'bg-black/65 border-amber-400/70 text-amber-100'
-                            : 'bg-sky-950/85 border-sky-300/80 text-sky-100'
-                        }`}
+                        className={`px-3.5 py-1.5 rounded-2xl border-2 text-xs sm:text-sm font-black inline-flex items-center gap-2 shadow-lg ${theme.pill}`}
                       >
                         <ResourceIcon resource={res} size={20} />
                         <span>{RESOURCE_META[res].name}</span>
@@ -732,11 +836,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                     e.stopPropagation();
                     setCentralAlertQueue((prev) => prev.slice(1));
                   }}
-                  className={`mt-5 px-8 py-2.5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider transition cursor-pointer shadow-lg active:scale-95 pointer-events-auto ${
-                    isRed
-                      ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white border border-red-400/60 shadow-red-950/80'
-                      : 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white border border-sky-300/60 shadow-sky-950/80'
-                  }`}
+                  className={`mt-5 px-8 py-2.5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-wider transition cursor-pointer shadow-lg active:scale-95 pointer-events-auto ${theme.btn}`}
                 >
                   Entendido
                 </button>

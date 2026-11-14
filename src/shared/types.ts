@@ -418,6 +418,7 @@ export interface GameState {
       | 'BUILDING_PLACED'
       | 'DEV_CARD_BOUGHT'
       | 'DEV_CARD_PLAYED'
+      | 'PROGRESS_CARD_PLAYED'
       | 'TRADE_COMPLETED'
       | 'TURN_TIMEOUT';
     producingHexIds?: string[];
@@ -432,6 +433,9 @@ export interface GameState {
     devCardPlayerId?: string;
     devCardPlayerName?: string;
     devCardTitle?: string;
+    progressCardType?: ProgressCardType;
+    actorPlayerId?: string;
+    actorPlayerName?: string;
     monopolyResource?: ResourceType;
     monopolyTotalClaimed?: number;
     yearOfPlentyResources?: [ResourceType, ResourceType];
@@ -444,6 +448,13 @@ export interface GameState {
       cardType?: ProgressCardType;
       cardName?: string;
     };
+    progressFlights?: Array<{
+      playerId: string;
+      branch: ImprovementBranch;
+      cardType?: ProgressCardType;
+      cardName?: string;
+    }>;
+    downgradedCityVertexIds?: string[];
     barbarianAttack?: {
       barbarians: number;
       defenders: number;
