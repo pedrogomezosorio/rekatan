@@ -288,9 +288,10 @@ describe('Mejoras y metrópolis', () => {
   });
   it('comprueba los trece puntos al comenzar el siguiente turno, antes de tirar dados', () => {
     let s = game(true); s.players[1].citiesKnights!.defenderPoints = 13;
-    s = act(s, { type: 'END_TURN' }); expect(s.winnerId).toBeNull();
-    s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P2'); expect(s.winnerId).toBeNull();
-    s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P3'); expect(s.winnerId).toBe('P2'); expect(s.phase).toBe('GAME_OVER'); expect(s.turn.hasRolledDice).toBe(false);
+    s = act(s, { type: 'END_TURN' });
+    expect(s.winnerId).toBe('P2');
+    expect(s.phase).toBe('GAME_OVER');
+    expect(s.turn.hasRolledDice).toBe(false);
   });
 });
 
@@ -385,19 +386,24 @@ describe('Ampliación, bots y persistencia', () => {
     s = progress(s, 'SABOTEUR'); expect(s.phase).toBe('ROBBER_DISCARD'); s = executeBotStepIfNeeded(s);
     expect(s.players[1].mustDiscardCount).toBe(0); expect(s.players[1].resources.CLOTH).toBe(5); expect(s.phase).toBe('MAIN_PHASE');
   });
-  it('la activación en construcción especial permite actuar en el siguiente turno propio', () => {
-    let s = game(true); const edge = Object.values(s.board.edges)[0]; edge.building = 'ROAD'; edge.playerId = 'P2'; const v = knight(s, 'P2', 1, false, edge.vertexIds[0]); s.players[1].resources.WHEAT = 1;
-    s = act(s, { type: 'END_TURN' }); s = act(s, { type: 'ACTIVATE_KNIGHT', vertexId: v }, 'P2');
-    s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P2'); s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P3');
-    s.phase = 'MAIN_PHASE'; s.turn.hasRolledDice = true;
-    s = act(s, { type: 'MOVE_KNIGHT', fromVertexId: v, toVertexId: edge.vertexIds[1] }, 'P2'); expect(s.board.vertices[edge.vertexIds[1]].knight!.active).toBe(false);
-  });
-  it('construcción especial rota por los demás jugadores y prohíbe comercio, progreso y acciones militares', () => {
-    let s = game(true); rich(s, 'P2'); const k = knight(s, 'P2'); const cid = giveCard(s, 'CRANE', 'P2'); s = act(s, { type: 'END_TURN' }); expect(s.phase).toBe('SPECIAL_BUILD_PHASE'); expect(s.turn.activePlayerId).toBe('P2');
-    expect(applyGameAction(s, 'P2', { type: 'BANK_TRADE', giveResource: 'WOOD', giveAmount: 4, receiveResource: 'PAPER', receiveAmount: 1 }).error).toBeDefined();
-    expect(applyGameAction(s, 'P2', { type: 'PLAY_PROGRESS_CARD', cardId: cid }).error).toBeDefined(); expect(applyGameAction(s, 'P2', { type: 'EXPEL_ROBBER', vertexId: k }).error).toBeDefined();
-    const v = city(s, 'P2'); s = act(s, { type: 'BUILD_CITY_WALL', vertexId: v }, 'P2'); s = act(s, { type: 'IMPROVE_CITY', branch: 'SCIENCE' }, 'P2');
-    s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P2'); expect(s.turn.activePlayerId).toBe('P3'); s = act(s, { type: 'END_SPECIAL_BUILD' }, 'P3'); expect(s.phase).toBe('WAITING_FOR_DICE'); expect(s.turn.activePlayerId).toBe('P2'); expect(s.turn.turnNumber).toBe(6);
+  it('cada jugador tira dados en su turno tanto en 3-4 como en 5-6 jugadores', () => {
+    let s = game(true);
+    // P1 termina turno -> P2 debe tirar dados
+    s = act(s, { type: 'END_TURN' });
+    expect(s.phase).toBe('WAITING_FOR_DICE');
+    expect(s.turn.activePlayerId).toBe('P2');
+    expect(s.turn.hasRolledDice).toBe(false);
+
+    // P2 tira dados
+    s = act(s, { type: 'ROLL_DICE' }, 'P2');
+    expect(s.turn.hasRolledDice).toBe(true);
+    expect(s.phase).toBe('MAIN_PHASE');
+
+    // P2 termina turno -> P3 debe tirar dados
+    s = act(s, { type: 'END_TURN' }, 'P2');
+    expect(s.phase).toBe('WAITING_FOR_DICE');
+    expect(s.turn.activePlayerId).toBe('P3');
+    expect(s.turn.hasRolledDice).toBe(false);
   });
   it('un bot resuelve sus decisiones pendientes aunque sea el turno de una persona', () => {
     let s = game(); s.players[1].isBot = true; city(s, 'P2'); resolveBarbarianAttack(s); s.phase = 'CK_CHOICE'; s = executeBotStepIfNeeded(s); expect(s.citiesKnights!.choices).toEqual([]); expect(Object.values(s.board.vertices).some(v => v.playerId === 'P2' && v.building === 'CITY')).toBe(false);

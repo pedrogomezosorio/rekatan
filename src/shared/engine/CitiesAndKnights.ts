@@ -580,11 +580,8 @@ export function applyCitiesKnightsAction(s: GameState, id: string, action: GameA
       }
       hooks.score(s); if (s.winnerId) return true;
       ck.turnEffects = {};
-      if (s.config.maxPlayers > 4) {
-        const others = inTurnOrder(s).slice(1).filter(p => p.status !== 'ABANDONED' && p.status !== 'FROZEN_SKIP').map(p => p.id);
-        if (others.length) { resetSpecialBuildCounters(s); ck.specialBuild = { turnOwnerId: id, remainingPlayerIds: others.slice(1) }; s.turn.activePlayerId = others[0]; s.phase = 'SPECIAL_BUILD_PHASE'; s.activeTradeOffers = []; return true; }
-      }
-      hooks.nextTurn(s); return true;
+      hooks.nextTurn(s);
+      return true;
     }
     case 'END_SPECIAL_BUILD': {
       requireRule(s.phase === 'SPECIAL_BUILD_PHASE' && s.turn.activePlayerId === id && ck.specialBuild, 'No es tu fase especial de construcción.');

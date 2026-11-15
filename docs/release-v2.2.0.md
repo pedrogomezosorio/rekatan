@@ -28,6 +28,7 @@
 ## ✨ Novedades Principales en v2.2.0
 
 ### 🎲 Dados 3D, Ataque Bárbaro y HUD de Ciudades y Caballeros
+- **Tirada de dados por jugador en cada ronda:** Cada participante (incluyendo partidas de 5–6 jugadores) dispone de su propio turno completo y lanza los dados obligatoriamente al inicio (1 tirada por persona en cada ronda), garantizando un avance de recursos y eventos fluido para todos los jugadores.
 - **Dado de Acontecimientos 3D en el popup central:** Se muestran los 3 dados simultáneamente (2 dados numéricos + 1 dado de acontecimiento con Barco Bárbaro y Castillos de Ciencia, Política y Comercio), evitando repeticiones de animación al resolver elecciones posteriores.
 - **Animación de degradación de ciudades:** Todas las ciudades reducidas a poblados tras un ataque bárbaro muestran simultáneamente una animación de onda de choque e insignia `🔥 CIUDAD → POBLADO` sobre el tablero.
 - **HUD de Ciudades y Caballeros reubicado y clicable:** Situado a la derecha del bloque inferior para no solaparse con las ofertas de intercambio; hacer clic en cualquier punto del recuadro abre directamente el menú de mejoras de ciudad.
