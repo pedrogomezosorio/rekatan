@@ -169,7 +169,7 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.94 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default"
+              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-[#1a120b] bg-gradient-to-b from-[#241911] to-[#120c08] border-2 border-[#d4af37] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default opacity-100"
             >
               <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5">
                 <div className="flex items-center gap-2">
@@ -181,7 +181,7 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
                 <button
                   type="button"
                   onClick={onToggleOpen}
-                  className="p-1 rounded-lg bg-stone-800/80 hover:bg-stone-700 text-stone-300 cursor-pointer"
+                  className="p-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer opacity-100"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -196,15 +196,15 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
                       type="button"
                       disabled={!opt.canExecute}
                       onClick={opt.onTrigger}
-                      className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
+                      className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 opacity-100 ${
                         opt.canExecute
                           ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
-                          : 'bg-[#0e0a07]/80 border-stone-800/70 opacity-45 grayscale-[45%] cursor-not-allowed'
+                          : 'bg-[#150f0b] border-stone-800 text-stone-300 cursor-not-allowed'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`p-2 rounded-xl shrink-0 border ${
+                          className={`p-2 rounded-xl shrink-0 border opacity-100 ${
                             opt.canExecute
                               ? 'bg-amber-950/80 border-amber-500/50'
                               : 'bg-stone-900 border-stone-700'
@@ -228,7 +228,7 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
                       </div>
 
                       {costEntries.length > 0 ? (
-                        <div className="flex items-center gap-1.5 shrink-0 bg-black/40 px-2 py-1 rounded-xl border border-white/10">
+                        <div className="flex items-center gap-1.5 shrink-0 bg-black/60 px-2 py-1 rounded-xl border border-white/10 opacity-100">
                           {costEntries.map(([res, count]) => (
                             <div key={res} className="flex items-center gap-0.5" title={`${count}x ${RESOURCE_META[res].name}`}>
                               <span className="text-[10px] font-black text-amber-200">{count}</span>
@@ -237,7 +237,7 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950 border border-emerald-500/50 px-2 py-0.5 rounded-lg opacity-100">
                           Gratis
                         </span>
                       )}
@@ -252,14 +252,11 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
 
       <button
         type="button"
-        disabled={disabledBeforeDice}
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-black flex items-center justify-between gap-2 transition cursor-pointer active:scale-98 ${
-          disabledBeforeDice
-            ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
-            : isOpen
-            ? 'bg-amber-950/80 border-amber-400 text-amber-200'
-            : 'bg-gradient-to-r from-[#2a1d13] via-[#332317] to-[#20150d] hover:from-[#3a281a] hover:to-[#2d1e13] border-[#d4af37]/60 text-amber-200 shadow'
+        className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-black flex items-center justify-between gap-2 transition cursor-pointer active:scale-98 opacity-100 ${
+          isOpen
+            ? 'bg-amber-950 border-amber-400 text-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
+            : 'bg-[#2a1d13] bg-gradient-to-r from-[#2a1d13] via-[#332317] to-[#20150d] hover:from-[#3a281a] hover:to-[#2d1e13] border-[#d4af37]/60 text-amber-200 shadow'
         }`}
         title="Acciones de Caballeros: Colocar, Ascender, Activar, Expulsar Ladrón y Mover"
       >

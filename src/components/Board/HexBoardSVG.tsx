@@ -177,7 +177,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       setDowngradedVertexIds((prev) => Array.from(new Set([...prev, ...newlyDowngraded])));
       const timer = setTimeout(() => {
         setDowngradedVertexIds((prev) => prev.filter((id) => !newlyDowngraded.includes(id)));
-      }, 4800);
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [board.vertices, lastEvent?.nonce, lastEvent?.downgradedCityVertexIds]);

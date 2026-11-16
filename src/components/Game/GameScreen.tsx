@@ -1975,7 +1975,7 @@ export const GameScreen: React.FC = () => {
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
               placed immediately above the bottom cards rectangle, right where the Zoom controls were (Zoom controls are now immediately to their right) */}
           <div className="game-build-controls absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
-            <div className="tablet-action-box flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a]/95 backdrop-blur-xl border border-[#d4af37]/45 shadow-[0_10px_30px_rgba(0,0,0,0.9)]">
+            <div className="tablet-action-box flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a] border border-[#d4af37]/60 shadow-[0_10px_30px_rgba(0,0,0,0.95)] opacity-100">
               {/* 1. Construir (C) */}
               <BuildDrawerMenu
                 isOpen={isBuildDrawerOpen}
@@ -2010,9 +2010,9 @@ export const GameScreen: React.FC = () => {
                   setTradeModalInitialTab('BANK');
                   setShowTradeModal(true);
                 }}
-                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition ${
+                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition opacity-100 ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
-                    ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
+                    ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
                     : 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 hover:from-orange-400 hover:to-yellow-500 border-amber-300 text-stone-950 shadow cursor-pointer active:scale-98'
                 }`}
                 title={
@@ -2043,7 +2043,7 @@ export const GameScreen: React.FC = () => {
 
               {gameState.config.seafarersScenario === 'WONDERS_OF_CATAN' && (
                 <button type="button" onClick={() => setShowWonders(true)}
-                  className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950/70 text-amber-100 text-xs font-bold flex items-center gap-2">
+                  className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950 text-amber-100 text-xs font-bold flex items-center gap-2 opacity-100">
                   <Award className="w-4 h-4" /> Maravillas
                 </button>
               )}
@@ -2059,9 +2059,9 @@ export const GameScreen: React.FC = () => {
                       setShowDevModal(true);
                     }
                   }}
-                  className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition ${
+                  className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition opacity-100 ${
                     isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)
-                      ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
+                      ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
                       : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
                   }`}
                   title={isCitiesKnights ? "Ver tus Cartas de Progreso y Mazos (Atajo: D)" : "Ver o comprar Cartas de Desarrollo (Atajo: D)"}

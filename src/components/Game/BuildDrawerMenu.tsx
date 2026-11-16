@@ -252,7 +252,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.94 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-gradient-to-b from-[#241911]/98 to-[#120c08]/98 backdrop-blur-2xl border-2 border-[#d4af37]/70 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default"
+              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-[#1a120b] bg-gradient-to-b from-[#241911] to-[#120c08] border-2 border-[#d4af37] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default opacity-100"
             >
             <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5">
               <div className="flex items-center gap-2">
@@ -264,14 +264,14 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
               <button
                 type="button"
                 onClick={onToggleOpen}
-                className="p-1 rounded-lg bg-stone-800/80 hover:bg-stone-700 text-stone-300 cursor-pointer"
+                className="p-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer opacity-100"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {restrictionReason && (
-              <div className="px-3 py-2 rounded-xl bg-red-950/75 border border-red-500/40 text-[11px] font-semibold text-red-200">
+              <div className="px-3 py-2 rounded-xl bg-red-950 border border-red-500/60 text-[11px] font-semibold text-red-200 opacity-100">
                 {restrictionReason}
               </div>
             )}
@@ -285,15 +285,15 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                     type="button"
                     disabled={!opt.canExecute}
                     onClick={opt.onTrigger}
-                    className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
+                    className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 opacity-100 ${
                       opt.canExecute
                         ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
-                        : 'bg-[#0e0a07]/80 border-stone-800/70 opacity-45 grayscale-[45%] cursor-not-allowed'
+                        : 'bg-[#150f0b] border-stone-800 text-stone-300 cursor-not-allowed'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 opacity-100 ${
                           opt.canExecute
                             ? 'bg-amber-500/20 border-amber-400/60 shadow-inner'
                             : 'bg-stone-900 border-stone-800'
@@ -305,12 +305,12 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                         <div className="flex items-center gap-1.5 flex-nowrap">
                           <span
                             className={`text-xs sm:text-sm font-black whitespace-nowrap ${
-                              opt.canExecute ? 'text-amber-100' : 'text-stone-400'
+                              opt.canExecute ? 'text-amber-100' : 'text-stone-300'
                             }`}
                           >
                             {opt.title}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-amber-300/90 font-mono font-bold whitespace-nowrap shrink-0">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/60 text-amber-300 font-mono font-bold whitespace-nowrap shrink-0 opacity-100">
                             {opt.remainingLabel}
                           </span>
                         </div>
@@ -326,10 +326,10 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                         return (
                           <div
                             key={res}
-                            className={`tablet-cost-badge px-2 py-1 rounded-xl border flex flex-col items-center min-w-[38px] ${
+                            className={`tablet-cost-badge px-2 py-1 rounded-xl border flex flex-col items-center min-w-[38px] opacity-100 ${
                               hasEnough
-                                ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
-                                : 'bg-red-950/50 border-red-500/40 text-red-300'
+                                ? 'bg-emerald-950 border-emerald-500/80 text-emerald-200'
+                                : 'bg-red-950 border-red-500/70 text-red-200'
                             }`}
                             title={`${RESOURCE_META[res].name}: necesitas ${needed}, tienes ${owned}`}
                           >
@@ -353,14 +353,11 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       {/* Main Bottom Panel "Construir" Trigger Button */}
       <button
         type="button"
-        disabled={disabledBeforeDice}
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full px-3 py-1.5 rounded-xl border font-black text-[11px] flex items-center justify-between gap-2 transition ${
-          disabledBeforeDice
-            ? 'bg-stone-900/70 border-stone-800 text-stone-500 cursor-not-allowed'
-            : isOpen
+        className={`tablet-action-btn w-full px-3 py-1.5 rounded-xl border font-black text-[11px] flex items-center justify-between gap-2 transition opacity-100 ${
+          isOpen
             ? 'bg-amber-400 text-stone-950 border-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)] cursor-pointer'
-            : anyOptionAvailable
+            : anyOptionAvailable && !disabledBeforeDice
             ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-stone-950 border-amber-300 shadow-[0_4px_15px_rgba(245,158,11,0.35)] cursor-pointer'
             : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-100 cursor-pointer'
         }`}
@@ -372,7 +369,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             <span className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-stone-950 animate-pulse" />
           )}
         </span>
-        <span className="px-1.5 py-0.5 rounded bg-black/25 text-[9px] font-mono opacity-80">C</span>
+        <span className="px-1.5 py-0.5 rounded bg-black/60 text-[9px] font-mono text-amber-200 opacity-100">C</span>
       </button>
     </div>
   );

@@ -219,6 +219,7 @@
     padding: 0.65rem !important;
     gap: 0.5rem !important;
     border-radius: 1.25rem !important;
+    opacity: 1 !important;
   }
   @media (min-width: 640px) {
     .tablet-action-box {
@@ -282,6 +283,7 @@
     overflow-y: auto !important;
     padding: 0.75rem 0.85rem !important;
     border-radius: 1.25rem !important;
+    opacity: 1 !important;
   }
   .tablet-drawer::-webkit-scrollbar {
     width: 4px;
@@ -296,6 +298,7 @@
     font-size: 0.825rem !important;
     border-radius: 0.85rem !important;
     gap: 0.5rem !important;
+    opacity: 1 !important;
   }
   .tablet-drawer-item .w-10 {
     width: 2.1rem !important;
@@ -401,7 +404,7 @@
   .game-dice-hud { top: 58px !important; right: 8px !important; }
   .has-cities-knights .game-dice-hud { display: none; }
   .game-build-controls { left: 8px; bottom: 8px; }
-  .tablet-action-box { width: min(44vw, 180px) !important; padding: 5px !important; gap: 4px !important; border-radius: 12px !important; }
+  .tablet-action-box { width: min(44vw, 180px) !important; padding: 5px !important; gap: 4px !important; border-radius: 12px !important; opacity: 1 !important; }
   .tablet-action-btn { min-height: 42px !important; padding: 8px !important; font-size: 11px !important; }
   .tablet-action-btn svg { width: 16px !important; height: 16px !important; }
   .tablet-zoom-controls { left: auto !important; right: 8px !important; bottom: 8px !important; padding: 4px; gap: 0; }
