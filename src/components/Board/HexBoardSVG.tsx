@@ -138,7 +138,14 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   }, []);
   useEffect(() => {
     applyCamera({ x: 0, y: 0, zoom: 1 });
-  }, [applyCamera, board.mode, board.seafarersScenario, board.seafarersBoardSize]);
+  }, [
+    applyCamera,
+    board.mode,
+    board.seafarersScenario,
+    board.seafarersBoardSize,
+    barbarians?.scenario,
+    explorersPirates?.scenario,
+  ]);
   const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
   const isDraggingRef = useRef<boolean>(false);
   const lastPointerRef = useRef<{ x: number; y: number; time: number }>({
@@ -742,6 +749,276 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               </g>
             );
           })}
+
+          {/* 1B. OFFICIAL EXPANSION HEX TERRAIN SURFACES (Mercaderes y Bárbaros / Piratas y Exploradores) */}
+          {barbarians && (
+            <g className="pointer-events-none" aria-label="Superficies especiales de Mercaderes y Bárbaros">
+              {/* Lagos de Los pescadores de Catán */}
+              {barbarians.lakeHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key={`mb-lake-surf-${hid}`}>
+                    <polygon points={pts} fill="#0369a1" stroke="#38bdf8" strokeWidth={3} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#0284c7" stroke="#7dd3fc" strokeWidth={1.5} strokeDasharray="4 3" />
+                    <path
+                      d={`M ${hex.center.x - 22} ${hex.center.y - 8} Q ${hex.center.x - 10} ${hex.center.y - 16} ${hex.center.x} ${hex.center.y - 8} T ${hex.center.x + 22} ${hex.center.y - 8}`}
+                      fill="none"
+                      stroke="#bae6fd"
+                      strokeWidth={2}
+                      opacity={0.75}
+                    />
+                    <text x={hex.center.x} y={hex.center.y + 4} textAnchor="middle" fontSize="22">
+                      🐟
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Pantanos y cauces azules de Los ríos de Catán */}
+              {barbarians.swampHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key={`mb-swamp-surf-${hid}`}>
+                    <polygon points={pts} fill="#365314" stroke="#84cc16" strokeWidth={2.8} />
+                    <ellipse cx={hex.center.x - 10} cy={hex.center.y - 6} rx={16} ry={9} fill="#1e3a5f" opacity={0.8} />
+                    <ellipse cx={hex.center.x + 12} cy={hex.center.y + 8} rx={13} ry={7} fill="#1e3a5f" opacity={0.75} />
+                    <text x={hex.center.x} y={hex.center.y + 4} textAnchor="middle" fontSize="18">
+                      🌿
+                    </text>
+                  </g>
+                );
+              })}
+
+              {barbarians.riverHexIds.length > 1 &&
+                barbarians.riverHexIds.flatMap((hidA, i) => {
+                  const hexA = board.hexes[hidA];
+                  if (!hexA) return [];
+                  return barbarians.riverHexIds.slice(i + 1).map((hidB) => {
+                    const hexB = board.hexes[hidB];
+                    if (!hexB) return null;
+                    const dist =
+                      (Math.abs(hexA.q - hexB.q) +
+                        Math.abs(hexA.r - hexB.r) +
+                        Math.abs(hexA.s - hexB.s)) /
+                      2;
+                    if (dist !== 1) return null;
+                    return (
+                      <g key={`mb-river-flow-${hidA}-${hidB}`}>
+                        <line
+                          x1={hexA.center.x}
+                          y1={hexA.center.y}
+                          x2={hexB.center.x}
+                          y2={hexB.center.y}
+                          stroke="#0284c7"
+                          strokeWidth={14}
+                          strokeLinecap="round"
+                          opacity={0.72}
+                        />
+                        <line
+                          x1={hexA.center.x}
+                          y1={hexA.center.y}
+                          x2={hexB.center.x}
+                          y2={hexB.center.y}
+                          stroke="#7dd3fc"
+                          strokeWidth={5}
+                          strokeLinecap="round"
+                          strokeDasharray="6 6"
+                          opacity={0.85}
+                        />
+                      </g>
+                    );
+                  });
+                })}
+
+              {/* Oasis de La ruta de las caravanas */}
+              {barbarians.oasisHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key={`mb-oasis-surf-${hid}`}>
+                    <polygon points={pts} fill="#d97706" stroke="#fde047" strokeWidth={3} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.52} fill="#0d9488" stroke="#6ee7b7" strokeWidth={3} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.34} fill="#14b8a6" opacity={0.85} />
+                  </g>
+                );
+              })}
+
+              {/* Castillos de El ataque de los bárbaros */}
+              {barbarians.castleHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key={`mb-castle-surf-${hid}`}>
+                    <polygon points={pts} fill="#44403c" stroke="#facc15" strokeWidth={3.2} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#292524" stroke="#d97706" strokeWidth={2} />
+                  </g>
+                );
+              })}
+
+              {/* Hexágonos costeros conquistados por 3 bárbaros */}
+              {barbarians.conqueredHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <polygon
+                    key={`mb-conq-surf-${hid}`}
+                    points={pts}
+                    fill="rgba(185, 28, 28, 0.38)"
+                    stroke="#ef4444"
+                    strokeWidth={3}
+                    strokeDasharray="6 4"
+                  />
+                );
+              })}
+
+              {/* Hexágonos de Destino de Mercaderes y Bárbaros (Castillo, Cantera, Fábrica de Vidrio) */}
+              {Object.values(barbarians.destinationHexes).map((dest) => {
+                const hex = board.hexes[dest.hexId];
+                if (!hex) return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                const fill =
+                  dest.type === 'CASTLE'
+                    ? '#44403c'
+                    : dest.type === 'QUARRY'
+                    ? '#94a3b8'
+                    : '#1e3a8a';
+                const stroke =
+                  dest.type === 'CASTLE'
+                    ? '#facc15'
+                    : dest.type === 'QUARRY'
+                    ? '#f8fafc'
+                    : '#38bdf8';
+                return (
+                  <g key={`mb-dest-surf-${dest.hexId}`}>
+                    <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={3.2} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.55} fill="rgba(15,23,42,0.45)" stroke={stroke} strokeWidth={1.5} />
+                  </g>
+                );
+              })}
+            </g>
+          )}
+
+          {explorersPirates && (
+            <g className="pointer-events-none" aria-label="Superficies especiales de Piratas y Exploradores">
+              {/* Regiones inexploradas Norte (Pila Verde 🌙) y Sur (Pila Naranja ☀️) */}
+              {Object.entries(explorersPirates.unexploredSecrets).map(([hid, secret]) => {
+                const hex = board.hexes[hid];
+                if (!hex || hex.terrain !== 'FOG') return null;
+                const isNorth = secret.region === 'NORTH_GREEN';
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key={`ep-fog-surf-${hid}`}>
+                    <polygon
+                      points={pts}
+                      fill={isNorth ? '#064e3b' : '#7c2d12'}
+                      stroke={isNorth ? '#34d399' : '#fb923c'}
+                      strokeWidth={2.5}
+                    />
+                    <circle
+                      cx={hex.center.x}
+                      cy={hex.center.y - 6}
+                      r={16}
+                      fill={isNorth ? '#047857' : '#9a3412'}
+                      stroke={isNorth ? '#6ee7b7' : '#fdba74'}
+                      strokeWidth={1.5}
+                    />
+                    <text x={hex.center.x} y={hex.center.y} textAnchor="middle" fontSize="16">
+                      {isNorth ? '🌙' : '☀️'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Consejo de Catán */}
+              {explorersPirates.councilHexId && board.hexes[explorersPirates.councilHexId] && (() => {
+                const hex = board.hexes[explorersPirates.councilHexId];
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <g key="ep-council-surf">
+                    <polygon points={pts} fill="#1e1b4b" stroke="#fbbf24" strokeWidth={3.5} />
+                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#312e81" stroke="#fde047" strokeWidth={1.8} />
+                  </g>
+                );
+              })()}
+
+              {/* Guaridas Piratas / Ríos Auríferos descubiertos */}
+              {Object.values(explorersPirates.pirateLairs).map((lair) => {
+                const hex = board.hexes[lair.hexId];
+                if (!hex || hex.terrain === 'FOG') return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <polygon
+                    key={`ep-lair-surf-${lair.hexId}`}
+                    points={pts}
+                    fill={lair.conquered ? 'rgba(202, 138, 4, 0.25)' : 'rgba(127, 29, 29, 0.45)'}
+                    stroke={lair.conquered ? '#facc15' : '#ef4444'}
+                    strokeWidth={3}
+                  />
+                );
+              })}
+
+              {/* Caladeros de Peces descubiertos */}
+              {Object.values(explorersPirates.fishGrounds).map((fg) => {
+                const hex = board.hexes[fg.hexId];
+                if (!hex || hex.terrain === 'FOG') return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <polygon
+                    key={`ep-fish-surf-${fg.hexId}`}
+                    points={pts}
+                    fill="rgba(2, 132, 199, 0.42)"
+                    stroke="#38bdf8"
+                    strokeWidth={2.8}
+                  />
+                );
+              })}
+
+              {/* Aldeas de Especias descubiertas */}
+              {Object.values(explorersPirates.spiceVillages).map((sv) => {
+                const hex = board.hexes[sv.hexId];
+                if (!hex || hex.terrain === 'FOG') return null;
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                  .map((p) => `${p.x},${p.y}`)
+                  .join(' ');
+                return (
+                  <polygon
+                    key={`ep-spice-surf-${sv.hexId}`}
+                    points={pts}
+                    fill="rgba(5, 150, 105, 0.35)"
+                    stroke="#34d399"
+                    strokeWidth={2.8}
+                  />
+                );
+              })}
+            </g>
+          )}
 
           {board.seafarersScenario && (
             <g className="pointer-events-none" aria-label="Borde del mapa jugable" stroke="#7eb5cf" strokeWidth={1.6} strokeOpacity={0.6}>

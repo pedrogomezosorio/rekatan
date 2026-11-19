@@ -478,7 +478,7 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
           [
             { id: '1,-1,0', terrain: 'ORE' },
             { id: '0,-1,1', terrain: 'BRICK' },
-            { id: '-2,0,2', terrain: 'DESERT' },
+            { id: '-1,-1,2', terrain: 'DESERT' },
           ],
           [
             { id: '1,0,-1', terrain: 'ORE' },
@@ -520,7 +520,8 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
     }
 
     const riverSet = new Set(mb.riverHexIds);
-    // Lugares de construcción de puente (7 en 3-4J, 10 en 5-6J) en las aristas de los ríos
+    // Lugares de construcción de puente (7 en 3-4J, 10 en 5-6J) en los cruces del río,
+    // garantizando que ningún vértice quede bloqueado sin aristas terrestres para carreteras iniciales
     const sharedRiverEdges = edges.filter(
       (e) => e.isLand && e.hexIds.filter((hid) => riverSet.has(hid)).length >= 2
     );
@@ -528,9 +529,34 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
       (e) => e.isLand && e.hexIds.filter((hid) => riverSet.has(hid)).length === 1
     );
     const targetBridges = isExtended56 ? 10 : 7;
-    mb.bridgeSiteEdgeIds = [...sharedRiverEdges, ...bankRiverEdges]
-      .slice(0, targetBridges)
-      .map((e) => e.id);
+    const pickedBridgeIds: string[] = [];
+    const bridgeCountAtVertex: Record<string, number> = {};
+    const landEdgeCountAtVertex: Record<string, number> = {};
+    for (const v of vertices) {
+      landEdgeCountAtVertex[v.id] = v.adjacentEdgeIds.filter((eid) => state.board.edges[eid]?.isLand).length;
+    }
+    const tryAddBridgeEdge = (e: Edge, maxPerVertex: number) => {
+      if (pickedBridgeIds.length >= targetBridges || pickedBridgeIds.includes(e.id)) return;
+      const [v0, v1] = e.vertexIds;
+      const c0 = bridgeCountAtVertex[v0] || 0;
+      const c1 = bridgeCountAtVertex[v1] || 0;
+      if (c0 >= maxPerVertex || c1 >= maxPerVertex) return;
+      // Garantizar siempre al menos 1 arista terrestre libre para carreteras en ambos extremos
+      if ((landEdgeCountAtVertex[v0] || 0) - (c0 + 1) < 1) return;
+      if ((landEdgeCountAtVertex[v1] || 0) - (c1 + 1) < 1) return;
+      pickedBridgeIds.push(e.id);
+      bridgeCountAtVertex[v0] = c0 + 1;
+      bridgeCountAtVertex[v1] = c1 + 1;
+    };
+    for (const e of [...sharedRiverEdges, ...bankRiverEdges]) {
+      tryAddBridgeEdge(e, 1);
+    }
+    if (pickedBridgeIds.length < targetBridges) {
+      for (const e of [...sharedRiverEdges, ...bankRiverEdges]) {
+        tryAddBridgeEdge(e, 2);
+      }
+    }
+    mb.bridgeSiteEdgeIds = pickedBridgeIds;
 
     // En 3-4J la ficha del 2 comparte hexágono con el 12
     const hex12 = Object.values(state.board.hexes).find(

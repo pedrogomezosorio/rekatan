@@ -6,6 +6,8 @@ import {
   createConfiguredGameState,
   executeBotStepIfNeeded,
 } from '../shared/engine/RulesEngine';
+import { initializeBarbarians } from '../shared/engine/BarbariansEngine';
+import { initializeExplorersPirates } from '../shared/engine/ExplorersPiratesEngine';
 import { hasBarbarians, hasExplorersPirates } from '../shared/expansionsConfig';
 import { getAvatarNameError, normalizeAvatar } from '../shared/playerIdentity';
 import { GameAction, GameState, PlayerColor } from '../shared/types';
@@ -60,7 +62,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => localStorage.getItem('catan_low_end_pc_mode') === 'true'
   );
   const [serverUrl, setServerUrlState] = useState<string>(() => {
+    const isLocalDevServer =
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+      window.location.port === '3000';
     const saved = localStorage.getItem('catan_server_url');
+    // Si estamos abriendo el servidor local de desarrollo (localhost:3000), usar siempre el servidor local
+    // en lugar de una URL remota antigua (p. ej. Render) guardada en localStorage.
+    if (isLocalDevServer) {
+      if (saved && saved !== window.location.origin) {
+        localStorage.removeItem('catan_server_url');
+      }
+      return window.location.origin;
+    }
     if (saved) return saved;
     // In standalone electron with embedded dist server, port is random, default to host port 3000
     if ((window as Window & { catanDesktop?: { isDesktopApp?: boolean } }).catanDesktop?.isDesktopApp && window.location.hostname === '127.0.0.1' && window.location.port !== '3000') {
@@ -151,6 +164,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setConnected(false);
     });
 
+    const upgradeIfOutdatedServerState = (incoming: GameState): GameState => {
+      const missingBarbarians = hasBarbarians(incoming.config) && !incoming.barbarians;
+      const missingEP = hasExplorersPirates(incoming.config) && !incoming.explorersPirates;
+      if (!missingBarbarians && !missingEP) return incoming;
+
+      localEngineRoomRef.current = true;
+      if (incoming.phase === 'LOBBY') {
+        const hostId = incoming.players.find((p) => p.isHost)?.id || playerId;
+        const upgraded = applyGameAction(incoming, hostId, {
+          type: 'UPDATE_CONFIG',
+          config: incoming.config,
+        });
+        if (!upgraded.error) return upgraded.state;
+      }
+      const cloned: GameState = structuredClone(incoming);
+      if (missingBarbarians) {
+        initializeBarbarians(cloned, Math.random);
+      } else if (missingEP) {
+        initializeExplorersPirates(cloned, Math.random);
+      }
+      return cloned;
+    };
+
     socket.on('ROOM_JOINED', (payload: { roomCode: string; playerId: string; state: GameState }) => {
       setCreatingRoom(false);
       activeRoomRef.current = payload.roomCode;
@@ -159,7 +195,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setConnected(true);
       setErrorToast(null);
       sessionStorage.setItem('catan_active_room', payload.roomCode);
-      setGameState(payload.state);
+      setGameState(upgradeIfOutdatedServerState(payload.state));
       // Update URL query without reloading
       const url = new URL(window.location.href);
       url.searchParams.set('room', payload.roomCode);
@@ -174,12 +210,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (hasBarbarians(state.config) && !state.barbarians) ||
         (hasExplorersPirates(state.config) && !state.explorersPirates)
       ) {
-        localEngineRoomRef.current = true;
-        const upgraded = applyGameAction(state, playerId, {
-          type: 'UPDATE_CONFIG',
-          config: state.config,
-        });
-        setGameState(upgraded.state);
+        setGameState(upgradeIfOutdatedServerState(state));
         return;
       }
       if (!localEngineRoomRef.current) {

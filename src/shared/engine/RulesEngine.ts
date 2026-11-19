@@ -740,6 +740,35 @@ export function canBuildSettlement(
     }
   }
 
+  if (isSetup) {
+    const hasSetupRoadOrShip = v.adjacentEdgeIds.some((eid) => {
+      const e = state.board.edges[eid];
+      if (!e || e.building !== null) return false;
+      if (e.isLand) {
+        if (state.barbarians?.scenario === 'RIVERS_OF_CATAN' && state.barbarians.bridgeSiteEdgeIds.includes(e.id)) {
+          return false;
+        }
+        if (state.barbarians?.scenario === 'TRADERS_AND_BARBARIANS') {
+          const forbiddenSea = Object.values(state.barbarians.destinationHexes).some((d) =>
+            d.forbiddenSeaEdgeIds.includes(e.id)
+          );
+          if (forbiddenSea) return false;
+        }
+        if (state.explorersPirates) {
+          if (e.hexIds.some((hid) => state.board.hexes[hid]?.terrain === 'FOG')) return false;
+        }
+        return true;
+      }
+      return state.config.expansionModule === 'SEAFARERS' && (!e.isLand || e.isCoastal);
+    });
+    if (!hasSetupRoadOrShip) {
+      return {
+        allowed: false,
+        reason: 'Esta intersección no dispone de ningún camino válido para colocar tu carretera inicial.',
+      };
+    }
+  }
+
   return { allowed: true };
 }
 
@@ -2034,7 +2063,11 @@ export function applyGameAction(
         action.config.expansionModule === 'BASE'
       ) {
         state.config.desertInCenter = action.config.desertInCenter ?? true;
-        state.config.victoryPointsTarget = action.config.victoryPointsTarget || (hasCitiesKnights(state.config) ? 13 : 10);
+        if (action.config.victoryPointsTarget !== undefined) {
+          state.config.victoryPointsTarget = action.config.victoryPointsTarget;
+        } else if (!hasBarbarians(state.config) && !hasExplorersPirates(state.config)) {
+          state.config.victoryPointsTarget = hasCitiesKnights(state.config) ? 13 : 10;
+        }
         state.board = generateActionBoard(state.config.boardMode, state.config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE, state.config.desertInCenter);
       }
 
