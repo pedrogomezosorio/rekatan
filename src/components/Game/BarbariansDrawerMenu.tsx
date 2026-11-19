@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { BUILDING_COSTS, RESOURCE_META } from '../../shared/constants';
-import { WAGON_LEVELS } from '../../shared/expansionsConfig';
+import { MB_CARD_ASSETS, MB_TOKEN_ASSETS, WAGON_LEVELS } from '../../shared/expansionsConfig';
 import type { GameState, PlayerState, ResourceType } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
@@ -136,8 +136,15 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         id: 'FISH_MARKET',
         title: 'Mercado de Pescado (3 ó 4 Pescados)',
         subtitle: 'Robar a rival (3), tomar recurso (4) o entregar Bota vieja',
-        remainingLabel: pb.hasOldBoot ? '👢 Bota vieja' : `${pb.fishTokens.length}/7 fichas`,
-        icon: <Fish className="w-5 h-5 text-cyan-300" />,
+        remainingLabel: pb.hasOldBoot ? 'Bota vieja (+1 PV)' : `${pb.fishTokens.length}/7 fichas`,
+        icon: (
+          <img
+            src={pb.hasOldBoot ? MB_TOKEN_ASSETS.OLD_BOOT : MB_TOKEN_ASSETS.FISH}
+            alt={pb.hasOldBoot ? 'Bota vieja' : 'Ficha de pescado'}
+            className="w-7 h-7 rounded-full object-cover shadow"
+            draggable={false}
+          />
+        ),
         cost: {},
         badgeLabel: 'Menú',
         canExecute: true,
@@ -215,7 +222,14 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Comprar Carta de Escenario',
         subtitle: 'Se juega al instante (Armar Caballero, Prisionero, Traición)',
         remainingLabel: `${mb.scenarioDevDeck.length} en mazo`,
-        icon: <Sparkles className="w-5 h-5 text-purple-300" />,
+        icon: (
+          <img
+            src={MB_CARD_ASSETS.DEV_BACK}
+            alt="Carta El ataque de los Bárbaros"
+            className="w-6 h-8 rounded object-cover border border-amber-400/60 shadow"
+            draggable={false}
+          />
+        ),
         cost: BUILDING_COSTS.DEV_CARD,
         canExecute:
           canActBuild && mb.scenarioDevDeck.length > 0 && hasRes(BUILDING_COSTS.DEV_CARD),

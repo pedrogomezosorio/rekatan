@@ -735,3 +735,100 @@ export function createEmptyExplorersPiratesPlayer(): ExplorersPiratesPlayer {
     colonizedRegions: [],
   };
 }
+
+// ============================================================================
+// 3. ACTIVO GRÁFICO OFICIAL — MERCADERES Y BÁRBAROS (LOSETAS, FICHAS Y CARTAS)
+// ============================================================================
+
+export const MB_TILE_ASSETS = {
+  LAKE: '/assets/barbarians/tiles/lake.png',
+  RIVER_BRICK: '/assets/barbarians/tiles/river_brick.png',
+  RIVER_SHEEP: '/assets/barbarians/tiles/river_sheep.png',
+  SWAMP_UPPER: '/assets/barbarians/tiles/swamp_upper.png',
+  SWAMP_LOWER: '/assets/barbarians/tiles/swamp_lower.png',
+  CASTLE_ATTACK: '/assets/barbarians/tiles/castle_barbarian_attack.png',
+  DEST_CASTLE: '/assets/barbarians/tiles/dest_castle.png',
+  DEST_GLASSWORKS: '/assets/barbarians/tiles/dest_glassworks.png',
+  DEST_QUARRY: '/assets/barbarians/tiles/dest_quarry.png',
+} as const;
+
+export const MB_TOKEN_ASSETS = {
+  FISH: '/assets/barbarians/tokens/fish_token.png',
+  OLD_BOOT: '/assets/barbarians/tokens/old_boot.png',
+  FISHING_GROUNDS: {
+    4: '/assets/barbarians/tokens/fishing_ground_4.png',
+    5: '/assets/barbarians/tokens/fishing_ground_5.png',
+    6: '/assets/barbarians/tokens/fishing_ground_6.png',
+    8: '/assets/barbarians/tokens/fishing_ground_8.png',
+    9: '/assets/barbarians/tokens/fishing_ground_9.png',
+    10: '/assets/barbarians/tokens/fishing_ground_10.png',
+  } as Record<number, string>,
+} as const;
+
+export const MB_CARD_ASSETS = {
+  DEV_BACK: '/assets/barbarians/cards/dev_back.png',
+  DEV_COMMISSION: '/assets/barbarians/cards/dev_commission.png',
+  DEV_STRONG_KNIGHT: '/assets/barbarians/cards/dev_strong_knight.png',
+  DEV_PRISONER: '/assets/barbarians/cards/dev_prisoner.png',
+  DEV_TREACHERY: '/assets/barbarians/cards/dev_treachery.png',
+  EVENT_BACK: '/assets/barbarians/cards/event_back.png',
+  EVENT_RULES: '/assets/barbarians/cards/event_rules.png',
+  EVENT_PLENTIFUL_YEAR: '/assets/barbarians/cards/event_plentiful_year.png',
+  EVENT_CONFLICT: '/assets/barbarians/cards/event_conflict.png',
+  EVENT_ROBBER_FLEES: '/assets/barbarians/cards/event_robber_flees.png',
+  EVENT_TOURNAMENT: '/assets/barbarians/cards/event_tournament.png',
+  EVENT_TRADE_ADVANTAGE: '/assets/barbarians/cards/event_trade_advantage.png',
+  EVENT_EPIDEMIC: '/assets/barbarians/cards/event_epidemic.png',
+  EVENT_EARTHQUAKE: '/assets/barbarians/cards/event_earthquake.png',
+  EVENT_GOOD_NEIGHBORS: '/assets/barbarians/cards/event_good_neighbors.png',
+  EVENT_ROBBER_ATTACK: '/assets/barbarians/cards/event_robber_attack.png',
+  EVENT_CALM_3: '/assets/barbarians/cards/event_calm_3.png',
+  EVENT_CALM_4: '/assets/barbarians/cards/event_calm_4.png',
+  EVENT_CALM_5: '/assets/barbarians/cards/event_calm_5.png',
+  EVENT_CALM_6: '/assets/barbarians/cards/event_calm_6.png',
+} as const;
+
+export function getBarbariansDevCardImage(type: BarbariansDevCard['type']): string {
+  switch (type) {
+    case 'ARM_KNIGHT':
+      return MB_CARD_ASSETS.DEV_COMMISSION;
+    case 'STRONG_KNIGHT':
+      return MB_CARD_ASSETS.DEV_STRONG_KNIGHT;
+    case 'PRISONER':
+      return MB_CARD_ASSETS.DEV_PRISONER;
+    case 'TREASON':
+      return MB_CARD_ASSETS.DEV_TREACHERY;
+    default:
+      return MB_CARD_ASSETS.DEV_BACK;
+  }
+}
+
+export function getCatanEventCardImage(card: CatanEventCard): string {
+  switch (card.eventType) {
+    case 'PLENTIFUL_YEAR':
+      return MB_CARD_ASSETS.EVENT_PLENTIFUL_YEAR;
+    case 'CONFLICT':
+      return MB_CARD_ASSETS.EVENT_CONFLICT;
+    case 'ROBBER_RETREATS':
+      return MB_CARD_ASSETS.EVENT_ROBBER_FLEES;
+    case 'KNIGHT_TOURNAMENT':
+      return MB_CARD_ASSETS.EVENT_TOURNAMENT;
+    case 'TRADE_ADVANTAGE':
+      return MB_CARD_ASSETS.EVENT_TRADE_ADVANTAGE;
+    case 'EPIDEMIC':
+      return MB_CARD_ASSETS.EVENT_EPIDEMIC;
+    case 'EARTHQUAKE':
+      return MB_CARD_ASSETS.EVENT_EARTHQUAKE;
+    case 'GOOD_NEIGHBORS':
+      return MB_CARD_ASSETS.EVENT_GOOD_NEIGHBORS;
+    case 'ROBBER_ATTACK':
+      return MB_CARD_ASSETS.EVENT_ROBBER_ATTACK;
+    case 'NEW_YEAR':
+      return MB_CARD_ASSETS.EVENT_BACK;
+    default:
+      if (card.numberToken === 3) return MB_CARD_ASSETS.EVENT_CALM_3;
+      if (card.numberToken === 4) return MB_CARD_ASSETS.EVENT_CALM_4;
+      if (card.numberToken === 5) return MB_CARD_ASSETS.EVENT_CALM_5;
+      return MB_CARD_ASSETS.EVENT_CALM_6;
+  }
+}

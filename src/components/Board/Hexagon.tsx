@@ -20,6 +20,8 @@ export interface HexagonProps {
   showCoords: boolean;
   isInteractive: boolean;
   lowEndPcMode?: boolean;
+  customTexturePath?: string;
+  hideNumberToken?: boolean;
   onSelect: (hex: Hex) => void;
 }
 
@@ -34,6 +36,8 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
     showCoords,
     isInteractive,
     lowEndPcMode = false,
+    customTexturePath,
+    hideNumberToken = false,
     onSelect,
   }) => {
     const isSea = hex.terrain === 'SEA';
@@ -121,7 +125,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
             />
             {/* High-Resolution Original Terrain Tile from Board Game */}
             <image
-              href={TILE_TEXTURE_PATHS[hex.terrain]}
+              href={customTexturePath || TILE_TEXTURE_PATHS[hex.terrain]}
               x={-hexSize * 0.866025}
               y={-hexSize}
               width={hexSize * 1.73205}
@@ -138,7 +142,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
             />
 
             {/* Río de Oro (Gold River subtle glint/sparkle overlay) */}
-            {hex.terrain === 'GOLD' && (
+            {hex.terrain === 'GOLD' && !customTexturePath && (
               <g className="pointer-events-none">
                 {/* Subtle golden shimmer sparkle along the river canyon */}
                 <circle cx={-12} cy={-16} r={2.2} fill="#fef08a" opacity={0.8} />
@@ -255,7 +259,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
         )}
 
         {/* 6. 3D PARCHMENT NUMBER TOKEN WITH CAST SHADOW (Classic Design) */}
-        {!isSea && !isFog && hex.numberToken !== null && (
+        {!isSea && !isFog && !hideNumberToken && hex.numberToken !== null && (
           <g
             transform="translate(0, 12)"
             className="pointer-events-none"

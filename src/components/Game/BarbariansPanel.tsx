@@ -7,8 +7,14 @@ import {
 import {
   BARBARIANS_SCENARIOS,
   COMMODITY_DELIVERY_META,
+  MB_CARD_ASSETS,
+  MB_TILE_ASSETS,
+  MB_TOKEN_ASSETS,
   WAGON_LEVELS,
+  getBarbariansDevCardImage,
+  getCatanEventCardImage,
 } from '../../shared/expansionsConfig';
+import { BUILDING_COSTS } from '../../shared/constants';
 import type {
   GameAction,
   GameState,
@@ -44,6 +50,7 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
   onStartBoardMode,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showEventRulesCard, setShowEventRulesCard] = useState(false);
   const [selectedFishResource, setSelectedFishResource] = useState<ResourceType>('ORE');
   const [selectedStealTargetId, setSelectedStealTargetId] = useState<string | null>(null);
   const [camelBidSheep, setCamelBidSheep] = useState(0);
@@ -117,15 +124,26 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
 
           {mb.scenario === 'FISHERMEN_OF_CATAN' && (
             <div className="flex items-center justify-between text-[10px] text-stone-200">
-              <span className="flex items-center gap-1 font-bold text-sky-300">
-                <Fish className="w-3 h-3" />
+              <span className="flex items-center gap-1.5 font-bold text-sky-300">
+                <img
+                  src={MB_TOKEN_ASSETS.FISH}
+                  alt="Pescado"
+                  className="w-4 h-4 rounded-full object-cover shadow"
+                  draggable={false}
+                />
                 <span>
-                  {totalFish} Pescados ({pb.fishTokens.length}/7 fichas)
+                  {totalFish} Pescados ({pb.fishTokens.length}/7)
                 </span>
               </span>
               {pb.hasOldBoot && (
-                <span className="px-1.5 py-0.2 rounded bg-red-950 border border-red-500/50 text-red-200 font-black">
-                  👢 Bota (+1 PV meta)
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-950 border border-red-500/50 text-red-200 font-black">
+                  <img
+                    src={MB_TOKEN_ASSETS.OLD_BOOT}
+                    alt="Bota vieja"
+                    className="w-3.5 h-3.5 rounded-full object-cover"
+                    draggable={false}
+                  />
+                  <span>+1 PV</span>
                 </span>
               )}
             </div>
@@ -181,10 +199,21 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
           )}
 
           {mb.currentEventCard && (
-            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 text-amber-200">
-              <span className="truncate font-bold">
-                🃏 {mb.currentEventCard.numberToken} · {mb.currentEventCard.title}
-              </span>
+            <div className="flex items-center gap-2 text-[10px] pt-1.5 border-t border-white/10 text-amber-200">
+              <img
+                src={getCatanEventCardImage(mb.currentEventCard)}
+                alt={mb.currentEventCard.title}
+                className="w-7 h-10 rounded object-cover border border-amber-400/60 shrink-0 shadow"
+                draggable={false}
+              />
+              <div className="min-w-0">
+                <div className="truncate font-black text-amber-100">
+                  {mb.currentEventCard.numberToken} · {mb.currentEventCard.title}
+                </div>
+                <div className="text-[9px] text-stone-400 truncate">
+                  Mazo eventos: {mb.eventDeck.length} cartas
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -268,14 +297,24 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                       Aún no tienes fichas de pescado. Construye en los caladeros costeros (4, 5, 6, 8, 9, 10) o junto al Lago central (2, 3, 11, 12).
                     </p>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2.5">
                       {pb.fishTokens.map((tok) => (
                         <div
                           key={tok.id}
-                          className="px-3 py-2 rounded-xl bg-sky-950 border border-sky-400/60 text-sky-100 font-black text-xs flex items-center gap-1.5 shadow"
+                          className="relative px-2.5 py-1.5 rounded-2xl bg-sky-950/90 border border-sky-400/60 text-sky-100 font-black text-xs flex items-center gap-2 shadow-md"
                         >
-                          <span>{'🐟'.repeat(tok.fishCount)}</span>
-                          <span className="font-mono text-amber-300">({tok.fishCount})</span>
+                          <img
+                            src={MB_TOKEN_ASSETS.FISH}
+                            alt={`Ficha de ${tok.fishCount} pescado(s)`}
+                            className="w-8 h-8 rounded-full object-cover border border-sky-300/70 shadow"
+                            draggable={false}
+                          />
+                          <div className="flex flex-col leading-tight">
+                            <span className="text-amber-300 font-mono text-sm">×{tok.fishCount}</span>
+                            <span className="text-[9px] text-sky-200/80">
+                              {tok.fishCount === 1 ? 'pez' : 'peces'}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -432,33 +471,41 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
 
                   {/* Entregar la Bota Vieja si la posee */}
                   {pb.hasOldBoot && (
-                    <div className="p-3 rounded-xl bg-red-950 border border-red-500/60 space-y-2">
-                      <div className="text-xs font-black text-red-200">
-                        👢 Posees la «Bota vieja» (Necesitas +1 PV para ganar). Entrégasela a un jugador con tantos o más PV que tú:
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {s.players
-                          .filter(
-                            (p) =>
-                              p.id !== me.id &&
-                              p.publicVictoryPoints >= me.publicVictoryPoints
-                          )
-                          .map((cand) => (
-                            <button
-                              key={cand.id}
-                              type="button"
-                              disabled={!isMyMainTurn}
-                              onClick={() =>
-                                dispatchAction({
-                                  type: 'MB_PASS_OLD_BOOT',
-                                  targetPlayerId: cand.id,
-                                })
-                              }
-                              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs cursor-pointer"
-                            >
-                              Entregar a {cand.name} ({cand.publicVictoryPoints} PV)
-                            </button>
-                          ))}
+                    <div className="p-3 rounded-xl bg-red-950 border border-red-500/60 flex items-start gap-3">
+                      <img
+                        src={MB_TOKEN_ASSETS.OLD_BOOT}
+                        alt="La Bota vieja"
+                        className="w-14 h-14 rounded-full object-cover border-2 border-red-400/70 shadow-lg shrink-0"
+                        draggable={false}
+                      />
+                      <div className="space-y-2 flex-1">
+                        <div className="text-xs font-black text-red-200">
+                          Posees la «Bota vieja» (Necesitas +1 PV adicional para ganar). Entrégasela a un jugador con tantos o más PV que tú:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {s.players
+                            .filter(
+                              (p) =>
+                                p.id !== me.id &&
+                                p.publicVictoryPoints >= me.publicVictoryPoints
+                            )
+                            .map((cand) => (
+                              <button
+                                key={cand.id}
+                                type="button"
+                                disabled={!isMyMainTurn}
+                                onClick={() =>
+                                  dispatchAction({
+                                    type: 'MB_PASS_OLD_BOOT',
+                                    targetPlayerId: cand.id,
+                                  })
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs cursor-pointer"
+                              >
+                                Entregar a {cand.name} ({cand.publicVictoryPoints} PV)
+                              </button>
+                            ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -626,19 +673,33 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                 </div>
 
                 {pb.activeCommodityTile ? (
-                  <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-400/60 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-black text-amber-200">
-                        {COMMODITY_DELIVERY_META[pb.activeCommodityTile].emoji} Mercancía actual a bordo:{' '}
-                        {COMMODITY_DELIVERY_META[pb.activeCommodityTile].name}
+                  <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-400/60 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={
+                          COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetDestination === 'CASTLE'
+                            ? MB_TILE_ASSETS.DEST_CASTLE
+                            : COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetDestination === 'QUARRY'
+                            ? MB_TILE_ASSETS.DEST_QUARRY
+                            : MB_TILE_ASSETS.DEST_GLASSWORKS
+                        }
+                        alt={COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetName}
+                        className="w-12 h-14 object-contain drop-shadow shrink-0"
+                        draggable={false}
+                      />
+                      <div>
+                        <div className="text-xs font-black text-amber-200">
+                          {COMMODITY_DELIVERY_META[pb.activeCommodityTile].emoji} Mercancía actual a bordo:{' '}
+                          {COMMODITY_DELIVERY_META[pb.activeCommodityTile].name}
+                        </div>
+                        <p className="text-[11px] text-amber-100/80">
+                          Lleva tu carromato hasta:{' '}
+                          <strong>
+                            {COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetName}
+                          </strong>{' '}
+                          para cobrar +{WAGON_LEVELS[pb.wagonLevel].goldReward} oros y +1 PV.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-amber-100/80">
-                        Lleva tu carromato hasta:{' '}
-                        <strong>
-                          {COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetName}
-                        </strong>{' '}
-                        para cobrar +{WAGON_LEVELS[pb.wagonLevel].goldReward} oros y +1 PV.
-                      </p>
                     </div>
                     <button
                       type="button"
@@ -685,6 +746,176 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* 5b. Escenario 4: EL ATAQUE DE LOS BÁRBAROS (CARTAS DE DESARROLLO OFICIALES) */}
+            {mb.scenario === 'BARBARIAN_ATTACK' && (
+              <div className="p-4 rounded-2xl bg-[#1f1610] border border-[#d4af37]/40 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                    <Swords className="w-4 h-4 text-amber-400" />
+                    <span>Cartas de Desarrollo — El Ataque de los Bárbaros</span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={
+                      !isMyBuildTurn ||
+                      mb.scenarioDevDeck.length === 0 ||
+                      (me.resources.SHEEP || 0) < (BUILDING_COSTS.DEV_CARD.SHEEP || 1) ||
+                      (me.resources.WHEAT || 0) < (BUILDING_COSTS.DEV_CARD.WHEAT || 1) ||
+                      (me.resources.ORE || 0) < (BUILDING_COSTS.DEV_CARD.ORE || 1)
+                    }
+                    onClick={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
+                  >
+                    Comprar Carta (1🐑 1🌾 1⛰️) · Quedan {mb.scenarioDevDeck.length}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-start gap-3">
+                  {/* Dorso oficial del mazo */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="relative w-24 rounded-xl overflow-hidden border-2 border-[#d4af37]/70 shadow-lg">
+                      <img
+                        src={MB_CARD_ASSETS.DEV_BACK}
+                        alt="Dorso El ataque de los Bárbaros"
+                        className="w-full h-auto block"
+                        draggable={false}
+                      />
+                      <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-amber-300 font-mono text-[10px] font-black border border-amber-400/50">
+                        {mb.scenarioDevDeck.length}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-stone-400">Mazo oficial</span>
+                  </div>
+
+                  {/* Galería oficial de las 4 cartas del escenario (y cartas jugadas/en mano del jugador) */}
+                  <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2.5 min-w-[240px]">
+                    {(
+                      [
+                        { type: 'ARM_KNIGHT' as const, label: 'Armar caballero' },
+                        { type: 'STRONG_KNIGHT' as const, label: 'Caballero fuerte' },
+                        { type: 'PRISONER' as const, label: 'Prisionero' },
+                        { type: 'TREASON' as const, label: 'Traición' },
+                      ] as const
+                    ).map((cardInfo) => {
+                      const heldCount = pb.scenarioDevCards.filter(
+                        (c) => c.type === cardInfo.type && !c.played
+                      ).length;
+                      const playedCount = pb.scenarioDevCards.filter(
+                        (c) => c.type === cardInfo.type && c.played
+                      ).length;
+                      return (
+                        <div
+                          key={cardInfo.type}
+                          className="rounded-xl bg-[#140e0a] border border-stone-700/80 p-1.5 flex flex-col items-center gap-1 shadow"
+                        >
+                          <img
+                            src={getBarbariansDevCardImage(cardInfo.type)}
+                            alt={cardInfo.label}
+                            className="w-full rounded-lg object-cover shadow"
+                            draggable={false}
+                          />
+                          <div className="text-[10px] font-bold text-amber-200 text-center leading-tight">
+                            {cardInfo.label}
+                          </div>
+                          {(heldCount > 0 || playedCount > 0) && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono font-bold">
+                              {heldCount > 0 ? `En mano: ${heldCount}` : `Jugadas: ${playedCount}`}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 5c. Variante Oficial: EVENTOS EN CATÁN (CARTAS ILUSTRADAS) */}
+            {mb.variants.catanEventsDeck && (
+              <div className="p-4 rounded-2xl bg-[#1f1610] border border-[#d4af37]/40 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Eventos en Catán (Mazo Oficial · {mb.eventDeck.length} cartas restantes)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowEventRulesCard((v) => !v)}
+                    className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-600 text-[11px] font-bold text-amber-200 cursor-pointer"
+                  >
+                    {showEventRulesCard ? 'Ocultar Resumen' : 'Ver Carta de Reglas'}
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-start gap-4">
+                  {/* Carta activa del turno actual */}
+                  {mb.currentEventCard ? (
+                    <div className="flex items-start gap-3 bg-[#140e0a] p-2.5 rounded-2xl border border-amber-500/40 flex-1 min-w-[260px]">
+                      <img
+                        src={getCatanEventCardImage(mb.currentEventCard)}
+                        alt={mb.currentEventCard.title}
+                        className="w-28 sm:w-32 rounded-xl border border-amber-400/60 shadow-xl shrink-0"
+                        draggable={false}
+                      />
+                      <div className="space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[10px] font-black">
+                          <span>Tirada equivalente: {mb.currentEventCard.numberToken}</span>
+                          <span>
+                            ({mb.currentEventCard.dicePair[0]} + {mb.currentEventCard.dicePair[1]})
+                          </span>
+                        </div>
+                        <div className="text-sm font-black text-amber-100">
+                          {mb.currentEventCard.title}
+                        </div>
+                        <p className="text-xs text-stone-300 leading-snug">
+                          {mb.currentEventCard.description}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-[#140e0a] p-3 rounded-2xl border border-stone-800 flex-1 min-w-[240px]">
+                      <img
+                        src={MB_CARD_ASSETS.EVENT_BACK}
+                        alt="Eventos en Catán"
+                        className="w-20 rounded-xl border border-amber-500/40 shadow"
+                        draggable={false}
+                      />
+                      <p className="text-xs text-stone-300">
+                        Al pulsar «Lanzar Dados» en cada turno se robará automáticamente la siguiente carta del mazo oficial de <strong>Eventos en Catán</strong>.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Dorso del mazo restante + opcional resumen de reglas */}
+                  <div className="flex items-start gap-3 shrink-0">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="relative w-20 rounded-xl overflow-hidden border border-[#d4af37]/60 shadow-lg">
+                        <img
+                          src={MB_CARD_ASSETS.EVENT_BACK}
+                          alt="Mazo Eventos en Catán"
+                          className="w-full h-auto block"
+                          draggable={false}
+                        />
+                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-amber-300 font-mono text-[10px] font-black">
+                          {mb.eventDeck.length}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-stone-400 font-bold">Mazo</span>
+                    </div>
+
+                    {showEventRulesCard && (
+                      <img
+                        src={MB_CARD_ASSETS.EVENT_RULES}
+                        alt="Eventos en Catán: Resumen de reglas"
+                        className="w-36 rounded-xl border border-amber-400/50 shadow-xl"
+                        draggable={false}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             )}

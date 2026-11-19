@@ -1,4 +1,5 @@
 import { BRANCH_META } from '../../shared/citiesKnightsConfig';
+import { MB_TILE_ASSETS, MB_TOKEN_ASSETS } from '../../shared/expansionsConfig';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, ShieldAlert } from 'lucide-react';
@@ -724,6 +725,36 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               isRobberTarget || isPirateTarget || isCKHexTarget || (editorTool?.active && !isSea)
             );
 
+            // Texturas oficiales escaneadas de Mercaderes y Bárbaros (Lago, Ríos, Pantanos, Castillos y Destinos)
+            let customTexturePath: string | undefined;
+            let hideNumberToken = false;
+            if (barbarians && isPlayable) {
+              if (barbarians.lakeHexIds.includes(hex.id)) {
+                customTexturePath = MB_TILE_ASSETS.LAKE;
+                hideNumberToken = true; // La loseta oficial del Lago ya incluye 11, 12, 2 y 3
+              } else if (barbarians.swampHexIds.includes(hex.id)) {
+                const swampIdx = barbarians.swampHexIds.indexOf(hex.id);
+                customTexturePath =
+                  swampIdx % 2 === 0 ? MB_TILE_ASSETS.SWAMP_UPPER : MB_TILE_ASSETS.SWAMP_LOWER;
+                hideNumberToken = true;
+              } else if (barbarians.riverHexIds.includes(hex.id)) {
+                if (hex.terrain === 'BRICK') customTexturePath = MB_TILE_ASSETS.RIVER_BRICK;
+                else if (hex.terrain === 'SHEEP') customTexturePath = MB_TILE_ASSETS.RIVER_SHEEP;
+              } else if (barbarians.castleHexIds.includes(hex.id)) {
+                customTexturePath = MB_TILE_ASSETS.CASTLE_ATTACK;
+                hideNumberToken = true;
+              } else if (barbarians.destinationHexes[hex.id]) {
+                const destType = barbarians.destinationHexes[hex.id].type;
+                customTexturePath =
+                  destType === 'CASTLE'
+                    ? MB_TILE_ASSETS.DEST_CASTLE
+                    : destType === 'GLASSWORKS'
+                    ? MB_TILE_ASSETS.DEST_GLASSWORKS
+                    : MB_TILE_ASSETS.DEST_QUARRY;
+                hideNumberToken = true;
+              }
+            }
+
             return (
               <g key={hex.id}>
                 <Hexagon
@@ -736,6 +767,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   showCoords={showCoords}
                   isInteractive={isInteractive}
                   lowEndPcMode={lowEndPcMode}
+                  customTexturePath={customTexturePath}
+                  hideNumberToken={hideNumberToken}
                   onSelect={isPlayable ? handleHexInteraction : () => {}}
                 />
                 {isCKHexTarget && (
@@ -753,54 +786,56 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {/* 1B. OFFICIAL EXPANSION HEX TERRAIN SURFACES (Mercaderes y Bárbaros / Piratas y Exploradores) */}
           {barbarians && (
             <g className="pointer-events-none" aria-label="Superficies especiales de Mercaderes y Bárbaros">
-              {/* Lagos de Los pescadores de Catán */}
-              {barbarians.lakeHexIds.map((hid) => {
-                const hex = board.hexes[hid];
-                if (!hex) return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
-                  .map((p) => `${p.x},${p.y}`)
-                  .join(' ');
-                return (
-                  <g key={`mb-lake-surf-${hid}`}>
-                    <polygon points={pts} fill="#0369a1" stroke="#38bdf8" strokeWidth={3} />
-                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#0284c7" stroke="#7dd3fc" strokeWidth={1.5} strokeDasharray="4 3" />
-                    <path
-                      d={`M ${hex.center.x - 22} ${hex.center.y - 8} Q ${hex.center.x - 10} ${hex.center.y - 16} ${hex.center.x} ${hex.center.y - 8} T ${hex.center.x + 22} ${hex.center.y - 8}`}
-                      fill="none"
-                      stroke="#bae6fd"
-                      strokeWidth={2}
-                      opacity={0.75}
-                    />
-                    <text x={hex.center.x} y={hex.center.y + 4} textAnchor="middle" fontSize="22">
-                      🐟
-                    </text>
-                  </g>
-                );
-              })}
+              {/* Caladeros costeros oficiales en chevrón azul (Los pescadores de Catán) encajados en el mar exterior */}
+              {barbarians.fishingGrounds
+                .filter((fg) => !fg.isLake)
+                .map((fg) => {
+                  const hex = board.hexes[fg.hexId];
+                  const chevronHref = MB_TOKEN_ASSETS.FISHING_GROUNDS[fg.numberToken];
+                  if (!hex || !chevronHref) return null;
+                  const cVerts = fg.vertexIds
+                    .map((vid) => board.vertices[vid])
+                    .filter((v): v is Vertex => Boolean(v));
+                  let vx = hex.center.x;
+                  let vy = hex.center.y;
+                  if (cVerts.length > 0) {
+                    const avgX = cVerts.reduce((acc, v) => acc + v.x, 0) / cVerts.length;
+                    const avgY = cVerts.reduce((acc, v) => acc + v.y, 0) / cVerts.length;
+                    vx = avgX - hex.center.x;
+                    vy = avgY - hex.center.y;
+                  }
+                  const len = Math.hypot(vx, vy) || 1;
+                  const ux = vx / len;
+                  const uy = vy / len;
+                  const angleDeg = (Math.atan2(uy, ux) * 180) / Math.PI;
+                  const dist = board.hexSize * 1.12;
+                  const cx = hex.center.x + ux * dist;
+                  const cy = hex.center.y + uy * dist;
+                  const chH = board.hexSize * 1.48;
+                  const chW = chH * (318 / 413);
+                  return (
+                    <g
+                      key={`mb-chevron-${fg.id}`}
+                      transform={`translate(${cx}, ${cy}) rotate(${angleDeg})`}
+                      filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                    >
+                      <image
+                        href={chevronHref}
+                        x={-chW / 2}
+                        y={-chH / 2}
+                        width={chW}
+                        height={chH}
+                        preserveAspectRatio="xMidYMid meet"
+                      />
+                    </g>
+                  );
+                })}
 
-              {/* Pantanos y cauces azules de Los ríos de Catán */}
-              {barbarians.swampHexIds.map((hid) => {
-                const hex = board.hexes[hid];
-                if (!hex) return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
-                  .map((p) => `${p.x},${p.y}`)
-                  .join(' ');
-                return (
-                  <g key={`mb-swamp-surf-${hid}`}>
-                    <polygon points={pts} fill="#365314" stroke="#84cc16" strokeWidth={2.8} />
-                    <ellipse cx={hex.center.x - 10} cy={hex.center.y - 6} rx={16} ry={9} fill="#1e3a5f" opacity={0.8} />
-                    <ellipse cx={hex.center.x + 12} cy={hex.center.y + 8} rx={13} ry={7} fill="#1e3a5f" opacity={0.75} />
-                    <text x={hex.center.x} y={hex.center.y + 4} textAnchor="middle" fontSize="18">
-                      🌿
-                    </text>
-                  </g>
-                );
-              })}
-
+              {/* Enlace sutil del nacimiento fluvial en las montañas de Los ríos de Catán */}
               {barbarians.riverHexIds.length > 1 &&
                 barbarians.riverHexIds.flatMap((hidA, i) => {
                   const hexA = board.hexes[hidA];
-                  if (!hexA) return [];
+                  if (!hexA || hexA.terrain !== 'ORE') return [];
                   return barbarians.riverHexIds.slice(i + 1).map((hidB) => {
                     const hexB = board.hexes[hidB];
                     if (!hexB) return null;
@@ -810,30 +845,20 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                         Math.abs(hexA.s - hexB.s)) /
                       2;
                     if (dist !== 1) return null;
+                    const mx = (hexA.center.x + hexB.center.x) / 2;
+                    const my = (hexA.center.y + hexB.center.y) / 2;
                     return (
-                      <g key={`mb-river-flow-${hidA}-${hidB}`}>
-                        <line
-                          x1={hexA.center.x}
-                          y1={hexA.center.y}
-                          x2={hexB.center.x}
-                          y2={hexB.center.y}
-                          stroke="#0284c7"
-                          strokeWidth={14}
-                          strokeLinecap="round"
-                          opacity={0.72}
-                        />
-                        <line
-                          x1={hexA.center.x}
-                          y1={hexA.center.y}
-                          x2={hexB.center.x}
-                          y2={hexB.center.y}
-                          stroke="#7dd3fc"
-                          strokeWidth={5}
-                          strokeLinecap="round"
-                          strokeDasharray="6 6"
-                          opacity={0.85}
-                        />
-                      </g>
+                      <line
+                        key={`mb-river-head-${hidA}-${hidB}`}
+                        x1={hexA.center.x}
+                        y1={hexA.center.y}
+                        x2={mx}
+                        y2={my}
+                        stroke="#38bdf8"
+                        strokeWidth={9}
+                        strokeLinecap="round"
+                        opacity={0.55}
+                      />
                     );
                   });
                 })}
@@ -854,21 +879,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* Castillos de El ataque de los bárbaros */}
-              {barbarians.castleHexIds.map((hid) => {
-                const hex = board.hexes[hid];
-                if (!hex) return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
-                  .map((p) => `${p.x},${p.y}`)
-                  .join(' ');
-                return (
-                  <g key={`mb-castle-surf-${hid}`}>
-                    <polygon points={pts} fill="#44403c" stroke="#facc15" strokeWidth={3.2} />
-                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#292524" stroke="#d97706" strokeWidth={2} />
-                  </g>
-                );
-              })}
-
               {/* Hexágonos costeros conquistados por 3 bárbaros */}
               {barbarians.conqueredHexIds.map((hid) => {
                 const hex = board.hexes[hid];
@@ -885,33 +895,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     strokeWidth={3}
                     strokeDasharray="6 4"
                   />
-                );
-              })}
-
-              {/* Hexágonos de Destino de Mercaderes y Bárbaros (Castillo, Cantera, Fábrica de Vidrio) */}
-              {Object.values(barbarians.destinationHexes).map((dest) => {
-                const hex = board.hexes[dest.hexId];
-                if (!hex) return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
-                  .map((p) => `${p.x},${p.y}`)
-                  .join(' ');
-                const fill =
-                  dest.type === 'CASTLE'
-                    ? '#44403c'
-                    : dest.type === 'QUARRY'
-                    ? '#94a3b8'
-                    : '#1e3a8a';
-                const stroke =
-                  dest.type === 'CASTLE'
-                    ? '#facc15'
-                    : dest.type === 'QUARRY'
-                    ? '#f8fafc'
-                    : '#38bdf8';
-                return (
-                  <g key={`mb-dest-surf-${dest.hexId}`}>
-                    <polygon points={pts} fill={fill} stroke={stroke} strokeWidth={3.2} />
-                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.55} fill="rgba(15,23,42,0.45)" stroke={stroke} strokeWidth={1.5} />
-                  </g>
                 );
               })}
             </g>
@@ -2162,40 +2145,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {/* 9. MERCADERES Y BÁRBAROS (TRADERS & BARBARIANS) BOARD OVERLAYS */}
           {barbarians && (
             <g className="pointer-events-none">
-              {/* 9a. Lake Hexes & Coastal Fishing Grounds (Los pescadores de Catán) */}
-              {barbarians.fishingGrounds.map((fg) => {
-                const hex = board.hexes[fg.hexId];
-                if (!hex) return null;
-                return (
-                  <g
-                    key={fg.id}
-                    transform={`translate(${hex.center.x}, ${hex.center.y + (fg.isLake ? 22 : -26)})`}
-                  >
-                    <rect
-                      x={-48}
-                      y={-10}
-                      width={96}
-                      height={18}
-                      rx={8}
-                      fill={fg.isLake ? '#0284c7' : '#0f172a'}
-                      stroke="#38bdf8"
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={0}
-                      y={3}
-                      textAnchor="middle"
-                      fill="#e0f2fe"
-                      fontSize="8.5"
-                      fontWeight="900"
-                    >
-                      {fg.isLake ? '🐟 LAGO (2,3,11,12)' : `🐟 CALADERO (${fg.numberToken})`}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* 9b. Rivers, Swamps, Dual 2/12 Token & Bridge Sites (Los ríos de Catán) */}
+              {/* 9a. Ficha doble 2/12 y pasos de puente (Los ríos de Catán) */}
               {barbarians.dualNumberHexId && board.hexes[barbarians.dualNumberHexId] && (
                 <g
                   transform={`translate(${
@@ -2208,29 +2158,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                   </text>
                 </g>
               )}
-
-              {barbarians.riverHexIds.map((hid) => {
-                const hex = board.hexes[hid];
-                if (!hex) return null;
-                const isSwamp = barbarians.swampHexIds.includes(hid);
-                return (
-                  <g key={`river-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 24})`}>
-                    <rect
-                      x={-36}
-                      y={-9}
-                      width={72}
-                      height={16}
-                      rx={7}
-                      fill={isSwamp ? '#365314' : '#0369a1'}
-                      stroke="#7dd3fc"
-                      strokeWidth={1.2}
-                    />
-                    <text x={0} y={2} textAnchor="middle" fill="#f0f9ff" fontSize="8" fontWeight="900">
-                      {isSwamp ? '🌿 PANTANO' : '🌊 RÍO (+1 🪙)'}
-                    </text>
-                  </g>
-                );
-              })}
 
               {barbarians.bridgeSiteEdgeIds.map((eid) => {
                 const e = board.edges[eid];
@@ -2287,29 +2214,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* 9d. Castle, Coastal Barbarians & Edge Knights (El ataque de los bárbaros) */}
-              {barbarians.castleHexIds.map((hid) => {
-                const hex = board.hexes[hid];
-                if (!hex) return null;
-                return (
-                  <g key={`castle-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y})`}>
-                    <rect
-                      x={-44}
-                      y={-13}
-                      width={88}
-                      height={26}
-                      rx={9}
-                      fill="#422006"
-                      stroke="#facc15"
-                      strokeWidth={2.2}
-                    />
-                    <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9.5" fontWeight="900">
-                      🏰 CASTILLO
-                    </text>
-                  </g>
-                );
-              })}
-
+              {/* 9d. Coastal Barbarians & Edge Knights (El ataque de los bárbaros — el Castillo usa su loseta ilustrada) */}
               {Object.entries(barbarians.hexBarbarians).map(([hid, count]) => {
                 if (!count || count <= 0) return null;
                 const hex = board.hexes[hid];
@@ -2357,33 +2262,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* 9e. Destination Hexes, Wagons & Edge Barbarians (Mercaderes y Bárbaros) */}
-              {Object.values(barbarians.destinationHexes).map((dest) => {
-                const hex = board.hexes[dest.hexId];
-                if (!hex) return null;
-                return (
-                  <g key={`dest-${dest.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y})`}>
-                    <rect
-                      x={-52}
-                      y={-13}
-                      width={104}
-                      height={26}
-                      rx={9}
-                      fill="#1c1917"
-                      stroke="#fbbf24"
-                      strokeWidth={2.2}
-                    />
-                    <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9" fontWeight="900">
-                      {dest.type === 'CASTLE'
-                        ? '🏰 EL CASTILLO'
-                        : dest.type === 'QUARRY'
-                        ? '⛏️ CANTERA MÁRMOL'
-                        : '🏺 FÁBRICA VIDRIO'}
-                    </text>
-                  </g>
-                );
-              })}
-
+              {/* 9e. Wagons & Edge Barbarians (Mercaderes y Bárbaros — los 3 Destinos usan sus losetas ilustradas) */}
               {barbarians.edgeBarbarians.map((eid) => {
                 const e = board.edges[eid];
                 if (!e) return null;

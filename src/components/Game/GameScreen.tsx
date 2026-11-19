@@ -1,6 +1,11 @@
 import { CitiesKnightsPanel } from './CitiesKnightsPanel';
 import { hasCitiesKnights, BRANCH_META, PROGRESS_CARDS } from '../../shared/citiesKnightsConfig';
-import { hasBarbarians, hasExplorersPirates } from '../../shared/expansionsConfig';
+import {
+  MB_CARD_ASSETS,
+  getCatanEventCardImage,
+  hasBarbarians,
+  hasExplorersPirates,
+} from '../../shared/expansionsConfig';
 import { getValidCamelEdges } from '../../shared/engine/BarbariansEngine';
 import { BarbariansPanel } from './BarbariansPanel';
 import { BarbariansDrawerMenu, ActiveBarbariansBoardMode } from './BarbariansDrawerMenu';
@@ -2254,47 +2259,109 @@ export const GameScreen: React.FC = () => {
               </div>
             )}
 
-            {/* Physical Development Card Deck on the Tabletop */}
-            {!hasCitiesKnights(config) && <div
-              id="tabletop-devcard-deck"
-              className="pointer-events-auto relative group flex flex-col items-center select-none cursor-pointer"
-              title={`Mazo de Desarrollo: ${gameState.devDeck?.length ?? 0} cartas restantes`}
-              onClick={() => {
-                if (devBuyPermission.allowed && !isPausedByHost) {
-                  dispatchAction({ type: 'BUY_DEV_CARD' });
+            {/* Physical Development Card Deck on the Tabletop (Base, El Ataque de los Bárbaros / Mercaderes y Bárbaros) */}
+            {!hasCitiesKnights(config) && !isExplorersPirates && (() => {
+              const usesScenarioDevDeck =
+                gameState.barbarians?.scenario === 'BARBARIAN_ATTACK' ||
+                gameState.barbarians?.scenario === 'TRADERS_AND_BARBARIANS';
+              const deckCount = usesScenarioDevDeck
+                ? (gameState.barbarians?.scenarioDevDeck.length ?? 0)
+                : (gameState.devDeck?.length ?? 0);
+              const deckBackSrc = usesScenarioDevDeck
+                ? MB_CARD_ASSETS.DEV_BACK
+                : CARD_BACK_PATHS.development;
+              return (
+                <div
+                  id="tabletop-devcard-deck"
+                  className="pointer-events-auto relative group flex flex-col items-center select-none cursor-pointer"
+                  title={
+                    usesScenarioDevDeck
+                      ? `Mazo de Escenario: ${deckCount} cartas restantes`
+                      : `Mazo de Desarrollo: ${deckCount} cartas restantes`
+                  }
+                  onClick={() => {
+                    if (isPausedByHost) return;
+                    if (usesScenarioDevDeck) {
+                      if (
+                        isMyTurn &&
+                        (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
+                        deckCount > 0 &&
+                        (me.resources.SHEEP || 0) >= 1 &&
+                        (me.resources.WHEAT || 0) >= 1 &&
+                        (me.resources.ORE || 0) >= 1
+                      ) {
+                        dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' });
+                      } else {
+                        window.dispatchEvent(new Event('open-barbarians-panel'));
+                      }
+                    } else if (devBuyPermission.allowed) {
+                      dispatchAction({ type: 'BUY_DEV_CARD' });
+                    }
+                  }}
+                >
+                  {/* Stack depth illusion layers */}
+                  {deckCount > 2 && (
+                    <div className="absolute top-1.5 -left-1.5 w-16 h-24 rounded-xl bg-amber-950/70 border border-amber-600/30 -rotate-3 -z-10 shadow-md" />
+                  )}
+                  {deckCount > 1 && (
+                    <div className="absolute top-0.5 -left-0.5 w-16 h-24 rounded-xl bg-amber-900/80 border border-amber-600/40 -rotate-1 -z-10 shadow-md" />
+                  )}
+
+                  {/* Top card of the deck with original reverse illustration */}
+                  <div className="relative w-16 h-24 rounded-xl overflow-hidden border-2 border-[#d4af37]/75 bg-[#16110d] shadow-[0_8px_25px_rgba(0,0,0,0.85)] group-hover:border-amber-300 group-hover:scale-105 transition-all">
+                    <img
+                      src={deckBackSrc}
+                      alt="Mazo de Desarrollo"
+                      className="w-full h-full object-cover select-none"
+                      draggable={false}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-black/35 via-transparent to-amber-200/15 pointer-events-none" />
+                    <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/85 backdrop-blur-md border border-[#d4af37]/60 text-[10px] font-black text-amber-300 tracking-tighter">
+                      {deckCount}
+                    </div>
+                  </div>
+
+                  <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/75 border border-amber-500/30 text-[9px] font-bold text-amber-200/90 shadow-sm">
+                    <span>{usesScenarioDevDeck ? 'Escenario' : 'Mazo'}</span>
+                    <span className="text-amber-400">({deckCount})</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Physical "Eventos en Catán" Card Deck & Active Event Card on the Tabletop */}
+            {gameState.barbarians?.variants.catanEventsDeck && (
+              <div
+                onClick={() => window.dispatchEvent(new Event('open-barbarians-panel'))}
+                className="pointer-events-auto relative group flex flex-col items-center select-none cursor-pointer"
+                title={
+                  gameState.barbarians.currentEventCard
+                    ? `Evento actual: ${gameState.barbarians.currentEventCard.title} — Haz clic para ver detalles`
+                    : `Mazo Eventos en Catán (${gameState.barbarians.eventDeck.length} cartas)`
                 }
-              }}
-            >
-              {/* Stack depth illusion layers */}
-              {(gameState.devDeck?.length ?? 0) > 2 && (
-                <div className="absolute top-1.5 -left-1.5 w-16 h-24 rounded-xl bg-amber-950/70 border border-amber-600/30 -rotate-3 -z-10 shadow-md" />
-              )}
-              {(gameState.devDeck?.length ?? 0) > 1 && (
-                <div className="absolute top-0.5 -left-0.5 w-16 h-24 rounded-xl bg-amber-900/80 border border-amber-600/40 -rotate-1 -z-10 shadow-md" />
-              )}
-
-              {/* Top card of the deck with original reverse illustration */}
-              <div className="relative w-16 h-24 rounded-xl overflow-hidden border-2 border-[#d4af37]/75 bg-[#16110d] shadow-[0_8px_25px_rgba(0,0,0,0.85)] group-hover:border-amber-300 group-hover:scale-105 transition-all">
-                <img
-                  src={CARD_BACK_PATHS.development}
-                  alt="Mazo de Desarrollo"
-                  className="w-full h-full object-cover select-none"
-                  draggable={false}
-                />
-                {/* Subtle sheen highlight */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-amber-200/20 pointer-events-none" />
-
-                {/* Count badge */}
-                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/85 backdrop-blur-md border border-[#d4af37]/60 text-[10px] font-black text-amber-300 tracking-tighter">
-                  {gameState.devDeck?.length ?? 0}
+              >
+                <div className="relative w-20 h-32 rounded-xl overflow-hidden border-2 border-amber-400/80 bg-[#16110d] shadow-[0_10px_28px_rgba(0,0,0,0.9)] group-hover:scale-105 transition-all">
+                  <img
+                    src={
+                      gameState.barbarians.currentEventCard
+                        ? getCatanEventCardImage(gameState.barbarians.currentEventCard)
+                        : MB_CARD_ASSETS.EVENT_BACK
+                    }
+                    alt={gameState.barbarians.currentEventCard?.title || 'Eventos en Catán'}
+                    className="w-full h-full object-cover select-none"
+                    draggable={false}
+                  />
+                  <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/85 border border-amber-400/60 text-[9px] font-black text-amber-300">
+                    {gameState.barbarians.eventDeck.length}
+                  </div>
+                </div>
+                <div className="mt-1 px-2 py-0.5 rounded-full bg-black/80 border border-amber-500/40 text-[9px] font-bold text-amber-200 max-w-[110px] truncate">
+                  {gameState.barbarians.currentEventCard
+                    ? gameState.barbarians.currentEventCard.title
+                    : 'Eventos Catán'}
                 </div>
               </div>
-
-              <div className="mt-1 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/75 border border-amber-500/30 text-[9px] font-bold text-amber-200/90 shadow-sm">
-                <span>Mazo</span>
-                <span className="text-amber-400">({gameState.devDeck?.length ?? 0})</span>
-              </div>
-            </div>}
+            )}
           </div>
 
           {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
@@ -2475,7 +2542,7 @@ export const GameScreen: React.FC = () => {
                     setActiveBarbariansMode(mode);
                     setSelectedEdgeKnightEdgeId(null);
                   }}
-                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-barbarians'))}
+                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-barbarians-panel'))}
                   onBuyScenarioDevCard={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
                   onUpgradeWagon={() => dispatchAction({ type: 'MB_UPGRADE_WAGON' })}
                   onBoostWagon={() => dispatchAction({ type: 'MB_BOOST_WAGON' })}
