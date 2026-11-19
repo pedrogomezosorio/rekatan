@@ -492,11 +492,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                               key={res}
                               type="button"
                               onClick={() => setSelectedFishResource(res)}
-                              className={`p-1.5 rounded-xl border flex flex-col items-center gap-0.5 cursor-pointer transition ${
-                                active
-                                  ? 'bg-amber-500/25 border-amber-400 text-amber-100 scale-105'
-                                  : 'bg-stone-900 border-stone-800 text-stone-400 hover:border-stone-600'
-                              }`}
+                              className={`p-1.5 rounded-xl border flex flex-col items-center gap-0.5 cursor-pointer transition ${active
+                                ? 'bg-amber-500/25 border-amber-400 text-amber-100 scale-105'
+                                : 'bg-stone-900 border-stone-800 text-stone-400 hover:border-stone-600'
+                                }`}
                             >
                               <ResourceIcon resource={res} size={18} />
                               <span className="text-[9px] font-bold">
@@ -546,11 +545,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                                 type="button"
                                 disabled={count === 0}
                                 onClick={() => setSelectedStealTargetId(rival.id)}
-                                className={`p-2 rounded-xl border text-left text-xs font-bold flex items-center justify-between cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-amber-500/25 border-amber-400 text-amber-100'
-                                    : 'bg-stone-900 border-stone-800 text-stone-300 disabled:opacity-40'
-                                }`}
+                                className={`p-2 rounded-xl border text-left text-xs font-bold flex items-center justify-between cursor-pointer ${isSelected
+                                  ? 'bg-amber-500/25 border-amber-400 text-amber-100'
+                                  : 'bg-stone-900 border-stone-800 text-stone-300 disabled:opacity-40'
+                                  }`}
                               >
                                 <span className="truncate">{rival.name}</span>
                                 <span className="font-mono text-[10px] text-amber-300">
@@ -658,11 +656,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                         onClick={() =>
                           dispatchAction({ type: 'MB_BUY_RESOURCE_WITH_GOLD', resource: res })
                         }
-                        className={`p-2.5 rounded-2xl border-2 flex flex-col items-center gap-1 transition ${
-                          canBuy
-                            ? 'bg-[#2a1d13] hover:bg-[#382719] border-[#d4af37] text-amber-100 cursor-pointer'
-                            : 'bg-[#120c08] border-stone-800 text-stone-500 cursor-not-allowed'
-                        }`}
+                        className={`p-2.5 rounded-2xl border-2 flex flex-col items-center gap-1 transition ${canBuy
+                          ? 'bg-[#2a1d13] hover:bg-[#382719] border-[#d4af37] text-amber-100 cursor-pointer'
+                          : 'bg-[#120c08] border-stone-800 text-stone-500 cursor-not-allowed'
+                          }`}
                       >
                         <ResourceIcon resource={res} size={24} />
                         <span className="text-xs font-black">{RESOURCE_META[res].name}</span>
@@ -868,21 +865,19 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                     return (
                       <div
                         key={lvl}
-                        className={`p-2 rounded-2xl border-2 text-center space-y-1.5 flex flex-col items-center justify-between transition ${
-                          isCurrent
-                            ? 'bg-amber-500/20 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.28)]'
-                            : isUnlocked
+                        className={`p-2 rounded-2xl border-2 text-center space-y-1.5 flex flex-col items-center justify-between transition ${isCurrent
+                          ? 'bg-amber-500/20 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.28)]'
+                          : isUnlocked
                             ? 'bg-emerald-950/35 border-emerald-500/50'
                             : 'bg-[#120c08] border-stone-800'
-                        }`}
+                          }`}
                       >
                         <div className="relative w-full">
                           <img
                             src={cardSrc}
                             alt={`Carromato Nivel ${lvl}`}
-                            className={`w-full rounded-xl object-cover shadow-lg ${
-                              !isUnlocked ? 'opacity-85' : ''
-                            }`}
+                            className={`w-full rounded-xl object-cover shadow-lg ${!isUnlocked ? 'opacity-85' : ''
+                              }`}
                             draggable={false}
                           />
                           {isCurrent && (

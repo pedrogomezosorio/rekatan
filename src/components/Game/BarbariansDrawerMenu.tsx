@@ -270,10 +270,9 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         id: 'BA_MOVE_KNIGHT',
         title: 'Mover Caballero en el Mapa',
         subtitle: 'Selecciona tu caballero y luego el camino de destino',
-        remainingLabel: `${
-          Object.values(mb.edgeKnights).filter((k) => k.playerId === me.id && k.mpRemaining > 0)
-            .length
-        } listos`,
+        remainingLabel: `${Object.values(mb.edgeKnights).filter((k) => k.playerId === me.id && k.mpRemaining > 0)
+          .length
+          } listos`,
         icon: <Swords className="w-5 h-5 text-amber-300" />,
         cost: {},
         badgeLabel: '3–5 PM',
@@ -446,12 +445,12 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
     mb.scenario === 'FISHERMEN_OF_CATAN'
       ? `Pesca (${totalFish} 🐟)`
       : mb.scenario === 'RIVERS_OF_CATAN'
-      ? `Ríos (${pb.goldCoins} 🪙)`
-      : mb.scenario === 'THE_CARAVANS'
-      ? `Caravanas (${mb.camelsRemaining} 🐪)`
-      : mb.scenario === 'BARBARIAN_ATTACK'
-      ? `Caballeros (${pb.prisonersCount} Pris.)`
-      : `Carromato (Nv.${pb.wagonLevel} · ${pb.wagonMpRemaining} PM)`;
+        ? `Ríos (${pb.goldCoins} 🪙)`
+        : mb.scenario === 'THE_CARAVANS'
+          ? `Caravanas (${mb.camelsRemaining} 🐪)`
+          : mb.scenario === 'BARBARIAN_ATTACK'
+            ? `Caballeros (${pb.prisonersCount} Pris.)`
+            : `Carromato (Nv.${pb.wagonLevel} · ${pb.wagonMpRemaining} PM)`;
 
   return (
     <div className="relative flex items-center w-full">
@@ -498,19 +497,17 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
                       type="button"
                       disabled={!opt.canExecute}
                       onClick={opt.onTrigger}
-                      className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 opacity-100 ${
-                        opt.canExecute
-                          ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
-                          : 'bg-[#150f0b] border-stone-800 text-stone-300 cursor-not-allowed'
-                      }`}
+                      className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 opacity-100 ${opt.canExecute
+                        ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
+                        : 'bg-[#150f0b] border-stone-800 text-stone-300 cursor-not-allowed'
+                        }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`p-2 rounded-xl shrink-0 border opacity-100 ${
-                            opt.canExecute
-                              ? 'bg-amber-950/80 border-amber-500/50'
-                              : 'bg-stone-900 border-stone-700'
-                          }`}
+                          className={`p-2 rounded-xl shrink-0 border opacity-100 ${opt.canExecute
+                            ? 'bg-amber-950/80 border-amber-500/50'
+                            : 'bg-stone-900 border-stone-700'
+                            }`}
                         >
                           {opt.icon}
                         </div>
@@ -559,11 +556,10 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-black flex items-center justify-between gap-2 transition cursor-pointer active:scale-98 opacity-100 ${
-          isOpen
-            ? 'bg-amber-950 border-amber-400 text-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
-            : 'bg-[#2a1d13] bg-gradient-to-r from-[#2a1d13] via-[#332317] to-[#20150d] hover:from-[#3a281a] hover:to-[#2d1e13] border-[#d4af37]/60 text-amber-200 shadow'
-        }`}
+        className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-black flex items-center justify-between gap-2 transition cursor-pointer active:scale-98 opacity-100 ${isOpen
+          ? 'bg-amber-950 border-amber-400 text-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
+          : 'bg-[#2a1d13] bg-gradient-to-r from-[#2a1d13] via-[#332317] to-[#20150d] hover:from-[#3a281a] hover:to-[#2d1e13] border-[#d4af37]/60 text-amber-200 shadow'
+          }`}
         title="Acciones del escenario de Mercaderes y Bárbaros"
       >
         <span className="flex items-center gap-1.5 truncate">
