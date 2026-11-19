@@ -1,5 +1,11 @@
 import { BRANCH_META } from '../../shared/citiesKnightsConfig';
-import { MB_TILE_ASSETS, MB_TOKEN_ASSETS } from '../../shared/expansionsConfig';
+import {
+  MB_TILE_ASSETS,
+  MB_TOKEN_ASSETS,
+  getBridgeToken,
+  getCommodityTokenImage,
+  getWagonPieceToken,
+} from '../../shared/expansionsConfig';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, ShieldAlert } from 'lucide-react';
@@ -2164,22 +2170,52 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 if (!e) return null;
                 const mx = (e.x1 + e.x2) / 2;
                 const my = (e.y1 + e.y2) / 2;
+                const angleDeg = (Math.atan2(e.y2 - e.y1, e.x2 - e.x1) * 180) / Math.PI;
                 const ownerId = barbarians.bridgeOwners[eid];
                 const owner = players.find((p) => p.id === ownerId);
+                if (owner) {
+                  return (
+                    <g
+                      key={`bridge-${eid}`}
+                      transform={`translate(${mx}, ${my}) rotate(${angleDeg})`}
+                      filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                    >
+                      <image
+                        href={getBridgeToken(owner.color)}
+                        x={-22}
+                        y={-12}
+                        width={44}
+                        height={24}
+                        preserveAspectRatio="xMidYMid slice"
+                      />
+                      <rect
+                        x={-22}
+                        y={-12}
+                        width={44}
+                        height={24}
+                        rx={4}
+                        fill="none"
+                        stroke={PLAYER_COLORS[owner.color].stroke}
+                        strokeWidth={1.6}
+                      />
+                    </g>
+                  );
+                }
                 return (
                   <g key={`bridge-${eid}`} transform={`translate(${mx}, ${my})`}>
                     <rect
-                      x={-26}
-                      y={-9}
-                      width={52}
-                      height={18}
-                      rx={6}
-                      fill={owner ? PLAYER_COLORS[owner.color].primary : '#1e293b'}
+                      x={-22}
+                      y={-8}
+                      width={44}
+                      height={16}
+                      rx={5}
+                      fill="rgba(15, 23, 42, 0.85)"
                       stroke="#fbbf24"
-                      strokeWidth={1.6}
+                      strokeWidth={1.4}
+                      strokeDasharray="3 2"
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="900">
-                      {owner ? '🌉 PUENTE' : '🌉 PASO'}
+                    <text x={0} y={3} textAnchor="middle" fill="#fde68a" fontSize="7.5" fontWeight="900">
+                      PASO
                     </text>
                   </g>
                 );
@@ -2205,11 +2241,20 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 const mx = (e.x1 + e.x2) / 2;
                 const my = (e.y1 + e.y2) / 2;
                 return (
-                  <g key={`camel-${eid}`} transform={`translate(${mx}, ${my - 8})`}>
-                    <circle cx={0} cy={0} r={11} fill="#b45309" stroke="#fde68a" strokeWidth={1.8} />
-                    <text x={0} y={4} textAnchor="middle" fontSize="11">
-                      🐪
-                    </text>
+                  <g
+                    key={`camel-${eid}`}
+                    transform={`translate(${mx}, ${my - 4})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle cx={0} cy={0} r={14} fill="#78350f" stroke="#fde68a" strokeWidth={1.8} />
+                    <image
+                      href={MB_TOKEN_ASSETS.CAMEL}
+                      x={-13}
+                      y={-13}
+                      width={26}
+                      height={26}
+                      preserveAspectRatio="xMidYMid slice"
+                    />
                   </g>
                 );
               })}
@@ -2221,19 +2266,30 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 if (!hex) return null;
                 const isConq = count >= 3;
                 return (
-                  <g key={`hbarb-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 23})`}>
+                  <g
+                    key={`hbarb-${hid}`}
+                    transform={`translate(${hex.center.x}, ${hex.center.y + 23})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
                     <rect
                       x={-44}
-                      y={-10}
+                      y={-11}
                       width={88}
-                      height={19}
-                      rx={7}
-                      fill={isConq ? '#7f1d1d' : '#292524'}
-                      stroke={isConq ? '#f87171' : '#d6d3d1'}
+                      height={22}
+                      rx={11}
+                      fill={isConq ? '#7f1d1d' : '#1c1917'}
+                      stroke={isConq ? '#f87171' : '#d4af37'}
                       strokeWidth={1.6}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
-                      {isConq ? '🔥 CONQUISTADO (3)' : `⚔️ ${count}/3 BÁRBAROS`}
+                    <image
+                      href={MB_TOKEN_ASSETS.BARBARIAN}
+                      x={-42}
+                      y={-10}
+                      width={20}
+                      height={20}
+                    />
+                    <text x={8} y={3.5} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      {isConq ? 'CONQUISTADO' : `${count}/3 BÁRBAROS`}
                     </text>
                   </g>
                 );
@@ -2262,18 +2318,26 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* 9e. Wagons & Edge Barbarians (Mercaderes y Bárbaros — los 3 Destinos usan sus losetas ilustradas) */}
+              {/* 9e. Wagons & Edge Barbarians (Mercaderes y Bárbaros — fichas oficiales de Carromato, Mercancía y Bárbaro) */}
               {barbarians.edgeBarbarians.map((eid) => {
                 const e = board.edges[eid];
                 if (!e) return null;
                 const mx = (e.x1 + e.x2) / 2;
                 const my = (e.y1 + e.y2) / 2;
                 return (
-                  <g key={`ebarb-${eid}`} transform={`translate(${mx}, ${my})`}>
-                    <circle cx={0} cy={0} r={11} fill="#7f1d1d" stroke="#fca5a5" strokeWidth={1.8} />
-                    <text x={0} y={4} textAnchor="middle" fontSize="10">
-                      ⚔️
-                    </text>
+                  <g
+                    key={`ebarb-${eid}`}
+                    transform={`translate(${mx}, ${my})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle cx={0} cy={0} r={14} fill="#450a0a" stroke="#f87171" strokeWidth={2} />
+                    <image
+                      href={MB_TOKEN_ASSETS.BARBARIAN}
+                      x={-13}
+                      y={-13}
+                      width={26}
+                      height={26}
+                    />
                   </g>
                 );
               })}
@@ -2282,22 +2346,46 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 const wVid = pl.barbarians?.wagonVertexId;
                 const v = wVid ? board.vertices[wVid] : null;
                 if (!v || !pl.barbarians) return null;
-                const offsetX = (idx - 1.5) * 9;
+                const offsetX = (idx - (players.length - 1) / 2) * 14;
                 return (
-                  <g key={`wagon-${pl.id}`} transform={`translate(${v.x + offsetX}, ${v.y - 22})`}>
-                    <rect
-                      x={-22}
-                      y={-10}
-                      width={44}
-                      height={19}
-                      rx={7}
+                  <g
+                    key={`wagon-${pl.id}`}
+                    transform={`translate(${v.x + offsetX}, ${v.y - 22})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={16}
                       fill={PLAYER_COLORS[pl.color].primary}
                       stroke="#ffffff"
-                      strokeWidth={1.8}
+                      strokeWidth={2}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
-                      🛞 Nv.{pl.barbarians.wagonLevel}
+                    <image
+                      href={getWagonPieceToken(pl.color)}
+                      x={-14.5}
+                      y={-14.5}
+                      width={29}
+                      height={29}
+                    />
+                    {/* Nivel del carromato */}
+                    <circle cx={12} cy={12} r={7.5} fill="#1c1917" stroke="#fbbf24" strokeWidth={1.4} />
+                    <text x={12} y={15} textAnchor="middle" fill="#fef08a" fontSize="8" fontWeight="900">
+                      {pl.barbarians.wagonLevel}
                     </text>
+                    {/* Ficha de mercancía cargada a bordo */}
+                    {pl.barbarians.activeCommodityTile && (
+                      <g transform="translate(-12, -12)">
+                        <circle cx={0} cy={0} r={8.5} fill="#1c1917" stroke="#ffffff" strokeWidth={1.3} />
+                        <image
+                          href={getCommodityTokenImage(pl.barbarians.activeCommodityTile)}
+                          x={-7.5}
+                          y={-7.5}
+                          width={15}
+                          height={15}
+                        />
+                      </g>
+                    )}
                   </g>
                 );
               })}

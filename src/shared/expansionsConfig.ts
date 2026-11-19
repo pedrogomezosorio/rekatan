@@ -757,6 +757,20 @@ export const MB_TOKEN_ASSETS = {
   OLD_BOOT: '/assets/barbarians/tokens/old_boot.png',
   WEALTHIEST_SETTLER: '/assets/barbarians/tokens/wealthiest_settler.png',
   POOREST_SETTLER: '/assets/barbarians/tokens/poorest_settler.png',
+  BARBARIAN: '/assets/barbarians/tokens/barbarian_token.png',
+  CAMEL: '/assets/barbarians/tokens/camel_token.png',
+  TRADE_TOKEN: '/assets/barbarians/tokens/trade_token.png',
+  GOLD_COIN_1: '/assets/barbarians/tokens/gold_coin_1.png',
+  GOLD_COIN_5: '/assets/barbarians/tokens/gold_coin_5.png',
+  BADGE_CASTLE: '/assets/barbarians/tokens/badge_castle.png',
+  BADGE_QUARRY: '/assets/barbarians/tokens/badge_quarry.png',
+  BADGE_GLASSWORKS: '/assets/barbarians/tokens/badge_glassworks.png',
+  COMMODITIES: {
+    MARBLE: '/assets/barbarians/tokens/commodity_marble.png',
+    GLASS: '/assets/barbarians/tokens/commodity_glass.png',
+    TOOLS: '/assets/barbarians/tokens/commodity_tools.png',
+    SAND: '/assets/barbarians/tokens/commodity_sand.png',
+  } as Record<CommodityDeliveryType, string>,
   FISHING_GROUNDS: {
     4: '/assets/barbarians/tokens/fishing_ground_4.png',
     5: '/assets/barbarians/tokens/fishing_ground_5.png',
@@ -768,6 +782,8 @@ export const MB_TOKEN_ASSETS = {
 } as const;
 
 export const MB_CARD_ASSETS = {
+  // Variantes y tarjetas especiales
+  HARBOR_MASTER: '/assets/barbarians/cards/harbor_master.png',
   // Pescadores de Catán — tarjeta oficial de costes de pescado
   FISH_COSTS_FRONT: '/assets/barbarians/cards/fish_costs_front.png',
   FISH_COSTS_BACK: '/assets/barbarians/cards/fish_costs_back.png',
@@ -829,6 +845,31 @@ export function getWagonCardImage(level: 1 | 2 | 3 | 4 | 5, color: PlayerColor):
 
 export function getWagonCostCardImage(level: 1 | 2 | 3 | 4 | 5): string {
   return `/assets/barbarians/wagons/wagon_cost_${level}.png`;
+}
+
+function getMBColorSlug(color: PlayerColor): 'blue' | 'white' | 'orange' | 'red' {
+  if (color === 'BLUE' || color === 'PURPLE') return 'blue';
+  if (color === 'WHITE' || color === 'GREEN') return 'white';
+  if (color === 'ORANGE') return 'orange';
+  return 'red';
+}
+
+export function getWagonPieceToken(color: PlayerColor): string {
+  return `/assets/barbarians/tokens/wagon_piece_${getMBColorSlug(color)}.png`;
+}
+
+export function getBridgeToken(color: PlayerColor): string {
+  return `/assets/barbarians/tokens/bridge_${getMBColorSlug(color)}.png`;
+}
+
+export function getCommodityTokenImage(commodity: CommodityDeliveryType): string {
+  return MB_TOKEN_ASSETS.COMMODITIES[commodity];
+}
+
+export function getDestinationBadgeImage(dest: DestinationType): string {
+  if (dest === 'CASTLE') return MB_TOKEN_ASSETS.BADGE_CASTLE;
+  if (dest === 'QUARRY') return MB_TOKEN_ASSETS.BADGE_QUARRY;
+  return MB_TOKEN_ASSETS.BADGE_GLASSWORKS;
 }
 
 export function getBarbariansDevCardImage(type: BarbariansDevCard['type']): string {

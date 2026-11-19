@@ -13,6 +13,8 @@ import {
   WAGON_LEVELS,
   getBarbariansDevCardImage,
   getCatanEventCardImage,
+  getCommodityTokenImage,
+  getDestinationBadgeImage,
   getWagonCardImage,
   getWagonCostCardImage,
 } from '../../shared/expansionsConfig';
@@ -177,8 +179,14 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
 
           {mb.scenario === 'THE_CARAVANS' && (
             <div className="flex items-center justify-between text-[10px] text-stone-200">
-              <span className="font-bold text-amber-300">
-                🐪 {mb.camelEdgeIds.length} Camellos en ruta
+              <span className="flex items-center gap-1.5 font-bold text-amber-300">
+                <img
+                  src={MB_TOKEN_ASSETS.CAMEL}
+                  alt="Camello"
+                  className="w-4 h-4 rounded-full object-cover shadow"
+                  draggable={false}
+                />
+                <span>{mb.camelEdgeIds.length} Camellos</span>
               </span>
               <span className="text-stone-400">Reserva: {mb.camelsRemaining}</span>
             </div>
@@ -186,12 +194,25 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
 
           {mb.scenario === 'BARBARIAN_ATTACK' && (
             <div className="flex items-center justify-between text-[10px] text-stone-200">
-              <span className="font-bold text-amber-300">
-                ⛓️ {pb.prisonersCount} Pris. (+{Math.floor(pb.prisonersCount / 2)} PV) · 🪙{' '}
-                {pb.goldCoins}
+              <span className="flex items-center gap-1 font-bold text-amber-300">
+                <img
+                  src={MB_TOKEN_ASSETS.BARBARIAN}
+                  alt="Bárbaros"
+                  className="w-4 h-4 rounded-full object-cover shadow"
+                  draggable={false}
+                />
+                <span>
+                  {pb.prisonersCount} Pris. (+{Math.floor(pb.prisonersCount / 2)} PV) · {pb.goldCoins}
+                </span>
+                <img
+                  src={pb.goldCoins >= 5 ? MB_TOKEN_ASSETS.GOLD_COIN_5 : MB_TOKEN_ASSETS.GOLD_COIN_1}
+                  alt="Oro"
+                  className="w-3.5 h-3.5 rounded-full object-cover"
+                  draggable={false}
+                />
               </span>
               <span className="text-red-300 font-bold">
-                {mb.conqueredHexIds.length} Costas Conq.
+                {mb.conqueredHexIds.length} Conq.
               </span>
             </div>
           )}
@@ -205,13 +226,58 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                   className="w-6 h-9 rounded object-cover border border-amber-400/60 shadow shrink-0"
                   draggable={false}
                 />
+                {pb.activeCommodityTile && (
+                  <img
+                    src={getCommodityTokenImage(pb.activeCommodityTile)}
+                    alt={COMMODITY_DELIVERY_META[pb.activeCommodityTile].name}
+                    className="w-5 h-5 rounded-full object-cover border border-white/50 shadow shrink-0"
+                    draggable={false}
+                  />
+                )}
                 <span className="font-bold text-amber-300 truncate">
-                  Nv.{pb.wagonLevel} ({pb.wagonMpRemaining} PM) · 🪙 {pb.goldCoins}
+                  Nv.{pb.wagonLevel} ({pb.wagonMpRemaining} PM) · {pb.goldCoins}
                 </span>
+                <img
+                  src={pb.goldCoins >= 5 ? MB_TOKEN_ASSETS.GOLD_COIN_5 : MB_TOKEN_ASSETS.GOLD_COIN_1}
+                  alt="Oro"
+                  className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                  draggable={false}
+                />
               </div>
               <span className="text-emerald-300 font-black shrink-0">
                 📦 {pb.deliveredCommoditiesCount}
               </span>
+            </div>
+          )}
+
+          {(mb.variants.harborMaster || mb.variants.catanForTwo) && (
+            <div className="flex items-center justify-between gap-1.5 text-[10px] pt-1 border-t border-white/10">
+              {mb.variants.harborMaster && (
+                <span className="inline-flex items-center gap-1 text-sky-200 font-bold truncate">
+                  <img
+                    src={MB_CARD_ASSETS.HARBOR_MASTER}
+                    alt="Capitán del puerto"
+                    className="w-4 h-5 rounded object-cover border border-sky-400/60 shrink-0"
+                    draggable={false}
+                  />
+                  <span className="truncate">
+                    {mb.harborMasterPlayerId === me.id
+                      ? 'Capitán (+2 PV)'
+                      : `Puerto: ${pb.harborPoints} pts`}
+                  </span>
+                </span>
+              )}
+              {mb.variants.catanForTwo && (
+                <span className="inline-flex items-center gap-1 text-amber-200 font-bold shrink-0">
+                  <img
+                    src={MB_TOKEN_ASSETS.TRADE_TOKEN}
+                    alt="Fichas de comercio"
+                    className="w-4 h-4 rounded-full object-cover shrink-0"
+                    draggable={false}
+                  />
+                  <span>{pb.tradeTokens} fichas</span>
+                </span>
+              )}
             </div>
           )}
 
@@ -560,8 +626,13 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
             {scenarioSpec.usesGold && (
               <div className="p-4 rounded-2xl bg-[#1f1610] border border-[#d4af37]/40 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                    <Coins className="w-4 h-4 text-yellow-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                    <img
+                      src={pb.goldCoins >= 5 ? MB_TOKEN_ASSETS.GOLD_COIN_5 : MB_TOKEN_ASSETS.GOLD_COIN_1}
+                      alt="Moneda de oro"
+                      className="w-5 h-5 rounded-full object-cover shadow"
+                      draggable={false}
+                    />
                     <span>
                       Tesorería y Mercado de Oro ({pb.goldCoins} monedas · Compras este turno:{' '}
                       {pb.goldPurchasesThisTurn}/2)
@@ -733,20 +804,22 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                   <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-400/60 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <img
-                        src={
-                          COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetDestination === 'CASTLE'
-                            ? MB_TILE_ASSETS.DEST_CASTLE
-                            : COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetDestination === 'QUARRY'
-                            ? MB_TILE_ASSETS.DEST_QUARRY
-                            : MB_TILE_ASSETS.DEST_GLASSWORKS
-                        }
+                        src={getCommodityTokenImage(pb.activeCommodityTile)}
+                        alt={COMMODITY_DELIVERY_META[pb.activeCommodityTile].name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-amber-300/80 shadow-lg shrink-0"
+                        draggable={false}
+                      />
+                      <img
+                        src={getDestinationBadgeImage(
+                          COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetDestination
+                        )}
                         alt={COMMODITY_DELIVERY_META[pb.activeCommodityTile].targetName}
-                        className="w-12 h-14 object-contain drop-shadow shrink-0"
+                        className="w-11 h-11 rounded-full object-cover border border-amber-400/60 shadow shrink-0 hidden sm:block"
                         draggable={false}
                       />
                       <div>
                         <div className="text-xs font-black text-amber-200">
-                          {COMMODITY_DELIVERY_META[pb.activeCommodityTile].emoji} Mercancía actual a bordo:{' '}
+                          Mercancía actual a bordo:{' '}
                           {COMMODITY_DELIVERY_META[pb.activeCommodityTile].name}
                         </div>
                         <p className="text-[11px] text-amber-100/80">
@@ -1071,6 +1144,75 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 5d. Variantes Oficiales: El Capitán del Puerto y Catán para Dos */}
+            {(mb.variants.harborMaster || mb.variants.catanForTwo) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {mb.variants.harborMaster && (
+                  <div className="p-4 rounded-2xl bg-[#1f1610] border border-sky-500/40 flex items-start gap-3">
+                    <img
+                      src={MB_CARD_ASSETS.HARBOR_MASTER}
+                      alt="Capitán del puerto (2 PV)"
+                      className="w-24 rounded-xl border border-amber-400/70 shadow-xl shrink-0"
+                      draggable={false}
+                    />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="text-xs font-black uppercase tracking-wider text-sky-300">
+                        Capitán del Puerto (+2 PV)
+                      </div>
+                      <p className="text-[11px] text-stone-300">
+                        {mb.harborMasterPlayerId
+                          ? `Poseedor actual: ${
+                              s.players.find((p) => p.id === mb.harborMasterPlayerId)?.name || '—'
+                            }`
+                          : 'Nadie ha alcanzado aún los 3 puntos de puerto (1 por poblado costero en puerto, 2 por ciudad).'}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {s.players.map((pl) => (
+                          <span
+                            key={pl.id}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
+                              mb.harborMasterPlayerId === pl.id
+                                ? 'bg-sky-900/60 border-sky-400 text-sky-100'
+                                : 'bg-[#140e0a] border-stone-800 text-stone-300'
+                            }`}
+                          >
+                            {pl.name}: {pl.barbarians?.harborPoints || 0} pts
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {mb.variants.catanForTwo && (
+                  <div className="p-4 rounded-2xl bg-[#1f1610] border border-amber-500/40 flex items-start gap-3">
+                    <img
+                      src={MB_TOKEN_ASSETS.TRADE_TOKEN}
+                      alt="Ficha de Comercio (Catán para Dos)"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-amber-400/70 shadow-xl shrink-0"
+                      draggable={false}
+                    />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="text-xs font-black uppercase tracking-wider text-amber-300">
+                        Catán para Dos · Tus Fichas de Comercio: {pb.tradeTokens}
+                      </div>
+                      <p className="text-[11px] text-stone-300">
+                        Gasta 1 ficha (o 2 si vas empatado/por delante) para intercambiar a ciegas con tu rival o retirar al Ladrón al desierto.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={!isMyMainTurn || pb.tradeTokens < 1 || !s.board.robberHexId}
+                        onClick={() => dispatchAction({ type: 'MB_TRADE_TOKEN_DISMISS_ROBBER' })}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
+                      >
+                        Retirar Ladrón con Ficha de Comercio
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

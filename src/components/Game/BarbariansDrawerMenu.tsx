@@ -17,6 +17,7 @@ import {
   MB_CARD_ASSETS,
   MB_TOKEN_ASSETS,
   WAGON_LEVELS,
+  getBridgeToken,
   getWagonCardImage,
   getWagonCostCardImage,
 } from '../../shared/expansionsConfig';
@@ -167,7 +168,14 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Construir Puente (+3 Oros)',
         subtitle: 'Haz clic en un paso de puente iluminado sobre el río',
         remainingLabel: `${pb.bridgesLeft} disp.`,
-        icon: <Hammer className="w-5 h-5 text-amber-300" />,
+        icon: (
+          <img
+            src={getBridgeToken(me.color)}
+            alt="Puente"
+            className="w-8 h-5 rounded object-cover border border-amber-400/60 shadow"
+            draggable={false}
+          />
+        ),
         cost: { BRICK: 2, WOOD: 1 },
         canExecute: canActBuild && pb.bridgesLeft > 0 && hasRes({ BRICK: 2, WOOD: 1 }),
         onTrigger: () => {
@@ -180,9 +188,16 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Comercio de Oro (2 Oros → 1 Recurso)',
         subtitle: 'Compra hasta 2 materias primas por turno con tu oro',
         remainingLabel: `${pb.goldCoins} oros`,
-        icon: <Coins className="w-5 h-5 text-yellow-300" />,
+        icon: (
+          <img
+            src={pb.goldCoins >= 5 ? MB_TOKEN_ASSETS.GOLD_COIN_5 : MB_TOKEN_ASSETS.GOLD_COIN_1}
+            alt="Oro"
+            className="w-7 h-7 rounded-full object-cover shadow"
+            draggable={false}
+          />
+        ),
         cost: {},
-        badgeLabel: '2 🪙',
+        badgeLabel: '2 Oros',
         canExecute: true,
         onTrigger: () => {
           onToggleOpen();
@@ -197,7 +212,14 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Colocar Camello en el Mapa',
         subtitle: 'Haz clic en un camino iluminado para prolongar la caravana',
         remainingLabel: `${mb.camelsRemaining} camellos`,
-        icon: <Compass className="w-5 h-5 text-amber-300" />,
+        icon: (
+          <img
+            src={MB_TOKEN_ASSETS.CAMEL}
+            alt="Camello"
+            className="w-7 h-7 rounded-full object-cover shadow"
+            draggable={false}
+          />
+        ),
         cost: {},
         badgeLabel: mb.pendingCamelVote ? '¡Activo!' : 'Caravana',
         canExecute: canActBuild && mb.camelsRemaining > 0,
@@ -281,10 +303,17 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         id: 'BA_GOLD_MARKET',
         title: 'Prisioneros y Mercado de Oro',
         subtitle: 'Canjea 2 monedas de oro por 1 materia prima',
-        remainingLabel: `${pb.prisonersCount} pris. · ${pb.goldCoins} 🪙`,
-        icon: <Coins className="w-5 h-5 text-yellow-300" />,
+        remainingLabel: `${pb.prisonersCount} pris. · ${pb.goldCoins} oros`,
+        icon: (
+          <img
+            src={MB_TOKEN_ASSETS.BARBARIAN}
+            alt="Bárbaros y oro"
+            className="w-7 h-7 rounded-full object-cover shadow"
+            draggable={false}
+          />
+        ),
         cost: {},
-        badgeLabel: '2 🪙',
+        badgeLabel: '2 Oros',
         canExecute: true,
         onTrigger: () => {
           onToggleOpen();
