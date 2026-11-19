@@ -5,28 +5,34 @@ import {
   RESOURCE_META,
 } from '../../shared/constants';
 import {
-  EXPLORERS_PIRATES_SCENARIOS,
+  EP_CARD_ASSETS,
   EP_MISSION_META,
   EP_SPICE_PERK_META,
+  EP_TOKEN_ASSETS,
+  EXPLORERS_PIRATES_SCENARIOS,
+  getEPCargoToken,
+  getEPHarborCityToken,
+  getEPMissionGuideCardImage,
+  getEPMissionTrackImage,
+  getEPMissionVPImage,
+  getEPSettlerToken,
+  getEPShipToken,
+  getEPUnitToken,
 } from '../../shared/expansionsConfig';
 import type {
   EPCargoItem,
   GameAction,
   GameState,
-  ResourceType,
 } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 import type { ActiveExplorersBoardMode } from './ExplorersPiratesDrawerMenu';
 import {
   Anchor,
+  BookOpen,
   Coins,
-  Compass,
   Crown,
-  Fish,
-  Shield,
+  ScrollText,
   Ship,
-  Users,
-  X,
 } from 'lucide-react';
 
 interface ExplorersPiratesPanelProps {
@@ -47,9 +53,10 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
   gameState: s,
   playerId,
   dispatchAction,
-  onStartBoardMode,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showTurnSummary, setShowTurnSummary] = useState(false);
+  const [showMissionGuides, setShowMissionGuides] = useState(false);
 
   useEffect(() => {
     const openHandler = () => setIsModalOpen(true);
@@ -103,7 +110,14 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
           {/* Gold, Fleet & Unexplored Hexes */}
           <div className="flex items-center justify-between text-[10px] font-bold bg-black/40 px-2 py-1 rounded-lg border border-amber-500/20">
             <span className="text-amber-300">🪙 {pep.goldCoins} Oros</span>
-            <span className="text-cyan-300">⛵ {myShips.length}/3 Barcos</span>
+            <span className="text-cyan-300 flex items-center gap-1">
+              <img
+                src={getEPShipToken(me.color)}
+                alt="Barco"
+                className="w-3.5 h-3.5 rounded-full object-cover"
+              />
+              {myShips.length}/3
+            </span>
             <span className="text-stone-300">🧭 {unexploredCount} Niebla</span>
           </div>
 
@@ -197,8 +211,16 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                         className="p-3.5 rounded-2xl bg-[#1f1610] border border-[#d4af37]/40 space-y-2.5"
                       >
                         <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{meta.emoji}</span>
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={getEPMissionVPImage(mId)}
+                              alt={meta.cardTitle}
+                              className={`w-12 h-12 rounded-xl object-cover shrink-0 shadow-md border-2 ${
+                                leaderPlayer
+                                  ? 'border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]'
+                                  : 'border-stone-700 opacity-85'
+                              }`}
+                            />
                             <div>
                               <div className="text-xs sm:text-sm font-black text-amber-100">
                                 {meta.title}
@@ -271,13 +293,31 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                     Tu Flota Marítima ({myShips.length}/3 Barcos) y Ciudades Portuarias ({myBasins.length}/4)
                   </span>
                 </span>
-                <div className="flex items-center gap-2 text-[11px] text-stone-300">
+                <div className="flex items-center gap-2 text-[11px] text-stone-300 flex-wrap">
                   <span>Reserva:</span>
-                  <span className="px-2 py-0.5 rounded bg-black/50 text-amber-200 font-bold">
-                    🧑‍🌾 {pep.settlersLeft} Colonos
+                  <span className="px-2 py-0.5 rounded bg-black/50 text-amber-200 font-bold flex items-center gap-1.5">
+                    <img
+                      src={getEPHarborCityToken(me.color)}
+                      alt="Ciudad Portuaria"
+                      className="w-4 h-4 rounded-full object-cover"
+                    />
+                    {pep.harborCitiesLeft} Puertos
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-black/50 text-sky-200 font-bold">
-                    🛡️ {pep.unitsLeft} Unidades
+                  <span className="px-2 py-0.5 rounded bg-black/50 text-amber-200 font-bold flex items-center gap-1.5">
+                    <img
+                      src={getEPSettlerToken(me.color)}
+                      alt="Colono"
+                      className="w-4 h-4 rounded-full object-cover"
+                    />
+                    {pep.settlersLeft} Colonos
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-black/50 text-sky-200 font-bold flex items-center gap-1.5">
+                    <img
+                      src={getEPUnitToken(me.color)}
+                      alt="Unidad"
+                      className="w-4 h-4 rounded-full object-cover"
+                    />
+                    {pep.unitsLeft} Unidades
                   </span>
                 </div>
               </div>
@@ -318,22 +358,37 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                         className="p-3 rounded-xl bg-[#140e0a] border border-stone-800 space-y-2"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-cyan-200">
-                            ⛵ Barco #{idx + 1}
+                          <span className="text-xs font-black text-cyan-200 flex items-center gap-2">
+                            <img
+                              src={getEPShipToken(me.color)}
+                              alt={`Barco #${idx + 1}`}
+                              className="w-6 h-6 rounded-full object-cover border border-cyan-400/60"
+                            />
+                            Barco #{idx + 1}
                           </span>
                           <span className="text-[11px] font-mono font-black text-amber-300">
                             {ship.mpRemaining} PM disp.
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-stone-300">
-                          Bodega:{' '}
+                        <div className="text-[11px] text-stone-300 flex items-center flex-wrap gap-1.5">
+                          <span>Bodega:</span>
                           {ship.cargo.length === 0 ? (
                             <span className="text-stone-500">Vacía (2 espacios libres)</span>
                           ) : (
-                            ship.cargo
-                              .map((c) => `${CARGO_LABELS[c].emoji} ${CARGO_LABELS[c].name}`)
-                              .join(', ')
+                            ship.cargo.map((c, cIdx) => (
+                              <span
+                                key={`${c}-${cIdx}`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-stone-900 border border-stone-700 text-[10px] font-bold text-stone-100"
+                              >
+                                <img
+                                  src={getEPCargoToken(c, me.color)}
+                                  alt={CARGO_LABELS[c].name}
+                                  className="w-4 h-4 rounded-full object-cover"
+                                />
+                                {CARGO_LABELS[c].name}
+                              </span>
+                            ))
                           )}
                         </div>
 
@@ -399,9 +454,14 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                                   hexId: adjFishHexId,
                                 })
                               }
-                              className="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-stone-950 font-black text-[10px] cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-stone-950 font-black text-[10px] cursor-pointer inline-flex items-center gap-1"
                             >
-                              🐟 Pescar Banco
+                              <img
+                                src={EP_TOKEN_ASSETS.FISH_SHOAL}
+                                alt=""
+                                className="w-3.5 h-3.5 rounded-full"
+                              />
+                              Pescar Banco
                             </button>
                           )}
 
@@ -416,9 +476,14 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                                   hexId: adjSpiceHexId,
                                 })
                               }
-                              className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-[10px] cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black text-[10px] cursor-pointer inline-flex items-center gap-1"
                             >
-                              🌶️ Comerciar Especias
+                              <img
+                                src={EP_TOKEN_ASSETS.SPICE_SACK}
+                                alt=""
+                                className="w-3.5 h-3.5 rounded-full"
+                              />
+                              Comerciar Especias
                             </button>
                           )}
 
@@ -506,16 +571,84 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
               </div>
             </div>
 
-            {/* 4. Resumen de Reglas del Escenario */}
-            <div className="p-4 rounded-2xl bg-[#140e0a] border border-stone-800 space-y-2">
-              <div className="text-xs font-black uppercase tracking-wider text-amber-300">
-                📜 Reglas Oficiales de este Escenario
+            {/* 4. Resumen de Reglas y Tarjetas Oficiales de Referencia */}
+            <div className="p-4 rounded-2xl bg-[#140e0a] border border-stone-800 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="text-xs font-black uppercase tracking-wider text-amber-300">
+                  📜 Reglas Oficiales de este Escenario
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setShowTurnSummary((v) => !v)}
+                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                      showTurnSummary
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                        : 'bg-stone-900 border-stone-700 text-stone-300 hover:border-amber-500/60'
+                    }`}
+                  >
+                    <ScrollText className="w-3.5 h-3.5" />
+                    {showTurnSummary ? 'Ocultar Resumen del Turno' : 'Ver Resumen del Turno'}
+                  </button>
+                  {ep.activeMissions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMissionGuides((v) => !v)}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition ${
+                        showMissionGuides
+                          ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                          : 'bg-stone-900 border-stone-700 text-stone-300 hover:border-amber-500/60'
+                      }`}
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {showMissionGuides ? 'Ocultar Guías de Misión' : 'Ver Pistas y Guías Originales'}
+                    </button>
+                  )}
+                </div>
               </div>
+
               <ul className="space-y-1 text-xs text-stone-300 list-disc pl-4">
                 {scenarioSpec.rulesSummary.map((rule, idx) => (
                   <li key={idx}>{rule}</li>
                 ))}
               </ul>
+
+              {showTurnSummary && (
+                <div className="pt-2 border-t border-stone-800 flex justify-center">
+                  <img
+                    src={EP_CARD_ASSETS.TURN_SUMMARY}
+                    alt="Resumen del turno de Piratas y Exploradores"
+                    className="max-w-sm w-full rounded-2xl border border-[#d4af37]/60 shadow-2xl"
+                  />
+                </div>
+              )}
+
+              {showMissionGuides && ep.activeMissions.length > 0 && (
+                <div className="pt-2 border-t border-stone-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {ep.activeMissions.map((mId) => (
+                    <div
+                      key={`guide-${mId}`}
+                      className="p-2.5 rounded-xl bg-black/40 border border-stone-800 flex flex-col items-center gap-2"
+                    >
+                      <span className="text-[11px] font-black text-amber-200">
+                        {EP_MISSION_META[mId].title}
+                      </span>
+                      <div className="flex items-center justify-center gap-2 w-full">
+                        <img
+                          src={getEPMissionTrackImage(mId)}
+                          alt={`Marcador ${EP_MISSION_META[mId].title}`}
+                          className="h-44 w-auto rounded-lg border border-stone-700 shadow"
+                        />
+                        <img
+                          src={getEPMissionGuideCardImage(mId)}
+                          alt={`Guía ${EP_MISSION_META[mId].title}`}
+                          className="h-44 w-auto rounded-lg border border-stone-700 shadow"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

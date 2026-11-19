@@ -1,9 +1,17 @@
 import { BRANCH_META } from '../../shared/citiesKnightsConfig';
 import {
+  EP_TILE_ASSETS,
+  EP_TOKEN_ASSETS,
   MB_TILE_ASSETS,
   MB_TOKEN_ASSETS,
   getBridgeToken,
   getCommodityTokenImage,
+  getEPCargoToken,
+  getEPFishGroundTileImage,
+  getEPHarborCityToken,
+  getEPShipToken,
+  getEPSpiceTileImage,
+  getEPUnitToken,
   getWagonPieceToken,
 } from '../../shared/expansionsConfig';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -759,6 +767,21 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     : MB_TILE_ASSETS.DEST_QUARRY;
                 hideNumberToken = true;
               }
+            } else if (explorersPirates && isPlayable && hex.terrain !== 'FOG') {
+              // Texturas oficiales escaneadas de Piratas y Exploradores
+              if (explorersPirates.councilHexId === hex.id) {
+                customTexturePath = EP_TILE_ASSETS.COUNCIL_OF_CATAN;
+                hideNumberToken = true;
+              } else if (explorersPirates.pirateLairs[hex.id]) {
+                customTexturePath = EP_TILE_ASSETS.PIRATE_LAIR_GOLD_RIVER;
+                hideNumberToken = !explorersPirates.pirateLairs[hex.id].conquered;
+              } else if (explorersPirates.spiceVillages[hex.id]) {
+                customTexturePath = getEPSpiceTileImage(explorersPirates.spiceVillages[hex.id].perk);
+                hideNumberToken = true;
+              } else if (explorersPirates.fishGrounds[hex.id]) {
+                customTexturePath = getEPFishGroundTileImage(explorersPirates.fishGrounds[hex.id].rollNumber);
+                hideNumberToken = true;
+              }
             }
 
             return (
@@ -965,70 +988,77 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* Consejo de Catán */}
+              {/* Consejo de Catán (resalte dorado exterior sobre la loseta oficial del Consejo) */}
               {explorersPirates.councilHexId && board.hexes[explorersPirates.councilHexId] && (() => {
                 const hex = board.hexes[explorersPirates.councilHexId];
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 1.5)
                   .map((p) => `${p.x},${p.y}`)
                   .join(' ');
                 return (
-                  <g key="ep-council-surf">
-                    <polygon points={pts} fill="#1e1b4b" stroke="#fbbf24" strokeWidth={3.5} />
-                    <circle cx={hex.center.x} cy={hex.center.y} r={board.hexSize * 0.56} fill="#312e81" stroke="#fde047" strokeWidth={1.8} />
-                  </g>
+                  <polygon
+                    key="ep-council-surf"
+                    points={pts}
+                    fill="none"
+                    stroke="#fbbf24"
+                    strokeWidth={2.8}
+                    strokeOpacity={0.9}
+                  />
                 );
               })()}
 
-              {/* Guaridas Piratas / Ríos Auríferos descubiertos */}
+              {/* Guaridas Piratas / Ríos Auríferos descubiertos (borde sutil sobre la loseta oficial) */}
               {Object.values(explorersPirates.pirateLairs).map((lair) => {
                 const hex = board.hexes[lair.hexId];
                 if (!hex || hex.terrain === 'FOG') return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 1.5)
                   .map((p) => `${p.x},${p.y}`)
                   .join(' ');
                 return (
                   <polygon
                     key={`ep-lair-surf-${lair.hexId}`}
                     points={pts}
-                    fill={lair.conquered ? 'rgba(202, 138, 4, 0.25)' : 'rgba(127, 29, 29, 0.45)'}
+                    fill="none"
                     stroke={lair.conquered ? '#facc15' : '#ef4444'}
-                    strokeWidth={3}
+                    strokeWidth={2.8}
+                    strokeOpacity={0.9}
                   />
                 );
               })}
 
-              {/* Caladeros de Peces descubiertos */}
+              {/* Caladeros de Peces descubiertos (borde celeste sutil sobre la loseta oficial con dado 1-6) */}
               {Object.values(explorersPirates.fishGrounds).map((fg) => {
                 const hex = board.hexes[fg.hexId];
                 if (!hex || hex.terrain === 'FOG') return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 1.5)
                   .map((p) => `${p.x},${p.y}`)
                   .join(' ');
                 return (
                   <polygon
                     key={`ep-fish-surf-${fg.hexId}`}
                     points={pts}
-                    fill="rgba(2, 132, 199, 0.42)"
-                    stroke="#38bdf8"
-                    strokeWidth={2.8}
+                    fill="none"
+                    stroke={fg.hasFishShoal ? '#38bdf8' : '#7dd3fc'}
+                    strokeWidth={fg.hasFishShoal ? 2.8 : 1.6}
+                    strokeOpacity={fg.hasFishShoal ? 0.95 : 0.65}
                   />
                 );
               })}
 
-              {/* Aldeas de Especias descubiertas */}
+              {/* Aldeas de Especias descubiertas (borde esmeralda sutil sobre la loseta oficial de especias) */}
               {Object.values(explorersPirates.spiceVillages).map((sv) => {
                 const hex = board.hexes[sv.hexId];
                 if (!hex || hex.terrain === 'FOG') return null;
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 1.5)
                   .map((p) => `${p.x},${p.y}`)
                   .join(' ');
                 return (
                   <polygon
                     key={`ep-spice-surf-${sv.hexId}`}
                     points={pts}
-                    fill="rgba(5, 150, 105, 0.35)"
+                    fill="none"
                     stroke="#34d399"
-                    strokeWidth={2.8}
+                    strokeWidth={2.4}
+                    strokeOpacity={0.85}
                   />
                 );
               })}
@@ -2414,158 +2444,232 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* 10a. Consejo de Catán */}
-              {explorersPirates.councilHexId && board.hexes[explorersPirates.councilHexId] && (
-                <g
-                  transform={`translate(${board.hexes[explorersPirates.councilHexId].center.x}, ${
-                    board.hexes[explorersPirates.councilHexId].center.y
-                  })`}
-                >
-                  <rect
-                    x={-54}
-                    y={-14}
-                    width={108}
-                    height={28}
-                    rx={10}
-                    fill="#1e1b4b"
-                    stroke="#fbbf24"
-                    strokeWidth={2.2}
-                  />
-                  <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9" fontWeight="900">
-                    🏛️ CONSEJO DE CATÁN
-                  </text>
-                </g>
-              )}
+              {/* 10a. Consejo de Catán — la loseta oficial ya muestra la ciudadela y ambos muelles de descarga */}
 
-              {/* 10b. Guaridas de Piratas y Ríos Auríferos */}
+              {/* 10b. Guaridas de Piratas y Ríos Auríferos (ficha compacta mientras no está conquistada; al conquistarse luce la ficha numérica oficial) */}
               {Object.values(explorersPirates.pirateLairs).map((lair) => {
                 const hex = board.hexes[lair.hexId];
-                if (!hex) return null;
+                if (!hex || hex.terrain === 'FOG') return null;
                 const landedCount = Object.values(lair.unitsByPlayer).reduce((a, b) => a + b, 0);
+                const waitingCount = Object.values(lair.waitingPickupByPlayer || {}).reduce(
+                  (a, b) => a + b,
+                  0
+                );
+                if (lair.conquered) {
+                  if (waitingCount === 0) return null;
+                  return (
+                    <g
+                      key={`lair-pickup-${lair.hexId}`}
+                      transform={`translate(${hex.center.x}, ${hex.center.y - 26})`}
+                      filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                    >
+                      <rect
+                        x={-34}
+                        y={-9}
+                        width={68}
+                        height={18}
+                        rx={9}
+                        fill="#1c1917"
+                        stroke="#facc15"
+                        strokeWidth={1.4}
+                      />
+                      <text x={0} y={3} textAnchor="middle" fill="#fef08a" fontSize="8" fontWeight="900">
+                        ⚓ {waitingCount} por recoger
+                      </text>
+                    </g>
+                  );
+                }
+                const landedTokens: string[] = [];
+                for (const [pid, cnt] of Object.entries(lair.unitsByPlayer)) {
+                  const pl = playerMap.get(pid);
+                  if (!pl || cnt <= 0) continue;
+                  for (let i = 0; i < cnt; i++) {
+                    landedTokens.push(getEPUnitToken(pl.color));
+                  }
+                }
                 return (
-                  <g key={`lair-${lair.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
+                  <g
+                    key={`lair-${lair.hexId}`}
+                    transform={`translate(${hex.center.x}, ${hex.center.y + 27})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
                     <rect
-                      x={-50}
+                      x={-44}
                       y={-10}
-                      width={100}
+                      width={88}
                       height={20}
-                      rx={8}
-                      fill={lair.conquered ? '#713f12' : '#450a0a'}
-                      stroke={lair.conquered ? '#facc15' : '#f87171'}
-                      strokeWidth={1.8}
+                      rx={10}
+                      fill="#450a0a"
+                      stroke="#f87171"
+                      strokeWidth={1.6}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
-                      {lair.conquered
-                        ? `🪙 RÍO ORO (${lair.numberToken})`
-                        : `🏴‍☠️ GUARIDA (${landedCount}/3 🛡️)`}
+                    <text x={0} y={3} textAnchor="middle" fill="#fecaca" fontSize="8.2" fontWeight="900">
+                      🏴‍☠️ GUARIDA ({landedCount}/3)
                     </text>
+                    {landedTokens.length > 0 && (
+                      <g transform="translate(0, -18)">
+                        {landedTokens.map((href, i) => {
+                          const ox = (i - (landedTokens.length - 1) / 2) * 16;
+                          return (
+                            <g key={i} transform={`translate(${ox}, 0)`}>
+                              <circle cx={0} cy={0} r={8.5} fill="#1c1917" stroke="#ffffff" strokeWidth={1.2} />
+                              <image href={href} x={-7.5} y={-7.5} width={15} height={15} />
+                            </g>
+                          );
+                        })}
+                      </g>
+                    )}
                   </g>
                 );
               })}
 
-              {/* 10c. Caladeros de Peces (Fish Grounds) */}
+              {/* 10c. Caladeros de Peces — la loseta oficial ya muestra el dado 1-6; ficha oficial de Banco de Peces al aparecer */}
               {Object.values(explorersPirates.fishGrounds).map((fg) => {
                 const hex = board.hexes[fg.hexId];
-                if (!hex) return null;
+                if (!hex || hex.terrain === 'FOG' || !fg.hasFishShoal) return null;
                 return (
-                  <g key={`epfish-${fg.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
-                    <rect
-                      x={-48}
-                      y={-10}
-                      width={96}
-                      height={20}
-                      rx={8}
-                      fill={fg.hasFishShoal ? '#0369a1' : '#0f172a'}
-                      stroke="#38bdf8"
-                      strokeWidth={1.8}
+                  <g
+                    key={`epfish-${fg.hexId}`}
+                    transform={`translate(${hex.center.x}, ${hex.center.y})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle cx={0} cy={0} r={19} fill="#0c4a6e" stroke="#7dd3fc" strokeWidth={2.2} />
+                    <image
+                      href={EP_TOKEN_ASSETS.FISH_SHOAL}
+                      x={-17.5}
+                      y={-17.5}
+                      width={35}
+                      height={35}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#e0f2fe" fontSize="8.5" fontWeight="900">
-                      {fg.hasFishShoal
-                        ? `🐟 BANCO PECES (Dado ${fg.rollNumber})`
-                        : `🌊 CALADERO (Dado ${fg.rollNumber})`}
+                    <rect
+                      x={-22}
+                      y={16}
+                      width={44}
+                      height={14}
+                      rx={7}
+                      fill="#082f49"
+                      stroke="#38bdf8"
+                      strokeWidth={1.2}
+                    />
+                    <text x={0} y={26} textAnchor="middle" fill="#e0f2fe" fontSize="7.8" fontWeight="900">
+                      DADO {fg.rollNumber}
                     </text>
                   </g>
                 );
               })}
 
-              {/* 10d. Aldeas de las Especias (Spice Villages) */}
+              {/* 10d. Aldeas de las Especias — la loseta muestra su ventaja abajo; ficha oficial de Saco de Especias arriba */}
               {Object.values(explorersPirates.spiceVillages).map((sv) => {
                 const hex = board.hexes[sv.hexId];
-                if (!hex) return null;
+                if (!hex || hex.terrain === 'FOG') return null;
                 return (
-                  <g key={`spice-${sv.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
+                  <g
+                    key={`spice-${sv.hexId}`}
+                    transform={`translate(${hex.center.x}, ${hex.center.y - 26})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
                     <rect
-                      x={-54}
-                      y={-10}
-                      width={108}
-                      height={20}
-                      rx={8}
+                      x={-28}
+                      y={-11}
+                      width={56}
+                      height={22}
+                      rx={11}
                       fill="#064e3b"
                       stroke="#34d399"
-                      strokeWidth={1.8}
+                      strokeWidth={1.6}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#d1fae5" fontSize="8" fontWeight="900">
-                      🌶️ {sv.sacksRemaining} SACOS · {sv.perkLabel}
+                    <image
+                      href={EP_TOKEN_ASSETS.SPICE_SACK}
+                      x={-26}
+                      y={-10}
+                      width={20}
+                      height={20}
+                    />
+                    <text x={9} y={3.5} textAnchor="middle" fill="#d1fae5" fontSize="9.5" fontWeight="900">
+                      ×{sv.sacksRemaining}
                     </text>
                   </g>
                 );
               })}
 
-              {/* 10e. Dársenas de Ciudades Portuarias (Harbor Basins) */}
+              {/* 10e. Dársenas de Ciudades Portuarias (ficha circular oficial de Ciudad Portuaria + carga en dársena) */}
               {Object.values(explorersPirates.harborBasins).map((basin) => {
                 const v = board.vertices[basin.vertexId];
                 if (!v) return null;
-                const cargoIcons = basin.cargo
-                  .map((c) =>
-                    c === 'SETTLER' ? '🧑‍🌾' : c === 'CREW' ? '🛡️' : c === 'FISH_HAUL' ? '🐟' : '🌶️'
-                  )
-                  .join('');
+                const owner = playerMap.get(basin.playerId);
+                const color = owner?.color || 'BLUE';
+                const ringColor = owner ? PLAYER_COLORS[owner.color].primary : '#38bdf8';
                 return (
-                  <g key={`basin-${basin.vertexId}`} transform={`translate(${v.x}, ${v.y - 24})`}>
-                    <rect
-                      x={-26}
-                      y={-9}
-                      width={52}
-                      height={17}
-                      rx={6}
-                      fill="#0f172a"
-                      stroke="#38bdf8"
-                      strokeWidth={1.5}
+                  <g
+                    key={`basin-${basin.vertexId}`}
+                    transform={`translate(${v.x}, ${v.y - 23})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle cx={0} cy={0} r={14} fill={ringColor} stroke="#ffffff" strokeWidth={1.8} />
+                    <image
+                      href={getEPHarborCityToken(color)}
+                      x={-12.5}
+                      y={-12.5}
+                      width={25}
+                      height={25}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#bae6fd" fontSize="8.5" fontWeight="900">
-                      ⚓{cargoIcons || 'Puerto'}
-                    </text>
+                    {basin.cargo.map((item, idx) => (
+                      <g key={idx} transform={`translate(${12 + idx * 11}, -10)`}>
+                        <circle cx={0} cy={0} r={7.5} fill="#0f172a" stroke="#fef08a" strokeWidth={1.2} />
+                        <image
+                          href={getEPCargoToken(item, color)}
+                          x={-6.5}
+                          y={-6.5}
+                          width={13}
+                          height={13}
+                        />
+                      </g>
+                    ))}
                   </g>
                 );
               })}
 
-              {/* 10f. Barcos de la Flota con Bodega y Puntos de Movimiento */}
+              {/* 10f. Barcos de la Flota (medallón oficial de Barco por color + bodega oficial + PM disponibles) */}
               {Object.values(explorersPirates.ships).map((ship) => {
                 const e = board.edges[ship.edgeId];
                 if (!e) return null;
-                const owner = players.find((p) => p.id === ship.playerId);
+                const owner = playerMap.get(ship.playerId);
+                const color = owner?.color || 'BLUE';
+                const ringColor = owner ? PLAYER_COLORS[owner.color].primary : '#0284c7';
                 const mx = (e.x1 + e.x2) / 2;
                 const my = (e.y1 + e.y2) / 2;
-                const cargoIcons = ship.cargo
-                  .map((c) =>
-                    c === 'SETTLER' ? '🧑‍🌾' : c === 'CREW' ? '🛡️' : c === 'FISH_HAUL' ? '🐟' : '🌶️'
-                  )
-                  .join('');
                 return (
-                  <g key={ship.id} transform={`translate(${mx}, ${my - 11})`}>
-                    <rect
-                      x={-26}
-                      y={-9}
-                      width={52}
-                      height={18}
-                      rx={6}
-                      fill={owner ? PLAYER_COLORS[owner.color].primary : '#0284c7'}
-                      stroke="#ffffff"
-                      strokeWidth={1.6}
+                  <g
+                    key={ship.id}
+                    transform={`translate(${mx}, ${my - 6})`}
+                    filter={lowEndPcMode ? undefined : 'url(#token-drop-shadow)'}
+                  >
+                    <circle cx={0} cy={0} r={15.5} fill={ringColor} stroke="#ffffff" strokeWidth={2} />
+                    <image
+                      href={getEPShipToken(color)}
+                      x={-14}
+                      y={-14}
+                      width={28}
+                      height={28}
                     />
-                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
-                      ⛵{cargoIcons} ({ship.mpRemaining})
+                    {/* Puntos de movimiento disponibles */}
+                    <circle cx={12} cy={11} r={7.5} fill="#1c1917" stroke="#fbbf24" strokeWidth={1.4} />
+                    <text x={12} y={14} textAnchor="middle" fill="#fef08a" fontSize="8.2" fontWeight="900">
+                      {ship.mpRemaining}
                     </text>
+                    {/* Carga oficial a bordo (Colono, Unidad, Banco de Peces o Saco de Especias) */}
+                    {ship.cargo.map((item, idx) => (
+                      <g key={idx} transform={`translate(${-12 - idx * 11}, -11)`}>
+                        <circle cx={0} cy={0} r={8} fill="#0f172a" stroke="#ffffff" strokeWidth={1.3} />
+                        <image
+                          href={getEPCargoToken(item, color)}
+                          x={-7}
+                          y={-7}
+                          width={14}
+                          height={14}
+                        />
+                      </g>
+                    ))}
                   </g>
                 );
               })}

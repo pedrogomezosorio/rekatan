@@ -113,7 +113,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               </text>
             </g>
           </g>
-        ) : !isSea ? (
+        ) : !isSea || Boolean(customTexturePath) ? (
           <g clipPath="url(#hex-outer-surface-clip)">
             {/* Solid Fallback Base */}
             <rect
@@ -121,7 +121,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               y={-hexSize}
               width={hexSize * 2}
               height={hexSize * 2}
-              fill={TERRAIN_META[hex.terrain].fill}
+              fill={isSea ? '#2563a6' : TERRAIN_META[hex.terrain].fill}
             />
             {/* High-Resolution Original Terrain Tile from Board Game */}
             <image
@@ -139,6 +139,7 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
               width={hexSize * 2}
               height={hexSize * 2}
               fill="url(#tile-vignette-grad)"
+              opacity={isSea ? 0.35 : 1}
             />
 
             {/* Río de Oro (Gold River subtle glint/sparkle overlay) */}
@@ -186,10 +187,12 @@ export const Hexagon: React.FC<HexagonProps> = React.memo(
                   : isFog
                     ? '#475569'
                     : isSea
-                      ? 'rgba(56, 189, 248, 0.16)'
+                      ? customTexturePath
+                        ? 'rgba(125, 211, 252, 0.55)'
+                        : 'rgba(56, 189, 248, 0.16)'
                       : '#5c3a18'
           }
-          strokeWidth={isProducing || isSwapSelected ? 4.5 : isSea ? 1 : 2.2}
+          strokeWidth={isProducing || isSwapSelected ? 4.5 : isSea ? (customTexturePath ? 1.8 : 1) : 2.2}
           filter={isProducing && !lowEndPcMode ? 'url(#producing-glow)' : undefined}
         />
 

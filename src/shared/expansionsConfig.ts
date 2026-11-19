@@ -943,3 +943,143 @@ export function getCatanEventCardImage(card: CatanEventCard): string {
       return MB_CARD_ASSETS.EVENT_CALM_6;
   }
 }
+
+// ============================================================================
+// 4. ACTIVO GRÁFICO OFICIAL — PIRATAS Y EXPLORADORES (LOSETAS, FICHAS Y CARTAS)
+// ============================================================================
+
+export const EP_TILE_ASSETS = {
+  COUNCIL_OF_CATAN: '/assets/explorers-pirates/tiles/council_of_catan.png',
+  PIRATE_LAIR_GOLD_RIVER: '/assets/explorers-pirates/tiles/pirate_lair_gold_river.png',
+  SPICE_PIRATE_BONUS: '/assets/explorers-pirates/tiles/spice_pirate_bonus.png',
+  SPICE_GOLD_TRADE: '/assets/explorers-pirates/tiles/spice_gold_trade.png',
+  SPICE_SWIFT_VOYAGE: '/assets/explorers-pirates/tiles/spice_swift_voyage.png',
+  FISH_GROUNDS: {
+    1: '/assets/explorers-pirates/tiles/fish_ground_1.png',
+    2: '/assets/explorers-pirates/tiles/fish_ground_2.png',
+    3: '/assets/explorers-pirates/tiles/fish_ground_3.png',
+    4: '/assets/explorers-pirates/tiles/fish_ground_4.png',
+    5: '/assets/explorers-pirates/tiles/fish_ground_5.png',
+    6: '/assets/explorers-pirates/tiles/fish_ground_6.png',
+  } as Record<1 | 2 | 3 | 4 | 5 | 6, string>,
+  // Guardada en reserva para intercambiar a petición (mantiene coherencia con el océano unificado actual)
+  SEA_EP: '/assets/explorers-pirates/tiles/sea_ep.png',
+} as const;
+
+export const EP_TOKEN_ASSETS = {
+  FISH_SHOAL: '/assets/explorers-pirates/tokens/fish_shoal.png',
+  SPICE_SACK: '/assets/explorers-pirates/tokens/spice_sack.png',
+  // Monedas oficiales escaneadas con números 1 y 3 (guardadas en reserva para intercambio opcional)
+  GOLD_COIN_1: '/assets/explorers-pirates/tokens/ep_gold_coin_1.png',
+  GOLD_COIN_3: '/assets/explorers-pirates/tokens/ep_gold_coin_3.png',
+} as const;
+
+export const EP_CARD_ASSETS = {
+  TURN_SUMMARY: '/assets/explorers-pirates/cards/turn_summary.png',
+  VP_PIRATE_SCOURGE: '/assets/explorers-pirates/cards/vp_pirate_scourge.png',
+  VP_BEST_FISHER: '/assets/explorers-pirates/cards/vp_best_fisher.png',
+  VP_BEST_SPICE_MERCHANT: '/assets/explorers-pirates/cards/vp_best_spice_merchant.png',
+  // Pistas verticales y guías de bolsa originales (accesibles en el modal y listas para intercambio)
+  TRACK_PIRATE_LAIRS: '/assets/explorers-pirates/cards/track_pirate_lairs.png',
+  TRACK_FISH_FOR_CATAN: '/assets/explorers-pirates/cards/track_fish_for_catan.png',
+  TRACK_SPICES_FOR_CATAN: '/assets/explorers-pirates/cards/track_spices_for_catan.png',
+  MISSION_CARD_PIRATE_LAIRS: '/assets/explorers-pirates/cards/mission_card_pirate_lairs.png',
+  MISSION_CARD_FISH: '/assets/explorers-pirates/cards/mission_card_fish.png',
+  MISSION_CARD_SPICES: '/assets/explorers-pirates/cards/mission_card_spices.png',
+} as const;
+
+/**
+ * Catálogo explícito de recursos escaneados de Piratas y Exploradores extraídos y guardados
+ * en reserva para intercambiarlos fácilmente cuando el usuario lo solicite sin romper la
+ * coherencia visual con el océano, los marcadores interactivos ni las fichas numéricas actuales.
+ */
+export const EP_STANDBY_ASSETS = {
+  seaTile: EP_TILE_ASSETS.SEA_EP,
+  goldCoinsWithNumbers: [EP_TOKEN_ASSETS.GOLD_COIN_1, EP_TOKEN_ASSETS.GOLD_COIN_3],
+  missionTracks: {
+    PIRATE_LAIRS: EP_CARD_ASSETS.TRACK_PIRATE_LAIRS,
+    FISH_FOR_CATAN: EP_CARD_ASSETS.TRACK_FISH_FOR_CATAN,
+    SPICES_FOR_CATAN: EP_CARD_ASSETS.TRACK_SPICES_FOR_CATAN,
+  },
+  missionGuideCards: {
+    PIRATE_LAIRS: EP_CARD_ASSETS.MISSION_CARD_PIRATE_LAIRS,
+    FISH_FOR_CATAN: EP_CARD_ASSETS.MISSION_CARD_FISH,
+    SPICES_FOR_CATAN: EP_CARD_ASSETS.MISSION_CARD_SPICES,
+  },
+} as const;
+
+export function getEPHarborCityToken(color: PlayerColor): string {
+  return `/assets/explorers-pirates/tokens/harbor_city_${getMBColorSlug(color)}.png`;
+}
+
+export function getEPShipToken(color: PlayerColor): string {
+  return `/assets/explorers-pirates/tokens/ship_${getMBColorSlug(color)}.png`;
+}
+
+export function getEPSettlerToken(color: PlayerColor): string {
+  return `/assets/explorers-pirates/tokens/settler_${getMBColorSlug(color)}.png`;
+}
+
+export function getEPUnitToken(color: PlayerColor): string {
+  return `/assets/explorers-pirates/tokens/unit_${getMBColorSlug(color)}.png`;
+}
+
+export function getEPCargoToken(item: EPCargoItem, color: PlayerColor): string {
+  switch (item) {
+    case 'SETTLER':
+      return getEPSettlerToken(color);
+    case 'CREW':
+      return getEPUnitToken(color);
+    case 'FISH_HAUL':
+      return EP_TOKEN_ASSETS.FISH_SHOAL;
+    case 'SPICE_SACK':
+      return EP_TOKEN_ASSETS.SPICE_SACK;
+  }
+}
+
+export function getEPSpiceTileImage(perk: SpicePerkType): string {
+  if (perk === 'PIRATE_BONUS_4' || perk === 'PIRATE_BONUS_5') {
+    return EP_TILE_ASSETS.SPICE_PIRATE_BONUS;
+  }
+  if (perk === 'GOLD_TRADE_1' || perk === 'GOLD_TRADE_2') {
+    return EP_TILE_ASSETS.SPICE_GOLD_TRADE;
+  }
+  return EP_TILE_ASSETS.SPICE_SWIFT_VOYAGE;
+}
+
+export function getEPFishGroundTileImage(rollNumber: 1 | 2 | 3 | 4 | 5 | 6): string {
+  return EP_TILE_ASSETS.FISH_GROUNDS[rollNumber] || EP_TILE_ASSETS.FISH_GROUNDS[1];
+}
+
+export function getEPMissionVPImage(missionId: EPMissionId): string {
+  switch (missionId) {
+    case 'PIRATE_LAIRS':
+      return EP_CARD_ASSETS.VP_PIRATE_SCOURGE;
+    case 'FISH_FOR_CATAN':
+      return EP_CARD_ASSETS.VP_BEST_FISHER;
+    case 'SPICES_FOR_CATAN':
+      return EP_CARD_ASSETS.VP_BEST_SPICE_MERCHANT;
+  }
+}
+
+export function getEPMissionTrackImage(missionId: EPMissionId): string {
+  switch (missionId) {
+    case 'PIRATE_LAIRS':
+      return EP_CARD_ASSETS.TRACK_PIRATE_LAIRS;
+    case 'FISH_FOR_CATAN':
+      return EP_CARD_ASSETS.TRACK_FISH_FOR_CATAN;
+    case 'SPICES_FOR_CATAN':
+      return EP_CARD_ASSETS.TRACK_SPICES_FOR_CATAN;
+  }
+}
+
+export function getEPMissionGuideCardImage(missionId: EPMissionId): string {
+  switch (missionId) {
+    case 'PIRATE_LAIRS':
+      return EP_CARD_ASSETS.MISSION_CARD_PIRATE_LAIRS;
+    case 'FISH_FOR_CATAN':
+      return EP_CARD_ASSETS.MISSION_CARD_FISH;
+    case 'SPICES_FOR_CATAN':
+      return EP_CARD_ASSETS.MISSION_CARD_SPICES;
+  }
+}

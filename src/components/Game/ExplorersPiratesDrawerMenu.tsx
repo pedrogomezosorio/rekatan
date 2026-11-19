@@ -2,17 +2,20 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Anchor,
-  Castle,
   Coins,
   Compass,
-  Fish,
-  Shield,
-  Ship,
-  Users,
   X,
 } from 'lucide-react';
 import { RESOURCE_META } from '../../shared/constants';
-import { EP_BUILDING_COSTS, canFitCargoItem } from '../../shared/expansionsConfig';
+import {
+  EP_BUILDING_COSTS,
+  EP_TOKEN_ASSETS,
+  canFitCargoItem,
+  getEPHarborCityToken,
+  getEPSettlerToken,
+  getEPShipToken,
+  getEPUnitToken,
+} from '../../shared/expansionsConfig';
 import type { GameState, PlayerState, ResourceType } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
@@ -95,7 +98,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       title: 'Ciudad Portuaria (+2 PV)',
       subtitle: 'Mejora un poblado costero y añade dársena para barcos y carga',
       remainingLabel: `${pep.harborCitiesLeft} disp.`,
-      icon: <Castle className="w-5 h-5 text-amber-300" />,
+      icon: (
+        <img
+          src={getEPHarborCityToken(me.color)}
+          alt="Ciudad Portuaria"
+          className="w-7 h-7 rounded-full object-cover shadow"
+        />
+      ),
       cost: EP_BUILDING_COSTS.HARBOR_CITY,
       canExecute:
         canActBuild &&
@@ -112,7 +121,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       title: 'Botar Barco en Ciudad Portuaria',
       subtitle: 'Haz clic en una travesía marítima junto a tu Ciudad Portuaria',
       remainingLabel: `${pep.shipsLeft} en reserva`,
-      icon: <Ship className="w-5 h-5 text-cyan-300" />,
+      icon: (
+        <img
+          src={getEPShipToken(me.color)}
+          alt="Barco"
+          className="w-7 h-7 rounded-full object-cover shadow"
+        />
+      ),
       cost: EP_BUILDING_COSTS.SHIP,
       canExecute:
         canActBuild &&
@@ -129,7 +144,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       title: 'Reclutar Colono',
       subtitle: 'Se embarca en tu Ciudad Portuaria o Barco para fundar poblados',
       remainingLabel: `${pep.settlersLeft} disp.`,
-      icon: <Users className="w-5 h-5 text-emerald-300" />,
+      icon: (
+        <img
+          src={getEPSettlerToken(me.color)}
+          alt="Colono"
+          className="w-7 h-7 rounded-full object-cover shadow"
+        />
+      ),
       cost: EP_BUILDING_COSTS.SETTLER,
       canExecute:
         canActBuild &&
@@ -146,7 +167,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       title: 'Reclutar Unidad (Guerrero / Mercader)',
       subtitle: 'Conquista Guaridas Piratas o comercia en Aldeas de Especias',
       remainingLabel: `${pep.unitsLeft} disp.`,
-      icon: <Shield className="w-5 h-5 text-sky-300" />,
+      icon: (
+        <img
+          src={getEPUnitToken(me.color)}
+          alt="Unidad"
+          className="w-7 h-7 rounded-full object-cover shadow"
+        />
+      ),
       cost: EP_BUILDING_COSTS.UNIT,
       canExecute:
         canActBuild &&
@@ -163,7 +190,7 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       title: 'Mover Barcos y Explorar en el Mapa',
       subtitle: 'Selecciona un barco en el mapa para navegar, descubrir o fundar',
       remainingLabel: `${myShips.filter((s) => s.mpRemaining > 0).length}/${myShips.length} barcos`,
-      icon: <Compass className="w-5 h-5 text-amber-300" />,
+      icon: <Compass className="w-6 h-6 text-amber-300" />,
       cost: {},
       badgeLabel: '4–8 PM',
       canExecute: canActMain && myShips.length > 0,
@@ -179,7 +206,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
             title: 'Buscar Banco de Peces (1 Dado)',
             subtitle: 'Tira 1 dado para hacer aparecer peces en alta mar (1x/turno)',
             remainingLabel: ep.hasRolledFishThisTurn ? 'Ya lanzado' : 'Disponible',
-            icon: <Fish className="w-5 h-5 text-sky-400" />,
+            icon: (
+              <img
+                src={EP_TOKEN_ASSETS.FISH_SHOAL}
+                alt="Banco de Peces"
+                className="w-7 h-7 rounded-full object-cover shadow"
+              />
+            ),
             cost: {},
             badgeLabel: '1d6 🐟',
             canExecute: canActMain && !ep.hasRolledFishThisTurn,
@@ -348,9 +381,13 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
         title="Flota, Colonos, Unidades y Exploración Marítima"
       >
         <span className="flex items-center gap-1.5 truncate">
-          <Anchor className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+          <img
+            src={getEPShipToken(me.color)}
+            alt="Flota"
+            className="w-4 h-4 rounded-full object-cover shrink-0 border border-amber-300/60"
+          />
           <span className="truncate">
-            Flota ({myShips.length}/3 ⛵ · {pep.goldCoins} 🪙)
+            Flota ({myShips.length}/3 · {pep.goldCoins} 🪙)
           </span>
         </span>
         <span className="px-1.5 py-0.5 rounded bg-black/35 font-mono text-[9px] text-amber-300/80">
