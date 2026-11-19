@@ -1,5 +1,11 @@
 import { CitiesKnightsPanel } from './CitiesKnightsPanel';
 import { hasCitiesKnights, BRANCH_META, PROGRESS_CARDS } from '../../shared/citiesKnightsConfig';
+import { hasBarbarians, hasExplorersPirates } from '../../shared/expansionsConfig';
+import { getValidCamelEdges } from '../../shared/engine/BarbariansEngine';
+import { BarbariansPanel } from './BarbariansPanel';
+import { BarbariansDrawerMenu, ActiveBarbariansBoardMode } from './BarbariansDrawerMenu';
+import { ExplorersPiratesPanel } from './ExplorersPiratesPanel';
+import { ExplorersPiratesDrawerMenu, ActiveExplorersBoardMode } from './ExplorersPiratesDrawerMenu';
 import {
   cityCost,
   freeRank,
@@ -100,6 +106,12 @@ export const GameScreen: React.FC = () => {
   const [ckHighlightedVertex, setCKHighlightedVertex] = useState<string | null>(null);
   const [activeKnightMode, setActiveKnightMode] = useState<ActiveKnightMode>(null);
   const [isKnightsDrawerOpen, setIsKnightsDrawerOpen] = useState(false);
+  const [isBarbariansDrawerOpen, setIsBarbariansDrawerOpen] = useState(false);
+  const [activeBarbariansMode, setActiveBarbariansMode] = useState<ActiveBarbariansBoardMode>(null);
+  const [selectedEdgeKnightEdgeId, setSelectedEdgeKnightEdgeId] = useState<string | null>(null);
+  const [isExplorersDrawerOpen, setIsExplorersDrawerOpen] = useState(false);
+  const [activeExplorersMode, setActiveExplorersMode] = useState<ActiveExplorersBoardMode>(null);
+  const [selectedEPShipId, setSelectedEPShipId] = useState<string | null>(null);
   const [selectedKnightMoveFrom, setSelectedKnightMoveFrom] = useState<string | null>(null);
   const [isPlacingMerchant, setIsPlacingMerchant] = useState(false);
   const [activeProgressCard, setActiveProgressCard] = useState<ProgressCard | null>(null);
@@ -733,6 +745,9 @@ export const GameScreen: React.FC = () => {
     getMovableShipEdges(gameState, playerId).length > 0;
 
   const isCitiesKnights = hasCitiesKnights(config);
+  const isBarbarians = hasBarbarians(config);
+  const isExplorersPirates = hasExplorersPirates(config);
+  const hasBottomExpansionHud = isCitiesKnights || isBarbarians || isExplorersPirates;
 
   const canRecruitKnightNow =
     isCitiesKnights &&
@@ -823,7 +838,42 @@ export const GameScreen: React.FC = () => {
     : 0;
 
   const validCKVertexIds = useMemo(() => {
-    if (!isCitiesKnights || !gameState) return [];
+    if (!gameState) return [];
+
+    // 1. Mercaderes y Bárbaros: Mover Carromato en el mapa
+    if (isBarbarians && activeBarbariansMode === 'MOVE_WAGON') {
+      const fromVid = me?.barbarians?.wagonVertexId;
+      const fromV = fromVid ? gameState.board.vertices[fromVid] : null;
+      if (!fromV) return [];
+      return fromV.adjacentVertexIds.filter((vid) => gameState.board.vertices[vid]?.isLand);
+    }
+
+    // 2. Piratas y Exploradores: Mejorar Ciudad Portuaria o Fundar Poblado con Barco de Colonos
+    if (isExplorersPirates) {
+      if (activeExplorersMode === 'UPGRADE_HARBOR_CITY') {
+        return Object.values(gameState.board.vertices)
+          .filter((v) => v.playerId === playerId && v.building === 'SETTLEMENT' && v.isCoastal)
+          .map((v) => v.id);
+      }
+      if (activeExplorersMode === 'MOVE_EP_SHIP' && selectedEPShipId) {
+        const ship = gameState.explorersPirates?.ships[selectedEPShipId];
+        const shipEdge = ship ? gameState.board.edges[ship.edgeId] : null;
+        if (ship && shipEdge && ship.cargo.includes('SETTLER')) {
+          return shipEdge.vertexIds.filter((vid) => {
+            const v = gameState.board.vertices[vid];
+            if (!v || v.building !== null) return false;
+            const touchesFog = v.hexIds.some((hid) => gameState.board.hexes[hid]?.terrain === 'FOG');
+            if (touchesFog) return false;
+            const hasAdj = v.adjacentVertexIds.some(
+              (adjId) => gameState.board.vertices[adjId]?.building !== null
+            );
+            return !hasAdj;
+          });
+        }
+      }
+    }
+
+    if (!isCitiesKnights) return [];
     if (activeKnightMode === 'RECRUIT_KNIGHT') {
       return knightRecruitVertices(gameState, playerId);
     }
@@ -937,6 +987,11 @@ export const GameScreen: React.FC = () => {
     return [];
   }, [
     isCitiesKnights,
+    isBarbarians,
+    activeBarbariansMode,
+    isExplorersPirates,
+    activeExplorersMode,
+    selectedEPShipId,
     gameState,
     playerId,
     activeKnightMode,
@@ -972,7 +1027,108 @@ export const GameScreen: React.FC = () => {
   }, [isCitiesKnights, gameState, isPlacingMerchant, activeProgressCard, playerId, currentRobberHexId]);
 
   const validCKEdgeIds = useMemo(() => {
-    if (!isCitiesKnights || !gameState) return [];
+    if (!gameState) return [];
+
+    // 1. Mercaderes y Bárbaros: Carretera con Pescado, Puente, Camello, Caballero en Arista
+    if (isBarbarians && gameState.barbarians) {
+      const mb = gameState.barbarians;
+      if (activeBarbariansMode === 'FISH_FREE_ROAD') {
+        return validRoadIds;
+      }
+      if (activeBarbariansMode === 'PLACE_BRIDGE') {
+        return mb.bridgeSiteEdgeIds.filter((eid) => {
+          const edge = gameState.board.edges[eid];
+          if (!edge || edge.building !== null) return false;
+          return edge.vertexIds.some((vid) => {
+            const v = gameState.board.vertices[vid];
+            if (!v) return false;
+            if (v.playerId === playerId && v.building) return true;
+            if (v.building && v.playerId !== playerId) return false;
+            return v.adjacentEdgeIds.some(
+              (adjEid) =>
+                gameState.board.edges[adjEid]?.playerId === playerId &&
+                gameState.board.edges[adjEid]?.building !== null
+            );
+          });
+        });
+      }
+      if (activeBarbariansMode === 'PLACE_CAMEL') {
+        return getValidCamelEdges(gameState);
+      }
+      if (activeBarbariansMode === 'PLACE_EDGE_KNIGHT') {
+        const castleAdjEdges = Object.values(gameState.board.edges)
+          .filter(
+            (e) =>
+              e.isLand &&
+              !mb.edgeKnights[e.id] &&
+              e.hexIds.some((hid) => mb.castleHexIds.includes(hid))
+          )
+          .map((e) => e.id);
+        if (castleAdjEdges.length > 0) return castleAdjEdges;
+        return Object.values(gameState.board.edges)
+          .filter((e) => e.isLand && !mb.edgeKnights[e.id])
+          .map((e) => e.id);
+      }
+      if (activeBarbariansMode === 'MOVE_EDGE_KNIGHT') {
+        if (!selectedEdgeKnightEdgeId) {
+          return Object.values(mb.edgeKnights)
+            .filter((k) => k.playerId === playerId && k.mpRemaining > 0)
+            .map((k) => k.edgeId);
+        }
+        const fromEdge = gameState.board.edges[selectedEdgeKnightEdgeId];
+        if (!fromEdge) return [];
+        return Object.values(gameState.board.edges)
+          .filter(
+            (e) =>
+              e.id !== selectedEdgeKnightEdgeId &&
+              e.isLand &&
+              !mb.edgeKnights[e.id] &&
+              e.vertexIds.some((vid) => fromEdge.vertexIds.includes(vid))
+          )
+          .map((e) => e.id);
+      }
+    }
+
+    // 2. Piratas y Exploradores: Botar Barco en Puerto o Navegar Barco
+    if (isExplorersPirates && gameState.explorersPirates) {
+      const ep = gameState.explorersPirates;
+      if (activeExplorersMode === 'BUILD_EP_SHIP') {
+        const ownHarbors = Object.values(ep.harborBasins)
+          .filter((b) => b.playerId === playerId)
+          .map((b) => b.vertexId);
+        return Object.values(gameState.board.edges)
+          .filter((e) => {
+            if (e.isLand && !e.isCoastal) return false;
+            if (!e.vertexIds.some((vid) => ownHarbors.includes(vid))) return false;
+            const touchesFog = e.hexIds.some((hid) => gameState.board.hexes[hid]?.terrain === 'FOG');
+            if (touchesFog) return false;
+            const shipsOnEdge = Object.values(ep.ships).filter((s) => s.edgeId === e.id).length;
+            return shipsOnEdge < 2;
+          })
+          .map((e) => e.id);
+      }
+      if (activeExplorersMode === 'MOVE_EP_SHIP') {
+        if (!selectedEPShipId) {
+          return Object.values(ep.ships)
+            .filter((s) => s.playerId === playerId)
+            .map((s) => s.edgeId);
+        }
+        const ship = ep.ships[selectedEPShipId];
+        const fromEdge = ship ? gameState.board.edges[ship.edgeId] : null;
+        if (!ship || !fromEdge || ship.mpRemaining <= 0) return [];
+        return Object.values(gameState.board.edges)
+          .filter((e) => {
+            if (e.id === fromEdge.id) return false;
+            if (e.isLand && !e.isCoastal) return false;
+            if (!e.vertexIds.some((vid) => fromEdge.vertexIds.includes(vid))) return false;
+            const shipsOnDest = Object.values(ep.ships).filter((s) => s.edgeId === e.id).length;
+            return shipsOnDest < 2;
+          })
+          .map((e) => e.id);
+      }
+    }
+
+    if (!isCitiesKnights) return [];
     if (activeProgressCard?.type === 'DIPLOMAT') {
       if (selectedDiplomatEdgeId) {
         const edge = gameState.board.edges[selectedDiplomatEdgeId];
@@ -993,6 +1149,12 @@ export const GameScreen: React.FC = () => {
     return [];
   }, [
     isCitiesKnights,
+    isBarbarians,
+    activeBarbariansMode,
+    selectedEdgeKnightEdgeId,
+    isExplorersPirates,
+    activeExplorersMode,
+    selectedEPShipId,
     gameState,
     activeProgressCard,
     selectedDiplomatEdgeId,
@@ -1003,6 +1165,32 @@ export const GameScreen: React.FC = () => {
 
   const handleCKVertexClick = (vertexId: string) => {
     if (isPausedByHost) return;
+
+    // 1. Mercaderes y Bárbaros: Mover Carromato
+    if (isBarbarians && activeBarbariansMode === 'MOVE_WAGON') {
+      dispatchAction({ type: 'MB_MOVE_WAGON', toVertexId: vertexId });
+      return;
+    }
+
+    // 2. Piratas y Exploradores: Mejorar a Ciudad Portuaria o Fundar Poblado con Barco de Colonos
+    if (isExplorersPirates) {
+      if (activeExplorersMode === 'UPGRADE_HARBOR_CITY') {
+        dispatchAction({ type: 'EP_UPGRADE_HARBOR_CITY', vertexId });
+        setActiveExplorersMode(null);
+        return;
+      }
+      if (activeExplorersMode === 'MOVE_EP_SHIP' && selectedEPShipId) {
+        dispatchAction({
+          type: 'EP_FOUND_SETTLEMENT_WITH_SHIP',
+          shipId: selectedEPShipId,
+          vertexId,
+        });
+        setSelectedEPShipId(null);
+        setActiveExplorersMode(null);
+        return;
+      }
+    }
+
     if (activeKnightMode === 'RECRUIT_KNIGHT') {
       dispatchAction({ type: 'RECRUIT_KNIGHT', vertexId });
       setActiveKnightMode(null);
@@ -1123,6 +1311,85 @@ export const GameScreen: React.FC = () => {
 
   const handleCKEdgeClick = (edgeId: string) => {
     if (isPausedByHost) return;
+
+    // 1. Mercaderes y Bárbaros: Carretera con Pescado, Puente, Camello, Caballero en Arista
+    if (isBarbarians && gameState.barbarians) {
+      if (activeBarbariansMode === 'FISH_FREE_ROAD') {
+        const fishTokens = [...(me.barbarians?.fishTokens || [])].sort(
+          (a, b) => a.fishCount - b.fishCount
+        );
+        let sum = 0;
+        const pickedIds: string[] = [];
+        for (const t of fishTokens) {
+          pickedIds.push(t.id);
+          sum += t.fishCount;
+          if (sum >= 5) break;
+        }
+        dispatchAction({
+          type: 'MB_FISH_FREE_ROAD',
+          tokenIds: pickedIds,
+          edgeId,
+        });
+        setActiveBarbariansMode(null);
+        return;
+      }
+      if (activeBarbariansMode === 'PLACE_BRIDGE') {
+        dispatchAction({ type: 'MB_PLACE_BRIDGE', edgeId });
+        setActiveBarbariansMode(null);
+        return;
+      }
+      if (activeBarbariansMode === 'PLACE_CAMEL') {
+        dispatchAction({ type: 'MB_VOTE_CAMEL', edgeId });
+        setActiveBarbariansMode(null);
+        return;
+      }
+      if (activeBarbariansMode === 'PLACE_EDGE_KNIGHT') {
+        dispatchAction({ type: 'MB_PLACE_EDGE_KNIGHT', edgeId });
+        setActiveBarbariansMode(null);
+        return;
+      }
+      if (activeBarbariansMode === 'MOVE_EDGE_KNIGHT') {
+        if (!selectedEdgeKnightEdgeId) {
+          setSelectedEdgeKnightEdgeId(edgeId);
+        } else {
+          dispatchAction({
+            type: 'MB_MOVE_EDGE_KNIGHT',
+            fromEdgeId: selectedEdgeKnightEdgeId,
+            toEdgeId: edgeId,
+          });
+          setSelectedEdgeKnightEdgeId(null);
+          setActiveBarbariansMode(null);
+        }
+        return;
+      }
+    }
+
+    // 2. Piratas y Exploradores: Botar Barco o Navegar Barco
+    if (isExplorersPirates && gameState.explorersPirates) {
+      if (activeExplorersMode === 'BUILD_EP_SHIP') {
+        dispatchAction({ type: 'EP_BUILD_SHIP', edgeId });
+        setActiveExplorersMode(null);
+        return;
+      }
+      if (activeExplorersMode === 'MOVE_EP_SHIP') {
+        if (!selectedEPShipId) {
+          const ownShipOnEdge = Object.values(gameState.explorersPirates.ships).find(
+            (s) => s.playerId === playerId && s.edgeId === edgeId
+          );
+          if (ownShipOnEdge) {
+            setSelectedEPShipId(ownShipOnEdge.id);
+          }
+        } else {
+          dispatchAction({
+            type: 'EP_MOVE_SHIP',
+            shipId: selectedEPShipId,
+            toEdgeId: edgeId,
+          });
+        }
+        return;
+      }
+    }
+
     if (activeProgressCard?.type === 'DIPLOMAT') {
       if (!selectedDiplomatEdgeId) {
         const edge = gameState.board.edges[edgeId];
@@ -1245,7 +1512,7 @@ export const GameScreen: React.FC = () => {
   );
 
   return (
-    <div className={`game-screen ${hasCitiesKnights(config) ? 'has-cities-knights' : ''} h-screen h-[100dvh] w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative`}>
+    <div className={`game-screen ${hasBottomExpansionHud ? 'has-cities-knights' : ''} h-screen h-[100dvh] w-screen flex flex-col bg-[#0d0906] text-stone-100 overflow-hidden relative`}>
       {/* Intermittent Green Screen Border Glow STRICTLY ONLY when it is the local player's turn */}
       {isStrictlyMyTurn && (
         <motion.div
@@ -1470,13 +1737,15 @@ export const GameScreen: React.FC = () => {
             lowEndPcMode={lowEndPcMode}
             lastEvent={gameState.lastEvent}
             highlightedVertexId={ckHighlightedVertex}
-            isCitiesKnights={isCitiesKnights}
+            isCitiesKnights={hasBottomExpansionHud}
             validCKVertexIds={validCKVertexIds}
             validCKEdgeIds={validCKEdgeIds}
             validCKHexIds={validCKHexIds}
             onCKVertexClick={handleCKVertexClick}
             onCKEdgeClick={handleCKEdgeClick}
             onCKHexClick={handleCKHexClick}
+            barbarians={gameState.barbarians}
+            explorersPirates={gameState.explorersPirates}
             onVertexClick={(vertexId) => {
               if (isPausedByHost) return;
               if (validCityIds.includes(vertexId)) {
@@ -1867,6 +2136,38 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
+          {/* Mercaderes y Bárbaros / Piratas y Exploradores: Floating Helper Banner for active map modes */}
+          {((isBarbarians && activeBarbariansMode) || (isExplorersPirates && activeExplorersMode)) && isMyTurn && !isPausedByHost && (
+            <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
+              <div className="flex items-center gap-3 bg-[#1e140d]/95 border-2 border-amber-400 text-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto animate-pulse">
+                <Swords className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  {activeBarbariansMode === 'FISH_FREE_ROAD' && '🐟 Haz clic en una arista iluminada para construir tu Carretera gratis (5 pescados)'}
+                  {activeBarbariansMode === 'PLACE_BRIDGE' && '🌉 Haz clic en un tramo fluvial iluminado conectado a tu red para construir tu Puente (2 arcillas + 1 madera)'}
+                  {activeBarbariansMode === 'PLACE_CAMEL' && '🐪 Haz clic en una arista iluminada para extender la Caravana desde el Oasis'}
+                  {activeBarbariansMode === 'PLACE_EDGE_KNIGHT' && '⚔️ Haz clic en una arista iluminada junto al Castillo para reclutar tu Caballero'}
+                  {activeBarbariansMode === 'MOVE_EDGE_KNIGHT' && (!selectedEdgeKnightEdgeId ? 'Paso 1: Haz clic en el Caballero en arista que deseas desplazar' : 'Paso 2: Haz clic en la arista terrestre contigua iluminada')}
+                  {activeBarbariansMode === 'MOVE_WAGON' && `🛒 Haz clic en una intersección contigua iluminada para mover tu Carromato (PM: ${me.barbarians?.wagonMpRemaining ?? 0})`}
+                  {activeExplorersMode === 'UPGRADE_HARBOR_CITY' && '🏛️ Haz clic en un Poblado costero propio iluminado para mejorarlo a Ciudad Portuaria (2 trigos + 2 minerales)'}
+                  {activeExplorersMode === 'BUILD_EP_SHIP' && '⛵ Haz clic en una arista marítima iluminada junto a tu Ciudad Portuaria para botar tu Barco (1 madera + 1 oveja)'}
+                  {activeExplorersMode === 'MOVE_EP_SHIP' && (!selectedEPShipId ? 'Paso 1: Haz clic en la arista donde se encuentra el Barco que deseas navegar' : 'Paso 2: Haz clic en una arista marítima contigua para navegar (o en un vértice costero iluminado si lleva Colono para fundar poblado)')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveBarbariansMode(null);
+                    setSelectedEdgeKnightEdgeId(null);
+                    setActiveExplorersMode(null);
+                    setSelectedEPShipId(null);
+                  }}
+                  className="px-2 py-1 rounded-lg bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-black cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
           {gameState.citiesKnights && (
             <CitiesKnightsPanel
               gameState={gameState}
@@ -1909,6 +2210,30 @@ export const GameScreen: React.FC = () => {
               onStartSmithMode={(card) => {
                 setSelectedSmithVertexIds([]);
                 setActiveProgressCard(card);
+              }}
+            />
+          )}
+
+          {gameState.barbarians && (
+            <BarbariansPanel
+              gameState={gameState}
+              playerId={playerId}
+              dispatchAction={dispatchAction}
+              onStartBoardMode={(mode) => {
+                setActiveBarbariansMode(mode);
+                setSelectedEdgeKnightEdgeId(null);
+              }}
+            />
+          )}
+
+          {gameState.explorersPirates && (
+            <ExplorersPiratesPanel
+              gameState={gameState}
+              playerId={playerId}
+              dispatchAction={dispatchAction}
+              onStartBoardMode={(mode) => {
+                setActiveExplorersMode(mode);
+                setSelectedEPShipId(null);
               }}
             />
           )}
@@ -2133,6 +2458,74 @@ export const GameScreen: React.FC = () => {
                   canMoveNow={canMoveKnightNow}
                   myDefense={myDefense}
                   freeRank1Count={freeRank1Count}
+                  disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                />
+              )}
+
+              {/* 4b. Mercaderes y Bárbaros - Cajón de acciones de escenario */}
+              {isBarbarians && (
+                <BarbariansDrawerMenu
+                  isOpen={isBarbariansDrawerOpen}
+                  onToggleOpen={() => setIsBarbariansDrawerOpen((o) => !o)}
+                  gameState={gameState}
+                  me={me}
+                  isMyTurn={isMyTurn}
+                  activeMode={activeBarbariansMode}
+                  onSelectMode={(mode) => {
+                    setActiveBarbariansMode(mode);
+                    setSelectedEdgeKnightEdgeId(null);
+                  }}
+                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-barbarians'))}
+                  onBuyScenarioDevCard={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
+                  onUpgradeWagon={() => dispatchAction({ type: 'MB_UPGRADE_WAGON' })}
+                  onBoostWagon={() => dispatchAction({ type: 'MB_BOOST_WAGON' })}
+                  onFishRemoveRobber={() => {
+                    const fishTokens = [...(me.barbarians?.fishTokens || [])].sort(
+                      (a, b) => a.fishCount - b.fishCount
+                    );
+                    let sum = 0;
+                    const pickedIds: string[] = [];
+                    for (const t of fishTokens) {
+                      pickedIds.push(t.id);
+                      sum += t.fishCount;
+                      if (sum >= 2) break;
+                    }
+                    dispatchAction({ type: 'MB_FISH_REMOVE_ROBBER', tokenIds: pickedIds });
+                  }}
+                  onFishFreeDevCard={() => {
+                    const fishTokens = [...(me.barbarians?.fishTokens || [])].sort(
+                      (a, b) => a.fishCount - b.fishCount
+                    );
+                    let sum = 0;
+                    const pickedIds: string[] = [];
+                    for (const t of fishTokens) {
+                      pickedIds.push(t.id);
+                      sum += t.fishCount;
+                      if (sum >= 7) break;
+                    }
+                    dispatchAction({ type: 'MB_FISH_FREE_DEV_CARD', tokenIds: pickedIds });
+                  }}
+                  disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                />
+              )}
+
+              {/* 4c. Piratas y Exploradores - Cajón de acciones de flota y misiones */}
+              {isExplorersPirates && (
+                <ExplorersPiratesDrawerMenu
+                  isOpen={isExplorersDrawerOpen}
+                  onToggleOpen={() => setIsExplorersDrawerOpen((o) => !o)}
+                  gameState={gameState}
+                  me={me}
+                  isMyTurn={isMyTurn}
+                  activeMode={activeExplorersMode}
+                  onSelectMode={(mode) => {
+                    setActiveExplorersMode(mode);
+                    setSelectedEPShipId(null);
+                  }}
+                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-explorers-pirates'))}
+                  onBuildSettler={() => dispatchAction({ type: 'EP_BUILD_SETTLER' })}
+                  onBuildUnit={() => dispatchAction({ type: 'EP_BUILD_UNIT' })}
+                  onRollFishShoal={() => dispatchAction({ type: 'EP_ROLL_FISH_SHOAL' })}
                   disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 />
               )}

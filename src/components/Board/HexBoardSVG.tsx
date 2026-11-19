@@ -64,6 +64,8 @@ export interface HexBoardSVGProps {
   onCKEdgeClick?: (edgeId: string) => void;
   onCKHexClick?: (hexId: string) => void;
   onMerchantClick?: () => void;
+  barbarians?: GameState['barbarians'];
+  explorersPirates?: GameState['explorersPirates'];
 }
 
 export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
@@ -97,6 +99,8 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   onCKEdgeClick,
   onCKHexClick,
   onMerchantClick,
+  barbarians,
+  explorersPirates,
 }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const showCoords = false;
@@ -1849,6 +1853,444 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
               >
                 🏴‍☠️ FLOTA
               </text>
+            </g>
+          )}
+
+          {/* 9. MERCADERES Y BÁRBAROS (TRADERS & BARBARIANS) BOARD OVERLAYS */}
+          {barbarians && (
+            <g className="pointer-events-none">
+              {/* 9a. Lake Hexes & Coastal Fishing Grounds (Los pescadores de Catán) */}
+              {barbarians.fishingGrounds.map((fg) => {
+                const hex = board.hexes[fg.hexId];
+                if (!hex) return null;
+                return (
+                  <g
+                    key={fg.id}
+                    transform={`translate(${hex.center.x}, ${hex.center.y + (fg.isLake ? 22 : -26)})`}
+                  >
+                    <rect
+                      x={-48}
+                      y={-10}
+                      width={96}
+                      height={18}
+                      rx={8}
+                      fill={fg.isLake ? '#0284c7' : '#0f172a'}
+                      stroke="#38bdf8"
+                      strokeWidth={1.5}
+                    />
+                    <text
+                      x={0}
+                      y={3}
+                      textAnchor="middle"
+                      fill="#e0f2fe"
+                      fontSize="8.5"
+                      fontWeight="900"
+                    >
+                      {fg.isLake ? '🐟 LAGO (2,3,11,12)' : `🐟 CALADERO (${fg.numberToken})`}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 9b. Rivers, Swamps & Bridge Sites (Los ríos de Catán) */}
+              {barbarians.riverHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const isSwamp = barbarians.swampHexIds.includes(hid);
+                return (
+                  <g key={`river-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 24})`}>
+                    <rect
+                      x={-36}
+                      y={-9}
+                      width={72}
+                      height={16}
+                      rx={7}
+                      fill={isSwamp ? '#365314' : '#0369a1'}
+                      stroke="#7dd3fc"
+                      strokeWidth={1.2}
+                    />
+                    <text x={0} y={2} textAnchor="middle" fill="#f0f9ff" fontSize="8" fontWeight="900">
+                      {isSwamp ? '🌿 PANTANO' : '🌊 RÍO (+1 🪙)'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {barbarians.bridgeSiteEdgeIds.map((eid) => {
+                const e = board.edges[eid];
+                if (!e) return null;
+                const mx = (e.x1 + e.x2) / 2;
+                const my = (e.y1 + e.y2) / 2;
+                const ownerId = barbarians.bridgeOwners[eid];
+                const owner = players.find((p) => p.id === ownerId);
+                return (
+                  <g key={`bridge-${eid}`} transform={`translate(${mx}, ${my})`}>
+                    <rect
+                      x={-26}
+                      y={-9}
+                      width={52}
+                      height={18}
+                      rx={6}
+                      fill={owner ? PLAYER_COLORS[owner.color].primary : '#1e293b'}
+                      stroke="#fbbf24"
+                      strokeWidth={1.6}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8" fontWeight="900">
+                      {owner ? '🌉 PUENTE' : '🌉 PASO'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 9c. Oasis & Camels (La ruta de las caravanas) */}
+              {barbarians.oasisHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                return (
+                  <g key={`oasis-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y})`}>
+                    <circle cx={0} cy={0} r={24} fill="#065f46" stroke="#fbbf24" strokeWidth={2.5} />
+                    <text x={0} y={4} textAnchor="middle" fill="#fef3c7" fontSize="10" fontWeight="900">
+                      🌴 OASIS
+                    </text>
+                  </g>
+                );
+              })}
+
+              {barbarians.camelEdgeIds.map((eid) => {
+                const e = board.edges[eid];
+                if (!e) return null;
+                const mx = (e.x1 + e.x2) / 2;
+                const my = (e.y1 + e.y2) / 2;
+                return (
+                  <g key={`camel-${eid}`} transform={`translate(${mx}, ${my - 8})`}>
+                    <circle cx={0} cy={0} r={11} fill="#b45309" stroke="#fde68a" strokeWidth={1.8} />
+                    <text x={0} y={4} textAnchor="middle" fontSize="11">
+                      🐪
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 9d. Castle, Coastal Barbarians & Edge Knights (El ataque de los bárbaros) */}
+              {barbarians.castleHexIds.map((hid) => {
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                return (
+                  <g key={`castle-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y})`}>
+                    <rect
+                      x={-44}
+                      y={-13}
+                      width={88}
+                      height={26}
+                      rx={9}
+                      fill="#422006"
+                      stroke="#facc15"
+                      strokeWidth={2.2}
+                    />
+                    <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9.5" fontWeight="900">
+                      🏰 CASTILLO
+                    </text>
+                  </g>
+                );
+              })}
+
+              {Object.entries(barbarians.hexBarbarians).map(([hid, count]) => {
+                if (!count || count <= 0) return null;
+                const hex = board.hexes[hid];
+                if (!hex) return null;
+                const isConq = count >= 3;
+                return (
+                  <g key={`hbarb-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 23})`}>
+                    <rect
+                      x={-44}
+                      y={-10}
+                      width={88}
+                      height={19}
+                      rx={7}
+                      fill={isConq ? '#7f1d1d' : '#292524'}
+                      stroke={isConq ? '#f87171' : '#d6d3d1'}
+                      strokeWidth={1.6}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      {isConq ? '🔥 CONQUISTADO (3)' : `⚔️ ${count}/3 BÁRBAROS`}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {Object.values(barbarians.edgeKnights).map((ek) => {
+                const e = board.edges[ek.edgeId];
+                if (!e) return null;
+                const owner = players.find((p) => p.id === ek.playerId);
+                const mx = (e.x1 + e.x2) / 2;
+                const my = (e.y1 + e.y2) / 2;
+                return (
+                  <g key={ek.id} transform={`translate(${mx}, ${my})`}>
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={12}
+                      fill={owner ? PLAYER_COLORS[owner.color].primary : '#f59e0b'}
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      🛡️{ek.mpRemaining}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 9e. Destination Hexes, Wagons & Edge Barbarians (Mercaderes y Bárbaros) */}
+              {Object.values(barbarians.destinationHexes).map((dest) => {
+                const hex = board.hexes[dest.hexId];
+                if (!hex) return null;
+                return (
+                  <g key={`dest-${dest.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y})`}>
+                    <rect
+                      x={-52}
+                      y={-13}
+                      width={104}
+                      height={26}
+                      rx={9}
+                      fill="#1c1917"
+                      stroke="#fbbf24"
+                      strokeWidth={2.2}
+                    />
+                    <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9" fontWeight="900">
+                      {dest.type === 'CASTLE'
+                        ? '🏰 EL CASTILLO'
+                        : dest.type === 'QUARRY'
+                        ? '⛏️ CANTERA MÁRMOL'
+                        : '🏺 FÁBRICA VIDRIO'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {barbarians.edgeBarbarians.map((eid) => {
+                const e = board.edges[eid];
+                if (!e) return null;
+                const mx = (e.x1 + e.x2) / 2;
+                const my = (e.y1 + e.y2) / 2;
+                return (
+                  <g key={`ebarb-${eid}`} transform={`translate(${mx}, ${my})`}>
+                    <circle cx={0} cy={0} r={11} fill="#7f1d1d" stroke="#fca5a5" strokeWidth={1.8} />
+                    <text x={0} y={4} textAnchor="middle" fontSize="10">
+                      ⚔️
+                    </text>
+                  </g>
+                );
+              })}
+
+              {players.map((pl, idx) => {
+                const wVid = pl.barbarians?.wagonVertexId;
+                const v = wVid ? board.vertices[wVid] : null;
+                if (!v || !pl.barbarians) return null;
+                const offsetX = (idx - 1.5) * 9;
+                return (
+                  <g key={`wagon-${pl.id}`} transform={`translate(${v.x + offsetX}, ${v.y - 22})`}>
+                    <rect
+                      x={-22}
+                      y={-10}
+                      width={44}
+                      height={19}
+                      rx={7}
+                      fill={PLAYER_COLORS[pl.color].primary}
+                      stroke="#ffffff"
+                      strokeWidth={1.8}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      🛞 Nv.{pl.barbarians.wagonLevel}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          )}
+
+          {/* 10. PIRATAS Y EXPLORADORES (EXPLORERS & PIRATES) BOARD OVERLAYS */}
+          {explorersPirates && (
+            <g className="pointer-events-none">
+              {/* 10a. Consejo de Catán */}
+              {explorersPirates.councilHexId && board.hexes[explorersPirates.councilHexId] && (
+                <g
+                  transform={`translate(${board.hexes[explorersPirates.councilHexId].center.x}, ${
+                    board.hexes[explorersPirates.councilHexId].center.y
+                  })`}
+                >
+                  <rect
+                    x={-54}
+                    y={-14}
+                    width={108}
+                    height={28}
+                    rx={10}
+                    fill="#1e1b4b"
+                    stroke="#fbbf24"
+                    strokeWidth={2.2}
+                  />
+                  <text x={0} y={4} textAnchor="middle" fill="#fef08a" fontSize="9" fontWeight="900">
+                    🏛️ CONSEJO DE CATÁN
+                  </text>
+                </g>
+              )}
+
+              {/* 10b. Guaridas de Piratas y Ríos Auríferos */}
+              {Object.values(explorersPirates.pirateLairs).map((lair) => {
+                const hex = board.hexes[lair.hexId];
+                if (!hex) return null;
+                const landedCount = Object.values(lair.unitsByPlayer).reduce((a, b) => a + b, 0);
+                return (
+                  <g key={`lair-${lair.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
+                    <rect
+                      x={-50}
+                      y={-10}
+                      width={100}
+                      height={20}
+                      rx={8}
+                      fill={lair.conquered ? '#713f12' : '#450a0a'}
+                      stroke={lair.conquered ? '#facc15' : '#f87171'}
+                      strokeWidth={1.8}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      {lair.conquered
+                        ? `🪙 RÍO ORO (${lair.numberToken})`
+                        : `🏴‍☠️ GUARIDA (${landedCount}/3 🛡️)`}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 10c. Caladeros de Peces (Fish Grounds) */}
+              {Object.values(explorersPirates.fishGrounds).map((fg) => {
+                const hex = board.hexes[fg.hexId];
+                if (!hex) return null;
+                return (
+                  <g key={`epfish-${fg.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
+                    <rect
+                      x={-48}
+                      y={-10}
+                      width={96}
+                      height={20}
+                      rx={8}
+                      fill={fg.hasFishShoal ? '#0369a1' : '#0f172a'}
+                      stroke="#38bdf8"
+                      strokeWidth={1.8}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#e0f2fe" fontSize="8.5" fontWeight="900">
+                      {fg.hasFishShoal
+                        ? `🐟 BANCO PECES (Dado ${fg.rollNumber})`
+                        : `🌊 CALADERO (Dado ${fg.rollNumber})`}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 10d. Aldeas de las Especias (Spice Villages) */}
+              {Object.values(explorersPirates.spiceVillages).map((sv) => {
+                const hex = board.hexes[sv.hexId];
+                if (!hex) return null;
+                return (
+                  <g key={`spice-${sv.hexId}`} transform={`translate(${hex.center.x}, ${hex.center.y + 22})`}>
+                    <rect
+                      x={-54}
+                      y={-10}
+                      width={108}
+                      height={20}
+                      rx={8}
+                      fill="#064e3b"
+                      stroke="#34d399"
+                      strokeWidth={1.8}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#d1fae5" fontSize="8" fontWeight="900">
+                      🌶️ {sv.sacksRemaining} SACOS · {sv.perkLabel}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 10e. Dársenas de Ciudades Portuarias (Harbor Basins) */}
+              {Object.values(explorersPirates.harborBasins).map((basin) => {
+                const v = board.vertices[basin.vertexId];
+                if (!v) return null;
+                const cargoIcons = basin.cargo
+                  .map((c) =>
+                    c === 'SETTLER' ? '🧑‍🌾' : c === 'CREW' ? '🛡️' : c === 'FISH_HAUL' ? '🐟' : '🌶️'
+                  )
+                  .join('');
+                return (
+                  <g key={`basin-${basin.vertexId}`} transform={`translate(${v.x}, ${v.y - 24})`}>
+                    <rect
+                      x={-26}
+                      y={-9}
+                      width={52}
+                      height={17}
+                      rx={6}
+                      fill="#0f172a"
+                      stroke="#38bdf8"
+                      strokeWidth={1.5}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#bae6fd" fontSize="8.5" fontWeight="900">
+                      ⚓{cargoIcons || 'Puerto'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 10f. Barcos de la Flota con Bodega y Puntos de Movimiento */}
+              {Object.values(explorersPirates.ships).map((ship) => {
+                const e = board.edges[ship.edgeId];
+                if (!e) return null;
+                const owner = players.find((p) => p.id === ship.playerId);
+                const mx = (e.x1 + e.x2) / 2;
+                const my = (e.y1 + e.y2) / 2;
+                const cargoIcons = ship.cargo
+                  .map((c) =>
+                    c === 'SETTLER' ? '🧑‍🌾' : c === 'CREW' ? '🛡️' : c === 'FISH_HAUL' ? '🐟' : '🌶️'
+                  )
+                  .join('');
+                return (
+                  <g key={ship.id} transform={`translate(${mx}, ${my - 11})`}>
+                    <rect
+                      x={-26}
+                      y={-9}
+                      width={52}
+                      height={18}
+                      rx={6}
+                      fill={owner ? PLAYER_COLORS[owner.color].primary : '#0284c7'}
+                      stroke="#ffffff"
+                      strokeWidth={1.6}
+                    />
+                    <text x={0} y={3} textAnchor="middle" fill="#ffffff" fontSize="8.5" fontWeight="900">
+                      ⛵{cargoIcons} ({ship.mpRemaining})
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* 10g. Barco Pirata activo */}
+              {explorersPirates.activePirateShip &&
+                board.hexes[explorersPirates.activePirateShip.hexId] && (
+                  <g
+                    transform={`translate(${
+                      board.hexes[explorersPirates.activePirateShip.hexId].center.x
+                    }, ${board.hexes[explorersPirates.activePirateShip.hexId].center.y - 18})`}
+                  >
+                    <rect
+                      x={-40}
+                      y={-11}
+                      width={80}
+                      height={22}
+                      rx={8}
+                      fill="#090d16"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                    />
+                    <text x={0} y={4} textAnchor="middle" fill="#fecaca" fontSize="9" fontWeight="900">
+                      🏴‍☠️ PIRATA
+                    </text>
+                  </g>
+                )}
             </g>
           )}
         </g>

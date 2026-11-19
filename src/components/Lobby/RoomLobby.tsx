@@ -1,5 +1,12 @@
 import { CitiesKnightsOverview } from './CitiesKnightsOverview';
 import { CK_CONFLICTING_SCENARIOS, hasCitiesKnights } from '../../shared/citiesKnightsConfig';
+import {
+  BARBARIANS_SCENARIOS,
+  BARBARIANS_VARIANTS_CATALOG,
+  EXPLORERS_PIRATES_SCENARIOS,
+  hasBarbarians,
+  hasExplorersPirates,
+} from '../../shared/expansionsConfig';
 import { playerCardStyle } from '../UI/playerCardStyle';
 import React, { useState } from 'react';
 import {
@@ -78,6 +85,36 @@ export const RoomLobby: React.FC = () => {
     if (!isHost) return;
     if (expId === 'BASE') {
       dispatchAction({ type: 'UPDATE_CONFIG', config: { enabledExpansions: ['BASE'], expansionModule: 'BASE', victoryPointsTarget: 10, desertInCenter: true } });
+      return;
+    }
+    if (expId === 'BARBARIANS') {
+      const scen = config.barbariansScenario || 'FISHERMEN_OF_CATAN';
+      const spec = BARBARIANS_SCENARIOS.find((s) => s.id === scen) || BARBARIANS_SCENARIOS[0];
+      dispatchAction({
+        type: 'UPDATE_CONFIG',
+        config: {
+          enabledExpansions: ['BASE', 'BARBARIANS'],
+          expansionModule: 'BARBARIANS',
+          barbariansScenario: scen,
+          victoryPointsTarget: spec.recommendedVP + (config.barbariansVariants?.harborMaster ? 1 : 0),
+          desertInCenter: true,
+        },
+      });
+      return;
+    }
+    if (expId === 'EXPLORERS_AND_PIRATES') {
+      const scen = config.explorersPiratesScenario || 'EXPLORERS_AND_PIRATES_FULL';
+      const spec = EXPLORERS_PIRATES_SCENARIOS.find((s) => s.id === scen) || EXPLORERS_PIRATES_SCENARIOS[4];
+      dispatchAction({
+        type: 'UPDATE_CONFIG',
+        config: {
+          enabledExpansions: ['BASE', 'EXPLORERS_AND_PIRATES'],
+          expansionModule: 'EXPLORERS_AND_PIRATES',
+          explorersPiratesScenario: scen,
+          victoryPointsTarget: spec.recommendedVP,
+          desertInCenter: false,
+        },
+      });
       return;
     }
     const compatible = expId === 'SEAFARERS' || expId === 'CITIES_AND_KNIGHTS';
@@ -506,6 +543,195 @@ export const RoomLobby: React.FC = () => {
                         })}
                       </div>
                     )}
+
+                    {/* Selector interactivo de los 5 Escenarios y 4 Variantes Oficiales de Mercaderes y Bárbaros */}
+                    {checked && exp.id === 'BARBARIANS' && (
+                      <div className="p-3 pt-1 space-y-3 border-t border-amber-500/30 bg-amber-950/20">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                            <span>⚔️</span>
+                            <span>Campaña Oficial de Mercaderes y Bárbaros (5 Escenarios):</span>
+                          </span>
+                          <span className="text-[10px] text-amber-200 font-bold bg-amber-900/70 px-2 py-0.5 rounded border border-amber-500/40">
+                            Meta: {config.victoryPointsTarget} PV
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {BARBARIANS_SCENARIOS.map((scen) => {
+                            const isScenActive =
+                              (config.barbariansScenario || 'FISHERMEN_OF_CATAN') === scen.id;
+                            return (
+                              <button
+                                key={scen.id}
+                                type="button"
+                                disabled={!isHost}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dispatchAction({
+                                    type: 'UPDATE_CONFIG',
+                                    config: {
+                                      expansionModule: 'BARBARIANS',
+                                      enabledExpansions: ['BASE', 'BARBARIANS'],
+                                      barbariansScenario: scen.id,
+                                      victoryPointsTarget:
+                                        scen.recommendedVP +
+                                        (config.barbariansVariants?.harborMaster ? 1 : 0),
+                                    },
+                                  });
+                                }}
+                                className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-2.5 ${
+                                  isScenActive
+                                    ? 'bg-amber-500/25 border-amber-400 text-amber-100 shadow-[0_0_12px_rgba(245,158,11,0.25)] ring-1 ring-amber-400'
+                                    : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-slate-100">
+                                      {scen.title}
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 font-bold border border-amber-500/30">
+                                      {scen.badge}
+                                    </span>
+                                    <span className="text-[9px] text-amber-300 font-bold ml-auto">
+                                      {scen.recommendedVP +
+                                        (config.barbariansVariants?.harborMaster ? 1 : 0)}{' '}
+                                      PV
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                    {scen.subtitle}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* 4 Variantes Oficiales Combinables */}
+                        <div className="pt-2 border-t border-amber-500/20 space-y-1.5">
+                          <div className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                            Variantes Oficiales Combinables (Págs. 2–5 del Reglamento):
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {BARBARIANS_VARIANTS_CATALOG.map((vItem) => {
+                              const isVarOn = Boolean(config.barbariansVariants?.[vItem.key]);
+                              return (
+                                <button
+                                  key={vItem.key}
+                                  type="button"
+                                  disabled={!isHost}
+                                  aria-pressed={isVarOn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const nextVars = {
+                                      ...(config.barbariansVariants || {}),
+                                      [vItem.key]: !isVarOn,
+                                    };
+                                    const curScen =
+                                      BARBARIANS_SCENARIOS.find(
+                                        (s) =>
+                                          s.id ===
+                                          (config.barbariansScenario || 'FISHERMEN_OF_CATAN')
+                                      ) || BARBARIANS_SCENARIOS[0];
+                                    dispatchAction({
+                                      type: 'UPDATE_CONFIG',
+                                      config: {
+                                        barbariansVariants: nextVars,
+                                        victoryPointsTarget:
+                                          curScen.recommendedVP + (nextVars.harborMaster ? 1 : 0),
+                                      },
+                                    });
+                                  }}
+                                  className={`p-2 rounded-xl border text-left transition cursor-pointer ${
+                                    isVarOn
+                                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-100'
+                                      : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-black text-white">
+                                      {vItem.title}
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-bold">
+                                      {isVarOn ? 'Activa ✓' : vItem.badge}
+                                    </span>
+                                  </div>
+                                  <p className="text-[9.5px] text-slate-300 mt-0.5 leading-tight">
+                                    {vItem.description}
+                                  </p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Selector interactivo de los 5 Escenarios Oficiales de Piratas y Exploradores */}
+                    {checked && exp.id === 'EXPLORERS_AND_PIRATES' && (
+                      <div className="p-3 pt-1 space-y-3 border-t border-cyan-500/30 bg-cyan-950/20">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                            <span>🧭</span>
+                            <span>Campaña Oficial de Piratas y Exploradores (5 Escenarios):</span>
+                          </span>
+                          <span className="text-[10px] text-cyan-200 font-bold bg-cyan-900/70 px-2 py-0.5 rounded border border-cyan-500/40">
+                            Meta: {config.victoryPointsTarget} PV
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {EXPLORERS_PIRATES_SCENARIOS.map((scen) => {
+                            const isScenActive =
+                              (config.explorersPiratesScenario || 'EXPLORERS_AND_PIRATES_FULL') ===
+                              scen.id;
+                            return (
+                              <button
+                                key={scen.id}
+                                type="button"
+                                disabled={!isHost}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dispatchAction({
+                                    type: 'UPDATE_CONFIG',
+                                    config: {
+                                      expansionModule: 'EXPLORERS_AND_PIRATES',
+                                      enabledExpansions: ['BASE', 'EXPLORERS_AND_PIRATES'],
+                                      explorersPiratesScenario: scen.id,
+                                      victoryPointsTarget: scen.recommendedVP,
+                                    },
+                                  });
+                                }}
+                                className={`w-full p-2.5 rounded-xl border text-left transition flex items-start justify-between gap-2.5 ${
+                                  isScenActive
+                                    ? 'bg-cyan-500/25 border-cyan-400 text-cyan-100 shadow-[0_0_12px_rgba(34,211,238,0.25)] ring-1 ring-cyan-400'
+                                    : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-slate-100">
+                                      {scen.title}
+                                    </span>
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-500/30">
+                                      {scen.badge}
+                                    </span>
+                                    <span className="text-[9px] text-amber-300 font-bold ml-auto">
+                                      {scen.recommendedVP} PV
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-300 mt-0.5 leading-snug">
+                                    {scen.subtitle}
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -669,6 +895,81 @@ export const RoomLobby: React.FC = () => {
                 </div>
                 <CitiesKnightsOverview extended={config.boardMode === 'EXPANSION_5_6'}/>
                 <label className="flex items-start gap-2 text-xs text-stone-300"><input type="checkbox" disabled={!isHost} checked={!!config.citiesKnightsVoluntaryDefense} onChange={e => dispatchAction({ type: 'UPDATE_CONFIG', config: { citiesKnightsVoluntaryDefense: e.target.checked } })}/><span>Variante «doña Urraca»: elegir los caballeros que participan en cada defensa.</span></label>
+              </div>
+            ) : hasBarbarians(config) ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2" aria-label="Modalidad de Mercaderes y Bárbaros">
+                  {([{ mode: 'STANDARD_3_4', name: '2–4 jugadores (Estándar)' }, { mode: 'EXPANSION_5_6', name: '5–6 jugadores (Ampliación)' }] as const).map(({ mode, name }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={!isHost}
+                      aria-pressed={config.boardMode === mode}
+                      onClick={() => handleBoardModeSelect(mode)}
+                      className={`min-h-12 rounded-xl border p-3 text-xs font-bold cursor-pointer ${
+                        config.boardMode === mode
+                          ? 'border-amber-400 bg-amber-900/30 text-amber-100'
+                          : 'border-stone-700 text-stone-400'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const sc =
+                    BARBARIANS_SCENARIOS.find((s) => s.id === config.barbariansScenario) ||
+                    BARBARIANS_SCENARIOS[0];
+                  return (
+                    <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs space-y-1.5">
+                      <div className="font-black text-amber-200">{sc.title}</div>
+                      <p className="text-[11px] text-amber-100/90">{sc.specialVPRule}</p>
+                      <ul className="list-disc pl-4 space-y-1 text-[10.5px] text-slate-300">
+                        {sc.rulesSummary.map((r, idx) => (
+                          <li key={idx}>{r}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : hasExplorersPirates(config) ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2" aria-label="Modalidad de Piratas y Exploradores">
+                  {([{ mode: 'STANDARD_3_4', name: '2–4 jugadores (Estándar)' }, { mode: 'EXPANSION_5_6', name: '5–6 jugadores (Ampliación)' }] as const).map(({ mode, name }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={!isHost}
+                      aria-pressed={config.boardMode === mode}
+                      onClick={() => handleBoardModeSelect(mode)}
+                      className={`min-h-12 rounded-xl border p-3 text-xs font-bold cursor-pointer ${
+                        config.boardMode === mode
+                          ? 'border-cyan-400 bg-cyan-900/30 text-cyan-100'
+                          : 'border-stone-700 text-stone-400'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                {(() => {
+                  const sc =
+                    EXPLORERS_PIRATES_SCENARIOS.find(
+                      (s) => s.id === config.explorersPiratesScenario
+                    ) || EXPLORERS_PIRATES_SCENARIOS[4];
+                  return (
+                    <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs space-y-1.5">
+                      <div className="font-black text-cyan-200">{sc.title}</div>
+                      <p className="text-[11px] text-cyan-100/90">{sc.specialVPRule}</p>
+                      <ul className="list-disc pl-4 space-y-1 text-[10.5px] text-slate-300">
+                        {sc.rulesSummary.map((r, idx) => (
+                          <li key={idx}>{r}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">

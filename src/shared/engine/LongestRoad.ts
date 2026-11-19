@@ -15,7 +15,8 @@ export interface LongestRoadResult {
 export function calculatePlayerLongestRoad(
   board: BoardState,
   playerId: string,
-  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT'
+  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT',
+  doubleWeightEdgeIds?: string[]
 ): LongestRoadResult {
   const playerEdges = Object.values(board.edges).filter(
     (e) => e.playerId === playerId && e.building !== null
@@ -26,6 +27,9 @@ export function calculatePlayerLongestRoad(
   }
 
   const playerEdgeSet = new Set(playerEdges.map((e) => e.id));
+  const doubleWeightSet = new Set(doubleWeightEdgeIds || []);
+  const getPathWeight = (path: string[]): number =>
+    path.reduce((sum, eid) => sum + (doubleWeightSet.has(eid) ? 2 : 1), 0);
 
   // Collect all vertices touched by this player's edges
   const startVertices = new Set<string>();
@@ -35,12 +39,15 @@ export function calculatePlayerLongestRoad(
   }
 
   let bestEdgeIds: string[] = [];
+  let bestWeight = 0;
 
   const visitedEdges = new Set<string>();
   const visitedIntermediateVertices = new Set<string>();
 
   function dfs(currentVertexId: string, currentPath: string[]): void {
-    if (currentPath.length > bestEdgeIds.length) {
+    const currentWeight = getPathWeight(currentPath);
+    if (currentWeight > bestWeight) {
+      bestWeight = currentWeight;
       bestEdgeIds = [...currentPath];
     }
 
@@ -106,7 +113,7 @@ export function calculatePlayerLongestRoad(
   }
 
   return {
-    length: bestEdgeIds.length,
+    length: bestWeight,
     edgeIds: bestEdgeIds,
   };
 }
@@ -118,12 +125,13 @@ export function updateLongestRoadAward(
   board: BoardState,
   players: PlayerState[],
   currentHolderId: string | null,
-  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT'
+  coastConnectionMode: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION' = 'REQUIRE_SETTLEMENT',
+  doubleWeightEdgeIds?: string[]
 ): string | null {
   let maxLen = 0;
 
   for (const player of players) {
-    const res = calculatePlayerLongestRoad(board, player.id, coastConnectionMode);
+    const res = calculatePlayerLongestRoad(board, player.id, coastConnectionMode, doubleWeightEdgeIds);
     player.longestRoadLength = res.length;
     player.longestRoadEdgeIds = res.edgeIds;
     if (res.length > maxLen) {

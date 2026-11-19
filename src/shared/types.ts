@@ -9,7 +9,47 @@ import type {
   EventDie,
   ProgressCardType,
 } from './citiesKnightsTypes';
+import type {
+  BarbariansAction,
+  BarbariansPlayer,
+  BarbariansScenario,
+  BarbariansState,
+  BarbariansVariants,
+  ExplorersPiratesAction,
+  ExplorersPiratesPlayer,
+  ExplorersPiratesScenario,
+  ExplorersPiratesState,
+} from './expansionsTypes';
 export type { CommodityType, TradeCardType, CardBundle, ImprovementBranch, EventDie, ProgressCardType, ProgressCard, BoardKnight } from './citiesKnightsTypes';
+export type {
+  BarbariansAction,
+  BarbariansPlayer,
+  BarbariansScenario,
+  BarbariansState,
+  BarbariansVariants,
+  ExplorersPiratesAction,
+  ExplorersPiratesPlayer,
+  ExplorersPiratesScenario,
+  ExplorersPiratesState,
+  EPMissionId,
+  EPCargoItem,
+  EPShipState,
+  EPHarborBasin,
+  EPPirateLair,
+  EPFishGround,
+  EPSpiceVillage,
+  EPUnexploredTileSecret,
+  SpicePerkType,
+  FishToken,
+  FishingGround,
+  CatanEventCard,
+  CatanEventType,
+  DestinationType,
+  CommodityDeliveryType,
+  BarbariansDevCard,
+  BarbariansDevCardType,
+  EdgeKnight,
+} from './expansionsTypes';
 export type ResourceType = 'WOOD' | 'BRICK' | 'SHEEP' | 'WHEAT' | 'ORE';
 
 export type TerrainType = ResourceType | 'DESERT' | 'SEA' | 'GOLD' | 'FOG';
@@ -55,6 +95,7 @@ export interface Vertex {
   adjacentVertexIds: string[];
   adjacentEdgeIds: string[];
   building: VertexBuildingType | null;
+  isHarborCity?: boolean; // Piratas y Exploradores: Ciudad Portuaria (2 PV, produce 1 recurso, cuenta con dársena)
   knight?: BoardKnight;
   cityWall?: boolean;
   metropolis?: ImprovementBranch;
@@ -81,6 +122,7 @@ export interface Edge {
   isLand: boolean;
   isCoastal: boolean;
   isWarship?: boolean; // Navegantes Escenario 7: Barco de Guerra
+  hasBridge?: boolean; // Mercaderes y Bárbaros: Puente sobre río
 }
 
 export type BoardMode =
@@ -194,6 +236,11 @@ export interface GameConfig {
   // Escenario de Navegantes y Tamaño de Isla (2-3, 4, o 5-6 jugadores)
   seafarersScenario?: SeafarersScenario;
   seafarersBoardSize?: SeafarersBoardSize;
+  // Escenario y Variantes de Mercaderes y Bárbaros (3-4 y 5-6 jugadores)
+  barbariansScenario?: BarbariansScenario;
+  barbariansVariants?: BarbariansVariants;
+  // Escenario de Piratas y Exploradores (2-4 y 5-6 jugadores)
+  explorersPiratesScenario?: ExplorersPiratesScenario;
   // Variantes oficiales y reglas de la expansión Navegantes
   seafarersMoveShipAllowed?: boolean;
   seafarersCoastConnection?: 'REQUIRE_SETTLEMENT' | 'FREE_CONNECTION';
@@ -260,6 +307,8 @@ export interface PlayerState {
   resources: CardBundle;
   devCards: DevCard[];
   citiesKnights?: CitiesKnightsPlayer;
+  barbarians?: BarbariansPlayer;
+  explorersPirates?: ExplorersPiratesPlayer;
   knightsPlayed: number;
   longestRoadLength: number;
   longestRoadEdgeIds: string[];
@@ -378,6 +427,8 @@ export interface GameState {
   actionTimestamp?: number;
   logSequence?: number;
   citiesKnights?: CitiesKnightsState;
+  barbarians?: BarbariansState;
+  explorersPirates?: ExplorersPiratesState;
   roomCode: string;
   createdAt: number;
   phase: GamePhase;
@@ -493,6 +544,8 @@ export interface GameState {
 
 export type GameAction =
   | CitiesKnightsAction
+  | BarbariansAction
+  | ExplorersPiratesAction
   | { type: 'UPDATE_CONFIG'; config: Partial<GameConfig> }
   | {
       type: 'GENERATE_BOARD';

@@ -1,6 +1,26 @@
 import { withOfficialNumberSpiral } from './citiesKnightsSetup';
 import { applyCitiesKnightsAction, automaticCKChoice, citiesKnightsBotActions, cityCost, initializeCitiesKnights, isRobberUnlocked, queueAqueduct, produceCitiesKnightsResources } from './CitiesAndKnights';
 import { hasCitiesKnights, COMMODITIES, BRANCH_META, safeHandLimit, CK_CONFLICTING_SCENARIOS } from '../citiesKnightsConfig';
+import { BARBARIANS_SCENARIOS, EXPLORERS_PIRATES_SCENARIOS, createCatanEventsDeck, hasBarbarians, hasExplorersPirates } from '../expansionsConfig';
+import {
+  applyBarbariansAction,
+  barbariansBotActions,
+  calculateBarbariansPlayerVP,
+  initializeBarbarians,
+  onBarbariansBuildingPlaced,
+  onBarbariansDiceProduction,
+  onBarbariansSetupSettlementPlaced,
+  onBarbariansTurnStart,
+  resolveBarbarianAttackBattles,
+} from './BarbariansEngine';
+import {
+  applyExplorersPiratesAction,
+  calculateExplorersPiratesPlayerVP,
+  explorersPiratesBotActions,
+  initializeExplorersPirates,
+  onExplorersPiratesDiceProduction,
+  onExplorersPiratesTurnStart,
+} from './ExplorersPiratesEngine';
 import type { CardBundle, RuleContext } from '../citiesKnightsTypes';
 import { parseRoomCreationOptions, ROOM_PRESETS } from '../roomPresets';
 import { getRoomPlayerLimit, SEAFARERS_PLAYER_LIMITS } from '../seafarersConfig';
@@ -279,15 +299,24 @@ export function recalculateVictoryPoints(state: GameState): void {
       publicVP += Object.values(state.board.vertices).filter(v => v.playerId === p.id && v.metropolis && v.building === 'CITY').length * 2;
       if (state.board.merchant?.playerId === p.id) publicVP++;
     }
+    if (p.barbarians) {
+      const mbVP = calculateBarbariansPlayerVP(state, p);
+      publicVP += mbVP.extraPublicVP - mbVP.conqueredBuildingPenalty;
+    }
+    if (p.explorersPirates) {
+      publicVP += calculateExplorersPiratesPlayerVP(state, p);
+    }
     const hiddenVP = p.devCards.filter((c) => c.type === 'VICTORY_POINT').length;
 
     p.publicVictoryPoints = publicVP;
     p.totalVictoryPoints = publicVP + hiddenVP;
   }
 
-  // Official Victory Conditions (adapted per Navegantes scenario)
+  // Official Victory Conditions (adapted per Navegantes / Mercaderes y Bárbaros / Piratas y Exploradores scenario)
   if (state.phase !== 'LOBBY' && state.phase !== 'GAME_OVER' && state.phase !== 'SPECIAL_BUILD_PHASE' && !state.citiesKnights?.specialBuild && !state.citiesKnights?.choices.length && !state.citiesKnights?.pendingDice) {
     const activePlayer = state.players.find((p) => p.id === state.turn.activePlayerId);
+    const activeOldBootPenalty = activePlayer?.barbarians?.hasOldBoot ? 1 : 0;
+    const effectiveTargetVP = state.config.victoryPointsTarget + activeOldBootPenalty;
 
     // Escenario 8: Las maravillas catanas — Victoria instantánea al completar Fase 4
     if (state.config.seafarersScenario === 'WONDERS_OF_CATAN' && activePlayer) {
@@ -308,7 +337,7 @@ export function recalculateVictoryPoints(state: GameState): void {
     // Escenario 7: Las islas de los piratas — Requiere 10 PV Y conquistar la fortaleza pirata
     if (state.config.seafarersScenario === 'THE_PIRATE_ISLANDS' && activePlayer) {
       if (
-        activePlayer.totalVictoryPoints >= state.config.victoryPointsTarget &&
+        activePlayer.totalVictoryPoints >= effectiveTargetVP &&
         activePlayer.conqueredPirateFortress
       ) {
         state.winnerId = activePlayer.id;
@@ -324,7 +353,7 @@ export function recalculateVictoryPoints(state: GameState): void {
       }
     } else if (
       activePlayer &&
-      activePlayer.totalVictoryPoints >= state.config.victoryPointsTarget
+      activePlayer.totalVictoryPoints >= effectiveTargetVP
     ) {
       state.winnerId = activePlayer.id;
       state.phase = 'GAME_OVER';
@@ -361,7 +390,15 @@ export function recalculateVictoryPoints(state: GameState): void {
 }
 
 export function updateLargestArmyAward(state: GameState): void {
-  if (hasCitiesKnights(state.config)) { state.largestArmyPlayerId = null; return; }
+  if (
+    hasCitiesKnights(state.config) ||
+    hasExplorersPirates(state.config) ||
+    (hasBarbarians(state.config) &&
+      ['BARBARIAN_ATTACK', 'TRADERS_AND_BARBARIANS'].includes(state.config.barbariansScenario || ''))
+  ) {
+    state.largestArmyPlayerId = null;
+    return;
+  }
   let currentHolder = state.players.find((p) => p.id === state.largestArmyPlayerId) || null;
   let currentMax = currentHolder ? currentHolder.knightsPlayed : 2; // Minimum 3 knights required
 
@@ -396,17 +433,19 @@ export function getPlayerBankTradeRatios(
   state: GameState,
   playerId: string
 ): Record<TradeCardType, 2 | 3 | 4> {
+  const baseRatio: 3 | 4 = hasExplorersPirates(state.config) ? 3 : 4;
   const ratios: Record<TradeCardType, 2 | 3 | 4> = {
     PAPER: 4, CLOTH: 4, COIN: 4,
-    WOOD: 4,
-    BRICK: 4,
-    SHEEP: 4,
-    WHEAT: 4,
-    ORE: 4,
+    WOOD: baseRatio,
+    BRICK: baseRatio,
+    SHEEP: baseRatio,
+    WHEAT: baseRatio,
+    ORE: baseRatio,
   };
 
   for (const v of Object.values(state.board.vertices)) {
     if (v.playerId === playerId && v.building !== null && v.port) {
+      if (state.barbarians?.conqueredVertexIds.includes(v.id)) continue;
       if (v.port.type === 'GENERIC') {
         for (const r of ALL_TRADE_CARDS) {
           if (ratios[r] > 3) ratios[r] = 3;
@@ -569,6 +608,36 @@ export function canBuildSettlement(
     return { allowed: false, reason: 'Esta intersección está reservada por los marcadores de las maravillas durante la fundación.' };
   }
 
+  // Reglas de Piratas y Exploradores para poblados / ciudad portuaria inicial
+  if (state.explorersPirates) {
+    if (isSetup) {
+      const startSet = new Set(state.explorersPirates.startingIslandHexIds);
+      if (!v.hexIds.some((hid) => startSet.has(hid))) {
+        return { allowed: false, reason: 'En la fase de fundación solo puedes colocar en la isla inicial.' };
+      }
+      if (state.phase === 'SETUP_SETTLEMENT_1' && !v.isCoastal) {
+        return { allowed: false, reason: 'Tu primera pieza en Piratas y Exploradores es una Ciudad Portuaria y debe situarse en la costa de la isla inicial.' };
+      }
+    }
+    if (v.hexIds.some((hid) => state.board.hexes[hid]?.terrain === 'FOG')) {
+      return { allowed: false, reason: 'No se pueden fundar poblados en encrucijadas que limiten con hexágonos inexplorados.' };
+    }
+    if (v.hexIds.some((hid) => state.explorersPirates!.pirateLairs[hid] && !state.explorersPirates!.pirateLairs[hid].conquered)) {
+      return { allowed: false, reason: 'No puedes construir en un hexágono ocupado por una Guarida de Piratas sin conquistar.' };
+    }
+    if (state.explorersPirates.councilHexId && v.hexIds.includes(state.explorersPirates.councilHexId)) {
+      return { allowed: false, reason: 'No se pueden construir poblados en el hexágono del Consejo de Catán.' };
+    }
+  }
+
+  // Reglas de Mercaderes y Bárbaros (El ataque de los bárbaros: hexágonos de costa conquistados)
+  if (state.barbarians?.scenario === 'BARBARIAN_ATTACK' && state.barbarians.conqueredHexIds.length > 0) {
+    const conqueredSet = new Set(state.barbarians.conqueredHexIds);
+    if (v.hexIds.some((hid) => conqueredSet.has(hid))) {
+      return { allowed: false, reason: 'No puedes construir en las encrucijadas de un hexágono de costa conquistado por los bárbaros.' };
+    }
+  }
+
   // 1. Regla oficial de islotes inhabitables (El Pueblo Perdido, Telas para Catán, Islas Piratas)
   if (state.board.uninhabitableHexIds && state.board.uninhabitableHexIds.length > 0) {
     const uninhabitableSet = new Set(state.board.uninhabitableHexIds);
@@ -725,6 +794,28 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player || player.roadsLeft <= 0) return [];
+  // Variante Eventos en Catán (Terremoto): hay que reparar la carretera dañada antes de construir una nueva
+  if (!isSetup && (player.barbarians?.damagedRoadEdgeIds?.length || 0) > 0) return [];
+
+  const isForbiddenRoadEdge = (e: Edge): boolean => {
+    if (state.barbarians?.scenario === 'RIVERS_OF_CATAN' && state.barbarians.bridgeSiteEdgeIds.includes(e.id)) {
+      return true; // Los lugares de puente requieren construir un Puente, no una carretera
+    }
+    if (state.barbarians?.scenario === 'BARBARIAN_ATTACK' && state.barbarians.conqueredHexIds.length > 0) {
+      if (e.hexIds.some((hid) => state.barbarians!.conqueredHexIds.includes(hid))) return true;
+    }
+    if (state.barbarians?.scenario === 'TRADERS_AND_BARBARIANS') {
+      const forbiddenSea = Object.values(state.barbarians.destinationHexes).some((d) =>
+        d.forbiddenSeaEdgeIds.includes(e.id)
+      );
+      if (forbiddenSea) return true;
+    }
+    if (state.explorersPirates) {
+      if (e.hexIds.some((hid) => state.board.hexes[hid]?.terrain === 'FOG')) return true;
+      if (e.hexIds.some((hid) => state.explorersPirates!.pirateLairs[hid] && !state.explorersPirates!.pirateLairs[hid].conquered)) return true;
+    }
+    return false;
+  };
 
   if (isSetup) {
     const lastVertexId = state.turn.lastPlacedSetupSettlementId;
@@ -733,7 +824,7 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
     if (!lastVertex) return [];
     return lastVertex.adjacentEdgeIds.filter((eId) => {
       const edge = state.board.edges[eId];
-      return edge && edge.isLand && edge.building === null;
+      return edge && edge.isLand && edge.building === null && !isForbiddenRoadEdge(edge);
     });
   }
 
@@ -750,7 +841,7 @@ export function getValidRoadEdges(state: GameState, playerId: string): string[] 
   const validEdgeIds: string[] = [];
 
   for (const edge of Object.values(state.board.edges)) {
-    if (!edge.isLand || edge.building !== null) continue;
+    if (!edge.isLand || edge.building !== null || isForbiddenRoadEdge(edge)) continue;
 
     // Must connect to at least one vertex that either:
     // a) has a building owned by playerId, OR
@@ -1089,6 +1180,18 @@ export function getValidCityVertices(state: GameState, playerId: string): string
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return [];
+
+  // En Piratas y Exploradores los poblados costeros se transforman en Ciudades Portuarias (2 Trigos + 2 Minerales, límite de 4)
+  if (state.explorersPirates) {
+    if ((player.explorersPirates?.harborCitiesLeft || 0) <= 0) return [];
+    const check = canSpendOrBuildThisTurn(state, playerId, true);
+    if (!check.allowed) return [];
+    if (!hasResources(player.resources, { ...createEmptyResources(), WHEAT: 2, ORE: 2 })) return [];
+    return Object.values(state.board.vertices)
+      .filter((v) => v.playerId === playerId && v.building === 'SETTLEMENT' && v.isCoastal)
+      .map((v) => v.id);
+  }
+
   const fallen = Object.values(state.board.vertices).filter(v => v.playerId === playerId && v.isDowngradedCity);
   if (player.citiesLeft <= 0 && !fallen.length) return [];
 
@@ -1107,6 +1210,7 @@ export function canBuyDevCard(
   playerId: string
 ): { allowed: boolean; reason?: string } {
   if (hasCitiesKnights(state.config)) return { allowed: false, reason: 'Ciudades y Caballeros utiliza cartas de progreso.' };
+  if (hasExplorersPirates(state.config)) return { allowed: false, reason: 'En Piratas y Exploradores no se utilizan cartas de desarrollo.' };
   const check = canSpendOrBuildThisTurn(state, playerId, false);
   if (!check.allowed) return check;
 
@@ -1157,6 +1261,9 @@ function sortPlayersByOrderRolls(state: GameState): void {
 
 function advanceToNextTurn(state: GameState): void {
   state.activeTradeOffers = [];
+  if (state.barbarians?.scenario === 'BARBARIAN_ATTACK') {
+    resolveBarbarianAttackBattles(state, Math.random);
+  }
   recalculateVictoryPoints(state);
   if (state.phase === 'GAME_OVER') return;
 
@@ -1189,6 +1296,12 @@ function advanceToNextTurn(state: GameState): void {
   state.turn.robberOrPirateMode = null;
   for (const p of state.players) {
     p.hasMovedShipThisTurn = false;
+  }
+  if (state.barbarians) {
+    onBarbariansTurnStart(state, nextPlayer.id);
+  }
+  if (state.explorersPirates) {
+    onExplorersPiratesTurnStart(state, nextPlayer.id);
   }
   state.phase = 'WAITING_FOR_DICE';
   if (state.citiesKnights) { recalculateVictoryPoints(state); if (state.winnerId) return; }
@@ -1346,19 +1459,128 @@ export function canBuildWonderStage(state: GameState, playerId: string): { allow
 function resolveNumberDice(state: GameState, dice: [number, number], context: RuleContext = { random: Math.random }): { state: GameState } {
   const actor = state.players.find(p => p.id === state.turn.activePlayerId)!;
   const nextNonce = (state.lastEvent?.nonce || 0) + 1;
-  const [d1, d2] = dice;
+  let [d1, d2] = dice;
+
+  // En Mercaderes y Bárbaros (3-4 jugadores), si sale un 2 o un 12 se repite la tirada automáticamente (pág. 19)
+  if (
+    state.barbarians?.scenario === 'TRADERS_AND_BARBARIANS' &&
+    state.config.boardMode !== 'EXPANSION_5_6' &&
+    !context.dice
+  ) {
+    while (d1 + d2 === 2 || d1 + d2 === 12) {
+      d1 = Math.floor(context.random() * 6) + 1;
+      d2 = Math.floor(context.random() * 6) + 1;
+    }
+  }
+
+  // Variante Oficial: Eventos en Catán (sustituye los dados por el mazo estadístico de Eventos)
+  if (state.barbarians?.variants.catanEventsDeck && !context.dice) {
+    if (state.barbarians.eventDeck.length === 0) {
+      state.barbarians.eventDeck = createCatanEventsDeck(context.random);
+    }
+    let card = state.barbarians.eventDeck.shift()!;
+    if (card.eventType === 'NEW_YEAR') {
+      addLog(state, `🎆 ¡Nochevieja en Catán! Se baraja de nuevo el mazo de Eventos y se revela una nueva carta.`, 'INFO');
+      state.barbarians.eventDeck = createCatanEventsDeck(context.random);
+      card = state.barbarians.eventDeck.shift()!;
+    }
+    state.barbarians.currentEventCard = card;
+    [d1, d2] = card.dicePair;
+    state.barbarians.epidemicActiveThisTurn = card.eventType === 'EPIDEMIC';
+
+    if (card.eventType !== 'CALM_WORK') {
+      addLog(state, `🃏 Evento en Catán (${card.numberToken}) — «${card.title}»: ${card.description}`, 'INFO', actor.id);
+    }
+    if (card.eventType === 'PLENTIFUL_YEAR') {
+      for (const p of state.players) {
+        const res = ALL_RESOURCES.find((r) => state.bank[r] > 0);
+        if (res) {
+          state.bank[res] -= 1;
+          p.resources[res] += 1;
+        }
+      }
+    } else if (card.eventType === 'ROBBER_RETREATS') {
+      for (const h of Object.values(state.board.hexes)) h.hasRobber = false;
+      const desert = Object.values(state.board.hexes).find((h) => h.terrain === 'DESERT');
+      if (desert && state.barbarians.scenario !== 'FISHERMEN_OF_CATAN' && state.barbarians.scenario !== 'THE_CARAVANS') {
+        desert.hasRobber = true;
+        state.board.robberHexId = desert.id;
+      } else {
+        state.board.robberHexId = '';
+      }
+    } else if (card.eventType === 'EARTHQUAKE') {
+      for (const p of state.players) {
+        if (!p.barbarians) continue;
+        if (p.barbarians.damagedRoadEdgeIds.length > 0) continue;
+        const ownRoad = Object.values(state.board.edges).find(
+          (e) => e.playerId === p.id && e.building === 'ROAD' && !e.hasBridge
+        );
+        if (ownRoad) {
+          p.barbarians.damagedRoadEdgeIds.push(ownRoad.id);
+        }
+      }
+    }
+  }
+
   const sum = d1 + d2;
 
   state.turn.diceRoll = [d1, d2];
   state.turn.hasRolledDice = true;
 
+  const noStandardRobberMove =
+    Boolean(state.explorersPirates) ||
+    (Boolean(state.barbarians) &&
+      ['BARBARIAN_ATTACK', 'TRADERS_AND_BARBARIANS'].includes(state.barbarians!.scenario));
+
   if (sum === 7) {
     addLog(
       state,
-      `${actor.name} obtuvo un 7 (${d1} + ${d2}). Se activa el Ladrón.`,
+      `${actor.name} obtuvo un 7 (${d1} + ${d2}). ${
+        state.explorersPirates
+          ? '¡Se avista el Barco Pirata!'
+          : noStandardRobberMove
+          ? '¡Incursión de saqueo!'
+          : 'Se activa el Ladrón.'
+      }`,
       'ROBBER',
       actor.id
     );
+
+    const handlePostDiscard7 = () => {
+      if (state.explorersPirates) {
+        // Colocar o mover el Barco Pirata a un hexágono de mar y robar
+        const seaHex = Object.values(state.board.hexes).find(
+          (h) =>
+            h.terrain === 'SEA' &&
+            h.id !== state.explorersPirates!.councilHexId &&
+            h.id !== state.explorersPirates!.activePirateShip?.hexId
+        );
+        if (seaHex) {
+          state.explorersPirates.activePirateShip = { playerId: actor.id, hexId: seaHex.id };
+        }
+        state.phase = 'MAIN_PHASE';
+      } else if (noStandardRobberMove) {
+        // En El ataque de los bárbaros, al sacar un 7 roba 1 materia prima a un rival cualquiera (pág. 15)
+        const rivalWithCards = state.players.find(
+          (p) => p.id !== actor.id && ALL_RESOURCES.some((r) => (p.resources[r] || 0) > 0)
+        );
+        if (rivalWithCards) {
+          const avail = ALL_RESOURCES.filter((r) => (rivalWithCards.resources[r] || 0) > 0);
+          const stolenRes = avail[Math.floor(context.random() * avail.length)];
+          rivalWithCards.resources[stolenRes] -= 1;
+          actor.resources[stolenRes] = (actor.resources[stolenRes] || 0) + 1;
+          addLog(
+            state,
+            `⚔️ Saqueo con el 7: ${actor.name} robó 1 carta de materia prima a ${rivalWithCards.name}.`,
+            'ROBBER',
+            actor.id
+          );
+        }
+        state.phase = 'MAIN_PHASE';
+      } else {
+        state.phase = isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      }
+    };
 
     // Check players with > 7 resource cards
     const playersOver7 = state.players.filter(
@@ -1366,7 +1588,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
     );
 
     if (playersOver7.length === 0) {
-      state.phase = isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      handlePostDiscard7();
       state.lastEvent = {
         nonce: nextNonce,
         type: 'DICE_ROLLED',
@@ -1401,7 +1623,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
         );
       }
 
-      state.phase = isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      handlePostDiscard7();
       state.lastEvent = {
         nonce: nextNonce,
         type: 'ROBBER_DISCARDED',
@@ -1439,7 +1661,11 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
       }
 
       const stillMustDiscard = state.players.some((p) => p.mustDiscardCount > 0);
-      state.phase = stillMustDiscard ? 'ROBBER_DISCARD' : isRobberUnlocked(state) ? 'ROBBER_MOVE' : 'MAIN_PHASE';
+      if (stillMustDiscard) {
+        state.phase = 'ROBBER_DISCARD';
+      } else {
+        handlePostDiscard7();
+      }
       state.lastEvent = {
         nonce: nextNonce,
         type: 'DICE_ROLLED',
@@ -1451,16 +1677,27 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
       return { state };
     }
   } else {
-    // Produce resources on hexes matching `sum` that do not have the Robber
+    // Produce resources on hexes matching `sum` that do not have the Robber and are not conquered by Barbarians
+    const conqueredSet = new Set(state.barbarians?.conqueredHexIds || []);
+    const dualHexId = state.barbarians?.dualNumberHexId;
     const producingHexes = Object.values(state.board.hexes).filter(
-      (h) => h.terrain !== 'SEA' && h.terrain !== 'DESERT' && h.numberToken === sum && !h.hasRobber
+      (h) =>
+        h.terrain !== 'SEA' &&
+        h.terrain !== 'DESERT' &&
+        h.terrain !== 'FOG' &&
+        (h.numberToken === sum || (sum === 2 && dualHexId === h.id)) &&
+        !h.hasRobber &&
+        !conqueredSet.has(h.id)
     );
 
     const flights: ResourceFlightEvent[] = state.citiesKnights ? produceCitiesKnightsResources(state, sum, nextNonce) : [];
     const summaryPerPlayer = new Map<string, string[]>();
+    const producingPlayerIds = new Set<string>(flights.map((f) => f.playerId));
 
     for (const hex of producingHexes) {
       if (hex.terrain === 'GOLD') {
+        // En Piratas y Exploradores o El ataque de los bárbaros, los hexágonos GOLD se gestionan en sus motores específicos
+        if (state.explorersPirates || state.barbarians) continue;
         for (const v of Object.values(state.board.vertices)) {
           if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
             const owner = state.players.find((p) => p.id === v.playerId);
@@ -1476,6 +1713,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
                 if (state.bank[chosenRes] > 0) {
                   state.bank[chosenRes]--;
                   owner.resources[chosenRes]++;
+                  producingPlayerIds.add(owner.id);
                   flights.push({
                     id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}_gold_${i}`,
                     hexId: hex.id,
@@ -1501,6 +1739,7 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
                   amount: wantedAmount,
                 });
               }
+              producingPlayerIds.add(owner.id);
               const list = summaryPerPlayer.get(owner.name) || [];
               list.push(`+${wantedAmount} Oro a elegir`);
               summaryPerPlayer.set(owner.name, list);
@@ -1517,11 +1756,17 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
         if (v.building && v.playerId && v.hexIds.includes(hex.id)) {
           const owner = state.players.find((p) => p.id === v.playerId);
           if (!owner || owner.status === 'ABANDONED') continue;
-          const wantedAmount = v.building === 'CITY' ? 2 : 1;
+          // En Piratas y Exploradores las Ciudades Portuarias producen solo 1 recurso (pág. 8). Con Epidemia activa las ciudades también producen 1.
+          const isSingleCityProd =
+            Boolean(state.explorersPirates) ||
+            Boolean(v.isHarborCity) ||
+            Boolean(state.barbarians?.epidemicActiveThisTurn);
+          const wantedAmount = v.building === 'CITY' && !isSingleCityProd ? 2 : 1;
           const actualAmount = Math.min(wantedAmount, state.bank[res]);
           if (actualAmount > 0) {
             state.bank[res] -= actualAmount;
             owner.resources[res] += actualAmount;
+            producingPlayerIds.add(owner.id);
             flights.push({
               id: `FLIGHT_${nextNonce}_${hex.id}_${v.id}`,
               hexId: hex.id,
@@ -1535,6 +1780,13 @@ function resolveNumberDice(state: GameState, dice: [number, number], context: Ru
           }
         }
       }
+    }
+
+    if (state.barbarians) {
+      onBarbariansDiceProduction(state, sum, context.random);
+    }
+    if (state.explorersPirates) {
+      onExplorersPiratesDiceProduction(state, sum, producingPlayerIds);
     }
 
     if (state.citiesKnights) for (const f of flights) {
@@ -1655,6 +1907,20 @@ export function applyGameAction(
       refreshTurnDeadline(state, state.actionTimestamp);
       return { state };
     }
+    if (applyBarbariansAction(state, playerId, action, {
+      score: recalculateVictoryPoints,
+      validRoads: getValidRoadEdges,
+      canSpend: canSpendOrBuildThisTurn,
+    }, context)) {
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    }
+    if (applyExplorersPiratesAction(state, playerId, action, {
+      score: recalculateVictoryPoints,
+    }, context)) {
+      refreshTurnDeadline(state, state.actionTimestamp);
+      return { state };
+    }
   } catch (error) { return { state: prevState, error: error instanceof Error ? error.message : 'Acción inválida.' }; }
 
   const generateActionBoard = (...args: Parameters<typeof generateBoard>): BoardState => { args[8] = context.random; const board = generateBoard(...args); return hasCitiesKnights(state.config) ? withOfficialNumberSpiral(board, state.config.preventAdjacentRedNumbers) : board; };
@@ -1683,11 +1949,34 @@ export function applyGameAction(
           ? ['BASE'] : ['BASE', action.config.expansionModule];
       }
 
-      if (state.config.enabledExpansions.includes('SEAFARERS')) state.config.expansionModule = 'SEAFARERS';
+      if (state.config.enabledExpansions.includes('EXPLORERS_AND_PIRATES')) state.config.expansionModule = 'EXPLORERS_AND_PIRATES';
+      else if (state.config.enabledExpansions.includes('BARBARIANS')) state.config.expansionModule = 'BARBARIANS';
+      else if (state.config.enabledExpansions.includes('SEAFARERS')) state.config.expansionModule = 'SEAFARERS';
       else if (state.config.enabledExpansions.includes('CITIES_AND_KNIGHTS')) state.config.expansionModule = 'CITIES_AND_KNIGHTS';
-      if (hasCitiesKnights(state.config) && state.config.expansionModule !== 'SEAFARERS') {
-        state.config.maxPlayers = state.config.boardMode === 'EXPANSION_5_6' ? 6 : 4;
+
+      if (
+        (hasCitiesKnights(state.config) || hasBarbarians(state.config) || hasExplorersPirates(state.config)) &&
+        state.config.expansionModule !== 'SEAFARERS'
+      ) {
+        state.config.maxPlayers = state.config.boardMode === 'EXPANSION_5_6' || state.config.boardMode === 'MEGA_RADIUS_3' ? 6 : 4;
         if (state.players.length > state.config.maxPlayers) return { state: prevState, error: 'Retira jugadores antes de reducir el mapa.' };
+      }
+
+      if (hasBarbarians(state.config)) {
+        state.config.barbariansScenario ||= 'FISHERMEN_OF_CATAN';
+        state.config.barbariansVariants ||= {};
+        const scenSpec = BARBARIANS_SCENARIOS.find((s) => s.id === state.config.barbariansScenario);
+        if (action.config.victoryPointsTarget === undefined && scenSpec) {
+          state.config.victoryPointsTarget = scenSpec.recommendedVP + (state.config.barbariansVariants?.harborMaster ? 1 : 0);
+        }
+      }
+
+      if (hasExplorersPirates(state.config)) {
+        state.config.explorersPiratesScenario ||= 'EXPLORERS_AND_PIRATES_FULL';
+        const epSpec = EXPLORERS_PIRATES_SCENARIOS.find((s) => s.id === state.config.explorersPiratesScenario);
+        if (action.config.victoryPointsTarget === undefined && epSpec) {
+          state.config.victoryPointsTarget = epSpec.recommendedVP;
+        }
       }
 
       // Sync turnActionRestriction with legacy flags
@@ -2146,13 +2435,33 @@ export function applyGameAction(
       else { delete state.citiesKnights; for (const p of state.players) delete p.citiesKnights; }
 
       // Strictly ensure Desert in center and initial Robber placement if desertInCenter option is active (non-Seafarers only)
-      if (state.config.expansionModule !== 'SEAFARERS' && state.config.desertInCenter !== false) {
+      if (
+        state.config.expansionModule !== 'SEAFARERS' &&
+        !hasBarbarians(state.config) &&
+        !hasExplorersPirates(state.config) &&
+        state.config.desertInCenter !== false
+      ) {
         state.board = enforceDesertInCenterRule(state.board, true);
       }
 
       if (hasCitiesKnights(state.config)) state.board = withOfficialNumberSpiral(state.board, state.config.preventAdjacentRedNumbers);
+
+      if (hasBarbarians(state.config)) {
+        initializeBarbarians(state, context.random);
+      } else {
+        delete state.barbarians;
+        for (const p of state.players) delete p.barbarians;
+      }
+
+      if (hasExplorersPirates(state.config)) {
+        initializeExplorersPirates(state, context.random);
+      } else {
+        delete state.explorersPirates;
+        for (const p of state.players) delete p.explorersPirates;
+      }
+
       for (const p of state.players) {
-        p.shipsLeft = state.config.expansionModule === 'SEAFARERS' ? 15 : undefined;
+        p.shipsLeft = state.config.expansionModule === 'SEAFARERS' ? 15 : hasExplorersPirates(state.config) ? 3 : undefined;
         p.hasMovedShipThisTurn = false;
         p.discoveryVictoryPoints = 0;
       }
@@ -2326,8 +2635,31 @@ export function applyGameAction(
       vertex.building = 'SETTLEMENT';
       vertex.playerId = playerId;
       actor.settlementsLeft -= 1;
-      if (hasCitiesKnights(state.config) && state.phase === 'SETUP_SETTLEMENT_2') {
-        vertex.building = 'CITY'; actor.settlementsLeft++; actor.citiesLeft--;
+
+      const isBarbariansSetupCity =
+        hasBarbarians(state.config) &&
+        ['BARBARIAN_ATTACK', 'TRADERS_AND_BARBARIANS'].includes(state.config.barbariansScenario || '') &&
+        state.phase === 'SETUP_SETTLEMENT_2';
+
+      if ((hasCitiesKnights(state.config) && state.phase === 'SETUP_SETTLEMENT_2') || isBarbariansSetupCity) {
+        vertex.building = 'CITY';
+        actor.settlementsLeft++;
+        actor.citiesLeft--;
+      }
+
+      // En Piratas y Exploradores, la 1ª pieza inicial es la Ciudad Portuaria costera + su Barco de Colonos
+      if (state.explorersPirates && state.phase === 'SETUP_SETTLEMENT_1') {
+        vertex.building = 'CITY';
+        vertex.isHarborCity = true;
+        actor.settlementsLeft += 1;
+        if (actor.explorersPirates) {
+          actor.explorersPirates.harborCitiesLeft = Math.max(0, actor.explorersPirates.harborCitiesLeft - 1);
+        }
+        state.explorersPirates.harborBasins[vertex.id] = {
+          vertexId: vertex.id,
+          playerId: actor.id,
+          cargo: [],
+        };
       }
 
       if (state.phase === 'SETUP_SETTLEMENT_1' || state.phase === 'SETUP_SETTLEMENT_2') {
@@ -2335,6 +2667,10 @@ export function applyGameAction(
         state.turn.lastPlacedSetupSettlementId = vertex.id;
         state.phase = isFirstSetup ? 'SETUP_ROAD_1' : 'SETUP_ROAD_2';
         refreshTurnDeadline(state, state.actionTimestamp);
+
+        if (state.barbarians) {
+          onBarbariansSetupSettlementPlaced(state, playerId, vertex.id, !isFirstSetup, context.random);
+        }
 
         const giveInitialResources = hasCitiesKnights(state.config)
           ? true
@@ -2405,6 +2741,10 @@ export function applyGameAction(
         };
         addLog(state, `${actor.name} construyó un nuevo Poblado.`, 'BUILD', actor.id);
 
+        if (state.barbarians) {
+          onBarbariansBuildingPlaced(state, playerId, 'SETTLEMENT', vertex.id, context.random);
+        }
+
         // Seafarers Discovery Victory Points: award +2 VP if this is the player's first settlement on a foreign island
         if (state.config.expansionModule === 'SEAFARERS' || state.board.pirateHexId) {
           const islandMap = computeIslandComponents(state.board);
@@ -2446,12 +2786,17 @@ export function applyGameAction(
       }
 
       // Placing a settlement can break an opponent's Longest Road!
-      state.longestRoadPlayerId = updateLongestRoadAward(
-        state.board,
-        state.players,
-        state.longestRoadPlayerId,
-        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
-      );
+      if (state.explorersPirates || state.barbarians?.scenario === 'TRADERS_AND_BARBARIANS') {
+        state.longestRoadPlayerId = null;
+      } else {
+        state.longestRoadPlayerId = updateLongestRoadAward(
+          state.board,
+          state.players,
+          state.longestRoadPlayerId,
+          state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT',
+          state.barbarians?.camelEdgeIds
+        );
+      }
       recalculateVictoryPoints(state);
       return { state };
     }
@@ -2467,17 +2812,55 @@ export function applyGameAction(
       edge.playerId = playerId;
       actor.roadsLeft -= 1;
 
+      // En Piratas y Exploradores, durante SETUP_ROAD_1 se coloca automáticamente el Barco de Colonos inicial junto a la Ciudad Portuaria
+      if (state.explorersPirates && state.phase === 'SETUP_ROAD_1') {
+        const lastCityVid = state.turn.lastPlacedSetupSettlementId;
+        const lastCityV = lastCityVid ? state.board.vertices[lastCityVid] : null;
+        const seaEdgeId =
+          lastCityV?.adjacentEdgeIds.find((eid) => {
+            const e = state.board.edges[eid];
+            return e && (e.isCoastal || !e.isLand);
+          }) || edge.id;
+        const seaEdge = state.board.edges[seaEdgeId];
+        if (seaEdge) {
+          const shipId = `ep-ship-${actor.id}-init`;
+          state.explorersPirates.ships[shipId] = {
+            id: shipId,
+            playerId: actor.id,
+            edgeId: seaEdge.id,
+            cargo: ['SETTLER'],
+            mpRemaining: 4,
+            hasMovedThisTurn: false,
+            boostedThisTurn: false,
+            paidPirateTributeThisTurn: false,
+          };
+          if (actor.explorersPirates) {
+            actor.explorersPirates.shipsLeft = Math.max(0, actor.explorersPirates.shipsLeft - 1);
+            actor.explorersPirates.settlersLeft = Math.max(0, actor.explorersPirates.settlersLeft - 1);
+          }
+        }
+      }
+
+      if (state.barbarians) {
+        onBarbariansBuildingPlaced(state, playerId, 'ROAD', edge.id, context.random);
+      }
+
       uncoverFogHexesAdjacentToEdge(state, edge, actor);
       claimForgottenGiftsAdjacentToEdge(state, edge, actor);
       checkNativeVillageConnection(state, edge, actor);
 
       const prevLongestId = state.longestRoadPlayerId;
-      state.longestRoadPlayerId = updateLongestRoadAward(
-        state.board,
-        state.players,
-        state.longestRoadPlayerId,
-        state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT'
-      );
+      if (state.explorersPirates || state.barbarians?.scenario === 'TRADERS_AND_BARBARIANS') {
+        state.longestRoadPlayerId = null;
+      } else {
+        state.longestRoadPlayerId = updateLongestRoadAward(
+          state.board,
+          state.players,
+          state.longestRoadPlayerId,
+          state.config.seafarersCoastConnection || 'REQUIRE_SETTLEMENT',
+          state.barbarians?.camelEdgeIds
+        );
+      }
       if (state.longestRoadPlayerId && state.longestRoadPlayerId !== prevLongestId) {
         const holder = state.players.find((p) => p.id === state.longestRoadPlayerId);
         if (holder) {
@@ -2772,10 +3155,24 @@ export function applyGameAction(
 
       const vertex = state.board.vertices[action.vertexId];
       vertex.building = 'CITY';
-      if (!vertex.isDowngradedCity) { actor.settlementsLeft += 1; actor.citiesLeft -= 1; }
-      delete vertex.isDowngradedCity;
+      if (state.explorersPirates) {
+        vertex.isHarborCity = true;
+        actor.settlementsLeft += 1;
+        if (actor.explorersPirates) {
+          actor.explorersPirates.harborCitiesLeft = Math.max(0, actor.explorersPirates.harborCitiesLeft - 1);
+        }
+        state.explorersPirates.harborBasins[vertex.id] = {
+          vertexId: vertex.id,
+          playerId: actor.id,
+          cargo: [],
+        };
+        deductResources(actor.resources, state.bank, { ...createEmptyResources(), WHEAT: 2, ORE: 2 });
+      } else {
+        if (!vertex.isDowngradedCity) { actor.settlementsLeft += 1; actor.citiesLeft -= 1; }
+        delete vertex.isDowngradedCity;
+        deductResources(actor.resources, state.bank, cityCost(state));
+      }
 
-      deductResources(actor.resources, state.bank, cityCost(state));
       if (state.citiesKnights?.turnEffects) delete state.citiesKnights.turnEffects.medicine;
       state.turn.infrastructureBuiltThisTurn += 1;
       state.turn.hasSpentOrBuiltThisTurn = true;
@@ -2789,7 +3186,18 @@ export function applyGameAction(
         },
       };
 
-      addLog(state, `${actor.name} mejoró un Poblado a Ciudad (+2 PV).`, 'BUILD', actor.id);
+      if (state.barbarians) {
+        onBarbariansBuildingPlaced(state, playerId, 'CITY', vertex.id, context.random);
+      }
+
+      addLog(
+        state,
+        state.explorersPirates
+          ? `${actor.name} mejoró un Poblado costero a Ciudad Portuaria (+2 PV).`
+          : `${actor.name} mejoró un Poblado a Ciudad (+2 PV).`,
+        'BUILD',
+        actor.id
+      );
       recalculateVictoryPoints(state);
       return { state };
     }
@@ -2859,6 +3267,23 @@ export function applyGameAction(
       const targetHex = state.board.hexes[action.hexId];
       if (!targetHex || targetHex.terrain === 'SEA') {
         return { state: prevState, error: 'El Ladrón solo puede colocarse en un terreno terrestre.' };
+      }
+
+      // Variante Oficial: Ladrón piadoso (pág. 2): no se puede mover el ladrón a un hexágono donde tenga edificio un jugador con <= 2 PV
+      if (state.barbarians?.variants.friendlyRobber && targetHex.terrain !== 'DESERT') {
+        const hasPoorNeighbor = Object.values(state.board.vertices).some((v) => {
+          if (!v.building || !v.playerId || v.playerId === playerId || !v.hexIds.includes(targetHex.id)) {
+            return false;
+          }
+          const owner = state.players.find((p) => p.id === v.playerId);
+          return Boolean(owner && owner.publicVictoryPoints <= 2);
+        });
+        if (hasPoorNeighbor) {
+          return {
+            state: prevState,
+            error: 'Ladrón piadoso: no puedes colocar el ladrón en un hexágono donde tenga edificio un jugador con 2 o menos Puntos de Victoria.',
+          };
+        }
       }
 
       const keptSameHex = action.hexId === state.board.robberHexId;
@@ -4178,6 +4603,18 @@ export function executeBotStepIfNeeded(state: GameState): GameState {
       const settlement = getValidSettlementVertices(state, activePlayer.id)[0];
       const road = getValidRoadEdges(state, activePlayer.id)[0];
       return applyGameAction(state, activePlayer.id, city ? { type: 'UPGRADE_CITY', vertexId: city } : settlement ? { type: 'PLACE_SETTLEMENT', vertexId: settlement } : road ? { type: 'PLACE_ROAD', edgeId: road } : { type: 'END_SPECIAL_BUILD' }).state;
+    }
+  }
+  if (state.barbarians && state.phase === 'MAIN_PHASE') {
+    for (const action of barbariansBotActions(state, activePlayer.id)) {
+      const result = applyGameAction(state, activePlayer.id, action);
+      if (!result.error) return result.state;
+    }
+  }
+  if (state.explorersPirates && state.phase === 'MAIN_PHASE') {
+    for (const action of explorersPiratesBotActions(state, activePlayer.id)) {
+      const result = applyGameAction(state, activePlayer.id, action);
+      if (!result.error) return result.state;
     }
   }
   return executeBotStep(state, activePlayer.id);
