@@ -2267,9 +2267,12 @@ export const GameScreen: React.FC = () => {
               const deckCount = usesScenarioDevDeck
                 ? (gameState.barbarians?.scenarioDevDeck.length ?? 0)
                 : (gameState.devDeck?.length ?? 0);
-              const deckBackSrc = usesScenarioDevDeck
-                ? MB_CARD_ASSETS.DEV_BACK
-                : CARD_BACK_PATHS.development;
+              const deckBackSrc =
+                gameState.barbarians?.scenario === 'TRADERS_AND_BARBARIANS'
+                  ? MB_CARD_ASSETS.TB_DEV_BACK
+                  : gameState.barbarians?.scenario === 'BARBARIAN_ATTACK'
+                  ? MB_CARD_ASSETS.DEV_BACK
+                  : CARD_BACK_PATHS.development;
               return (
                 <div
                   id="tabletop-devcard-deck"

@@ -13,7 +13,13 @@ import {
   X,
 } from 'lucide-react';
 import { BUILDING_COSTS, RESOURCE_META } from '../../shared/constants';
-import { MB_CARD_ASSETS, MB_TOKEN_ASSETS, WAGON_LEVELS } from '../../shared/expansionsConfig';
+import {
+  MB_CARD_ASSETS,
+  MB_TOKEN_ASSETS,
+  WAGON_LEVELS,
+  getWagonCardImage,
+  getWagonCostCardImage,
+} from '../../shared/expansionsConfig';
 import type { GameState, PlayerState, ResourceType } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
@@ -295,7 +301,14 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Mover Carromato en el Mapa',
         subtitle: 'Haz clic en las encrucijadas iluminadas para avanzar',
         remainingLabel: `${pb.wagonMpRemaining} PM disp.`,
-        icon: <Truck className="w-5 h-5 text-amber-300" />,
+        icon: (
+          <img
+            src={getWagonCardImage(pb.wagonLevel, me.color)}
+            alt={`Carromato Nv.${pb.wagonLevel}`}
+            className="w-6 h-8 rounded object-cover border border-amber-400/60 shadow"
+            draggable={false}
+          />
+        ),
         cost: {},
         badgeLabel: `${pb.wagonMpRemaining} PM`,
         canExecute: canActMain && Boolean(pb.wagonVertexId) && pb.wagonMpRemaining > 0,
@@ -313,7 +326,18 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
           ? `${nextWagonSpec.movementPoints} PM y +${nextWagonSpec.goldReward} oros por entrega`
           : 'Velocidad y recompensa máxima alcanzadas',
         remainingLabel: `Nv.${pb.wagonLevel}/5`,
-        icon: <Hammer className="w-5 h-5 text-emerald-300" />,
+        icon: (
+          <img
+            src={
+              nextWagonLevel
+                ? getWagonCostCardImage(nextWagonLevel)
+                : getWagonCardImage(5, me.color)
+            }
+            alt="Mejora de carromato"
+            className="w-6 h-8 rounded object-cover border border-emerald-400/60 shadow"
+            draggable={false}
+          />
+        ),
         cost: nextWagonSpec ? nextWagonSpec.upgradeCost : {},
         canExecute: Boolean(canActBuild && nextWagonSpec && hasRes(nextWagonSpec.upgradeCost)),
         onTrigger: () => {
@@ -339,7 +363,14 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
         title: 'Carta de Desarrollo de Caravana',
         subtitle: 'Caballero escolta, Buen viaje, Carreteras o +1 PV',
         remainingLabel: `${mb.scenarioDevDeck.length} en mazo`,
-        icon: <Sparkles className="w-5 h-5 text-purple-300" />,
+        icon: (
+          <img
+            src={MB_CARD_ASSETS.TB_DEV_BACK}
+            alt="Mazo Mercaderes y Bárbaros"
+            className="w-6 h-8 rounded object-cover border border-amber-400/60 shadow"
+            draggable={false}
+          />
+        ),
         cost: BUILDING_COSTS.DEV_CARD,
         canExecute:
           canActBuild && mb.scenarioDevDeck.length > 0 && hasRes(BUILDING_COSTS.DEV_CARD),

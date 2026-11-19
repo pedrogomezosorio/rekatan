@@ -13,6 +13,8 @@ import {
   WAGON_LEVELS,
   getBarbariansDevCardImage,
   getCatanEventCardImage,
+  getWagonCardImage,
+  getWagonCostCardImage,
 } from '../../shared/expansionsConfig';
 import { BUILDING_COSTS } from '../../shared/constants';
 import type {
@@ -51,6 +53,7 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showEventRulesCard, setShowEventRulesCard] = useState(false);
+  const [showFishCostsCard, setShowFishCostsCard] = useState(false);
   const [selectedFishResource, setSelectedFishResource] = useState<ResourceType>('ORE');
   const [selectedStealTargetId, setSelectedStealTargetId] = useState<string | null>(null);
   const [camelBidSheep, setCamelBidSheep] = useState(0);
@@ -150,18 +153,24 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
           )}
 
           {mb.scenario === 'RIVERS_OF_CATAN' && (
-            <div className="flex items-center justify-between text-[10px] text-stone-200">
+            <div className="flex items-center justify-between gap-1.5 text-[10px] text-stone-200">
               <span className="font-bold text-amber-300">
                 🪙 {pb.goldCoins} Oros · 🌉 {3 - pb.bridgesLeft}/3 Puentes
               </span>
               {pb.isWealthiestSettler ? (
-                <span className="px-1.5 py-0.2 rounded bg-emerald-950 border border-emerald-500/60 text-emerald-200 font-black">
-                  Rico (+1 PV)
-                </span>
+                <img
+                  src={MB_TOKEN_ASSETS.WEALTHIEST_SETTLER}
+                  alt="Colono más rico (+1 PV)"
+                  className="h-6 rounded border border-emerald-400/70 shadow shrink-0"
+                  draggable={false}
+                />
               ) : pb.isPoorestSettler ? (
-                <span className="px-1.5 py-0.2 rounded bg-red-950 border border-red-500/60 text-red-200 font-black">
-                  Pobre (-2 PV)
-                </span>
+                <img
+                  src={MB_TOKEN_ASSETS.POOREST_SETTLER}
+                  alt="Colono pobre (-2 PV)"
+                  className="h-6 rounded border border-red-400/70 shadow shrink-0"
+                  draggable={false}
+                />
               ) : null}
             </div>
           )}
@@ -188,12 +197,20 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
           )}
 
           {mb.scenario === 'TRADERS_AND_BARBARIANS' && (
-            <div className="flex items-center justify-between text-[10px] text-stone-200">
-              <span className="font-bold text-amber-300">
-                🛞 Carromato Nv.{pb.wagonLevel} ({pb.wagonMpRemaining} PM) · 🪙 {pb.goldCoins}
-              </span>
-              <span className="text-emerald-300 font-black">
-                📦 {pb.deliveredCommoditiesCount} Entregas
+            <div className="flex items-center justify-between gap-2 text-[10px] text-stone-200">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <img
+                  src={getWagonCardImage(pb.wagonLevel, me.color)}
+                  alt={`Carromato Nivel ${pb.wagonLevel}`}
+                  className="w-6 h-9 rounded object-cover border border-amber-400/60 shadow shrink-0"
+                  draggable={false}
+                />
+                <span className="font-bold text-amber-300 truncate">
+                  Nv.{pb.wagonLevel} ({pb.wagonMpRemaining} PM) · 🪙 {pb.goldCoins}
+                </span>
+              </div>
+              <span className="text-emerald-300 font-black shrink-0">
+                📦 {pb.deliveredCommoditiesCount}
               </span>
             </div>
           )}
@@ -282,15 +299,41 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
             {mb.scenario === 'FISHERMEN_OF_CATAN' && (
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-[#1f1610] border border-[#d4af37]/40 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
                       <Fish className="w-4 h-4" />
                       <span>Tus Fichas de Pescado ({pb.fishTokens.length}/7 fichas · Total: {totalFish} peces)</span>
                     </span>
-                    <span className="text-[11px] text-stone-400">
-                      Mazo: {mb.fishDeck.length} fichas
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-stone-400">
+                        Mazo: {mb.fishDeck.length} fichas
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowFishCostsCard((v) => !v)}
+                        className="px-2.5 py-1 rounded-lg bg-sky-950 hover:bg-sky-900 border border-sky-400/50 text-[10.5px] font-bold text-sky-200 cursor-pointer"
+                      >
+                        {showFishCostsCard ? 'Ocultar Tarjeta' : 'Tarjeta de Costes'}
+                      </button>
+                    </div>
                   </div>
+
+                  {showFishCostsCard && (
+                    <div className="p-3 rounded-xl bg-[#140e0a] border border-sky-500/40 flex flex-wrap items-center justify-center gap-4">
+                      <img
+                        src={MB_CARD_ASSETS.FISH_COSTS_FRONT}
+                        alt="Tarjeta oficial de costes de Pescadores de Catán"
+                        className="w-40 sm:w-44 rounded-xl border border-sky-400/60 shadow-xl"
+                        draggable={false}
+                      />
+                      <img
+                        src={MB_CARD_ASSETS.FISH_COSTS_BACK}
+                        alt="Pescadores de Catán"
+                        className="w-40 sm:w-44 rounded-xl border border-sky-400/60 shadow-xl"
+                        draggable={false}
+                      />
+                    </div>
+                  )}
 
                   {pb.fishTokens.length === 0 ? (
                     <p className="text-xs text-stone-400">
@@ -560,21 +603,35 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                   })}
                 </div>
 
-                {/* Ranking de Oro entre todos los jugadores */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-white/10">
+                {/* Ranking de Oro entre todos los jugadores (con losetas oficiales Colono más rico / Colono pobre en Los Ríos) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-white/10">
                   {s.players.map((pl) => {
                     const pGold = pl.barbarians?.goldCoins || 0;
                     return (
                       <div
                         key={pl.id}
-                        className="p-2 rounded-xl bg-[#140e0a] border border-stone-800 flex items-center justify-between text-xs"
+                        className="p-2 rounded-xl bg-[#140e0a] border border-stone-800 flex items-center justify-between gap-2 text-xs"
                       >
-                        <span className="font-bold truncate">{pl.name}</span>
-                        <span className="font-mono font-black text-amber-300">
-                          {pGold} 🪙
-                          {pl.barbarians?.isWealthiestSettler && ' (+1 PV)'}
-                          {pl.barbarians?.isPoorestSettler && ' (-2 PV)'}
-                        </span>
+                        <div className="min-w-0">
+                          <div className="font-bold truncate">{pl.name}</div>
+                          <div className="font-mono font-black text-amber-300">{pGold} 🪙</div>
+                        </div>
+                        {pl.barbarians?.isWealthiestSettler && (
+                          <img
+                            src={MB_TOKEN_ASSETS.WEALTHIEST_SETTLER}
+                            alt="Colono más rico (+1 PV)"
+                            className="h-9 rounded border border-emerald-400/70 shadow shrink-0"
+                            draggable={false}
+                          />
+                        )}
+                        {pl.barbarians?.isPoorestSettler && (
+                          <img
+                            src={MB_TOKEN_ASSETS.POOREST_SETTLER}
+                            alt="Colono pobre (-2 PV)"
+                            className="h-9 rounded border border-red-400/70 shadow shrink-0"
+                            draggable={false}
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -719,33 +776,130 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                   </p>
                 )}
 
-                {/* Tabla visual de niveles de Carromato */}
-                <div className="grid grid-cols-5 gap-2">
+                {/* Cartas oficiales de Carromato (Niveles 1 a 5 en el color del jugador + dorsos de coste) */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {([1, 2, 3, 4, 5] as const).map((lvl) => {
                     const spec = WAGON_LEVELS[lvl];
                     const isCurrent = pb.wagonLevel === lvl;
                     const isUnlocked = pb.wagonLevel >= lvl;
+                    const isNextUpgrade = pb.wagonLevel + 1 === lvl;
+                    const canAffordUpgrade =
+                      isNextUpgrade &&
+                      isMyBuildTurn &&
+                      Object.entries(spec.upgradeCost).every(
+                        ([res, amt]) => (me.resources[res as ResourceType] || 0) >= (amt || 0)
+                      );
+                    const cardSrc = isUnlocked
+                      ? getWagonCardImage(lvl, me.color)
+                      : getWagonCostCardImage(lvl);
                     return (
                       <div
                         key={lvl}
-                        className={`p-2.5 rounded-xl border text-center space-y-1 ${
+                        className={`p-2 rounded-2xl border-2 text-center space-y-1.5 flex flex-col items-center justify-between transition ${
                           isCurrent
-                            ? 'bg-amber-500/25 border-amber-300 text-amber-100'
+                            ? 'bg-amber-500/20 border-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.28)]'
                             : isUnlocked
-                            ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                            : 'bg-[#120c08] border-stone-800 text-stone-400'
+                            ? 'bg-emerald-950/35 border-emerald-500/50'
+                            : 'bg-[#120c08] border-stone-800'
                         }`}
                       >
-                        <div className="text-xs font-black">Nivel {lvl}</div>
-                        <div className="text-[11px] font-bold text-amber-300">
-                          {spec.movementPoints} PM · +{spec.goldReward} 🪙
+                        <div className="relative w-full">
+                          <img
+                            src={cardSrc}
+                            alt={`Carromato Nivel ${lvl}`}
+                            className={`w-full rounded-xl object-cover shadow-lg ${
+                              !isUnlocked ? 'opacity-85' : ''
+                            }`}
+                            draggable={false}
+                          />
+                          {isCurrent && (
+                            <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-amber-400 text-stone-950 text-[9px] font-black shadow">
+                              ACTUAL
+                            </span>
+                          )}
                         </div>
-                        {lvl === 5 && (
-                          <div className="text-[10px] font-black text-emerald-300">+1 PV</div>
+                        <div className="text-[10.5px] font-bold text-amber-300 leading-tight">
+                          Nv.{lvl} · {spec.movementPoints} PM · +{spec.goldReward} 🪙
+                          {lvl === 5 && <span className="text-emerald-300"> · +1 PV</span>}
+                        </div>
+                        {isNextUpgrade && (
+                          <button
+                            type="button"
+                            disabled={!canAffordUpgrade}
+                            onClick={() => dispatchAction({ type: 'MB_UPGRADE_WAGON' })}
+                            className="w-full py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-[10px] cursor-pointer"
+                          >
+                            Mejorar Nv.{lvl}
+                          </button>
                         )}
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Cartas de Desarrollo oficiales de Mercaderes y Bárbaros */}
+                <div className="pt-3 border-t border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                      Cartas de Desarrollo — Mercaderes y Bárbaros ({mb.scenarioDevDeck.length} en mazo)
+                    </span>
+                    <button
+                      type="button"
+                      disabled={
+                        !isMyBuildTurn ||
+                        mb.scenarioDevDeck.length === 0 ||
+                        (me.resources.SHEEP || 0) < (BUILDING_COSTS.DEV_CARD.SHEEP || 1) ||
+                        (me.resources.WHEAT || 0) < (BUILDING_COSTS.DEV_CARD.WHEAT || 1) ||
+                        (me.resources.ORE || 0) < (BUILDING_COSTS.DEV_CARD.ORE || 1)
+                      }
+                      onClick={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
+                    >
+                      Comprar Carta (1🐑 1🌾 1⛰️)
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 items-start">
+                    <div className="rounded-xl bg-[#140e0a] border border-amber-500/40 p-1 flex flex-col items-center gap-1">
+                      <img
+                        src={MB_CARD_ASSETS.TB_DEV_BACK}
+                        alt="Mazo Mercaderes y Bárbaros"
+                        className="w-full rounded-lg shadow"
+                        draggable={false}
+                      />
+                      <span className="text-[9px] font-black text-amber-300">
+                        Mazo ({mb.scenarioDevDeck.length})
+                      </span>
+                    </div>
+                    {(
+                      [
+                        { type: 'TB_KNIGHT' as const, label: 'Caballero' },
+                        { type: 'GOOD_TRIP' as const, label: 'Buen viaje' },
+                        { type: 'TB_ROAD_BUILDING' as const, label: 'Carreteras' },
+                        { type: 'TECH_QUARRY' as const, label: 'Cantera +1' },
+                        { type: 'TECH_TOOLS' as const, label: 'Herram. +1' },
+                        { type: 'TECH_GLASS' as const, label: 'Vidrio +1' },
+                      ] as const
+                    ).map((item) => {
+                      const cnt = pb.scenarioDevCards.filter((c) => c.type === item.type).length;
+                      return (
+                        <div
+                          key={item.type}
+                          className="rounded-xl bg-[#140e0a] border border-stone-800 p-1 flex flex-col items-center gap-1"
+                        >
+                          <img
+                            src={getBarbariansDevCardImage(item.type)}
+                            alt={item.label}
+                            className="w-full rounded-lg shadow"
+                            draggable={false}
+                          />
+                          <span className="text-[9px] font-bold text-stone-300 truncate max-w-full">
+                            {item.label}
+                            {cnt > 0 ? ` (${cnt})` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}

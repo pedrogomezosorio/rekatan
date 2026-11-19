@@ -1,4 +1,4 @@
-import type { GameConfig, ResourceType } from './types';
+import type { GameConfig, PlayerColor, ResourceType } from './types';
 import type {
   BarbariansDevCard,
   BarbariansPlayer,
@@ -755,6 +755,8 @@ export const MB_TILE_ASSETS = {
 export const MB_TOKEN_ASSETS = {
   FISH: '/assets/barbarians/tokens/fish_token.png',
   OLD_BOOT: '/assets/barbarians/tokens/old_boot.png',
+  WEALTHIEST_SETTLER: '/assets/barbarians/tokens/wealthiest_settler.png',
+  POOREST_SETTLER: '/assets/barbarians/tokens/poorest_settler.png',
   FISHING_GROUNDS: {
     4: '/assets/barbarians/tokens/fishing_ground_4.png',
     5: '/assets/barbarians/tokens/fishing_ground_5.png',
@@ -766,27 +768,68 @@ export const MB_TOKEN_ASSETS = {
 } as const;
 
 export const MB_CARD_ASSETS = {
+  // Pescadores de Catán — tarjeta oficial de costes de pescado
+  FISH_COSTS_FRONT: '/assets/barbarians/cards/fish_costs_front.png',
+  FISH_COSTS_BACK: '/assets/barbarians/cards/fish_costs_back.png',
+  // El Ataque de los Bárbaros — cartas de desarrollo
   DEV_BACK: '/assets/barbarians/cards/dev_back.png',
   DEV_COMMISSION: '/assets/barbarians/cards/dev_commission.png',
   DEV_STRONG_KNIGHT: '/assets/barbarians/cards/dev_strong_knight.png',
   DEV_PRISONER: '/assets/barbarians/cards/dev_prisoner.png',
   DEV_TREACHERY: '/assets/barbarians/cards/dev_treachery.png',
+  // Mercaderes y Bárbaros — cartas de desarrollo
+  TB_DEV_BACK: '/assets/barbarians/cards/tb_dev_back.png',
+  TB_DEV_KNIGHT: '/assets/barbarians/cards/tb_dev_knight.png',
+  TB_DEV_GOOD_TRIP: '/assets/barbarians/cards/tb_dev_good_trip.png',
+  TB_DEV_ROAD_BUILDING: '/assets/barbarians/cards/tb_dev_road_building.png',
+  TB_DEV_TECH_QUARRY: '/assets/barbarians/cards/tb_dev_tech_quarry.png',
+  TB_DEV_TECH_TOOLS: '/assets/barbarians/cards/tb_dev_tech_tools.png',
+  TB_DEV_TECH_GLASS: '/assets/barbarians/cards/tb_dev_tech_glass.png',
+  // Eventos en Catán — mazo completo (36 cartas + Nochevieja + Resumen)
   EVENT_BACK: '/assets/barbarians/cards/event_back.png',
   EVENT_RULES: '/assets/barbarians/cards/event_rules.png',
+  EVENT_NEW_YEAR: '/assets/barbarians/cards/event_new_year.png',
   EVENT_PLENTIFUL_YEAR: '/assets/barbarians/cards/event_plentiful_year.png',
   EVENT_CONFLICT: '/assets/barbarians/cards/event_conflict.png',
   EVENT_ROBBER_FLEES: '/assets/barbarians/cards/event_robber_flees.png',
   EVENT_TOURNAMENT: '/assets/barbarians/cards/event_tournament.png',
   EVENT_TRADE_ADVANTAGE: '/assets/barbarians/cards/event_trade_advantage.png',
-  EVENT_EPIDEMIC: '/assets/barbarians/cards/event_epidemic.png',
+  EVENT_EPIDEMIC_6: '/assets/barbarians/cards/event_epidemic.png',
+  EVENT_EPIDEMIC_8: '/assets/barbarians/cards/event_epidemic_8.png',
   EVENT_EARTHQUAKE: '/assets/barbarians/cards/event_earthquake.png',
   EVENT_GOOD_NEIGHBORS: '/assets/barbarians/cards/event_good_neighbors.png',
   EVENT_ROBBER_ATTACK: '/assets/barbarians/cards/event_robber_attack.png',
+  EVENT_CALM_SEA_9: '/assets/barbarians/cards/event_calm_sea_9.png',
+  EVENT_CALM_SEA_12: '/assets/barbarians/cards/event_calm_sea_12.png',
+  EVENT_NEIGHBORLY_HELP_10: '/assets/barbarians/cards/event_neighborly_help_10.png',
+  EVENT_NEIGHBORLY_HELP_11: '/assets/barbarians/cards/event_neighborly_help_11.png',
   EVENT_CALM_3: '/assets/barbarians/cards/event_calm_3.png',
   EVENT_CALM_4: '/assets/barbarians/cards/event_calm_4.png',
   EVENT_CALM_5: '/assets/barbarians/cards/event_calm_5.png',
   EVENT_CALM_6: '/assets/barbarians/cards/event_calm_6.png',
+  EVENT_CALM_8: '/assets/barbarians/cards/event_calm_8.png',
+  EVENT_CALM_9: '/assets/barbarians/cards/event_calm_9.png',
+  EVENT_CALM_10: '/assets/barbarians/cards/event_calm_10.png',
+  EVENT_CALM_11: '/assets/barbarians/cards/event_calm_11.png',
 } as const;
+
+export const MB_WAGON_BACK_ASSET = '/assets/barbarians/wagons/wagon_back.png';
+
+export function getWagonCardImage(level: 1 | 2 | 3 | 4 | 5, color: PlayerColor): string {
+  const colorSlug =
+    color === 'BLUE' || color === 'PURPLE'
+      ? 'blue'
+      : color === 'WHITE' || color === 'GREEN'
+      ? 'white'
+      : color === 'ORANGE'
+      ? 'orange'
+      : 'red';
+  return `/assets/barbarians/wagons/wagon_${level}_${colorSlug}.png`;
+}
+
+export function getWagonCostCardImage(level: 1 | 2 | 3 | 4 | 5): string {
+  return `/assets/barbarians/wagons/wagon_cost_${level}.png`;
+}
 
 export function getBarbariansDevCardImage(type: BarbariansDevCard['type']): string {
   switch (type) {
@@ -798,6 +841,18 @@ export function getBarbariansDevCardImage(type: BarbariansDevCard['type']): stri
       return MB_CARD_ASSETS.DEV_PRISONER;
     case 'TREASON':
       return MB_CARD_ASSETS.DEV_TREACHERY;
+    case 'TB_KNIGHT':
+      return MB_CARD_ASSETS.TB_DEV_KNIGHT;
+    case 'GOOD_TRIP':
+      return MB_CARD_ASSETS.TB_DEV_GOOD_TRIP;
+    case 'TB_ROAD_BUILDING':
+      return MB_CARD_ASSETS.TB_DEV_ROAD_BUILDING;
+    case 'TECH_QUARRY':
+      return MB_CARD_ASSETS.TB_DEV_TECH_QUARRY;
+    case 'TECH_TOOLS':
+      return MB_CARD_ASSETS.TB_DEV_TECH_TOOLS;
+    case 'TECH_GLASS':
+      return MB_CARD_ASSETS.TB_DEV_TECH_GLASS;
     default:
       return MB_CARD_ASSETS.DEV_BACK;
   }
@@ -816,19 +871,34 @@ export function getCatanEventCardImage(card: CatanEventCard): string {
     case 'TRADE_ADVANTAGE':
       return MB_CARD_ASSETS.EVENT_TRADE_ADVANTAGE;
     case 'EPIDEMIC':
-      return MB_CARD_ASSETS.EVENT_EPIDEMIC;
+      return card.numberToken === 8
+        ? MB_CARD_ASSETS.EVENT_EPIDEMIC_8
+        : MB_CARD_ASSETS.EVENT_EPIDEMIC_6;
     case 'EARTHQUAKE':
       return MB_CARD_ASSETS.EVENT_EARTHQUAKE;
     case 'GOOD_NEIGHBORS':
       return MB_CARD_ASSETS.EVENT_GOOD_NEIGHBORS;
     case 'ROBBER_ATTACK':
       return MB_CARD_ASSETS.EVENT_ROBBER_ATTACK;
+    case 'CALM_SEA':
+      return card.numberToken === 12
+        ? MB_CARD_ASSETS.EVENT_CALM_SEA_12
+        : MB_CARD_ASSETS.EVENT_CALM_SEA_9;
+    case 'NEIGHBORLY_HELP':
+      return card.numberToken === 11
+        ? MB_CARD_ASSETS.EVENT_NEIGHBORLY_HELP_11
+        : MB_CARD_ASSETS.EVENT_NEIGHBORLY_HELP_10;
     case 'NEW_YEAR':
-      return MB_CARD_ASSETS.EVENT_BACK;
+      return MB_CARD_ASSETS.EVENT_NEW_YEAR;
     default:
       if (card.numberToken === 3) return MB_CARD_ASSETS.EVENT_CALM_3;
       if (card.numberToken === 4) return MB_CARD_ASSETS.EVENT_CALM_4;
       if (card.numberToken === 5) return MB_CARD_ASSETS.EVENT_CALM_5;
+      if (card.numberToken === 6) return MB_CARD_ASSETS.EVENT_CALM_6;
+      if (card.numberToken === 8) return MB_CARD_ASSETS.EVENT_CALM_8;
+      if (card.numberToken === 9) return MB_CARD_ASSETS.EVENT_CALM_9;
+      if (card.numberToken === 10) return MB_CARD_ASSETS.EVENT_CALM_10;
+      if (card.numberToken === 11) return MB_CARD_ASSETS.EVENT_CALM_11;
       return MB_CARD_ASSETS.EVENT_CALM_6;
   }
 }
