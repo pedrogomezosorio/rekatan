@@ -27,7 +27,6 @@ import {
   buildTopologyFromHexes,
   coordToId,
   DEFAULT_HEX_SIZE,
-  getSurroundingSeaCoords,
   hexToPixel,
 } from './HexGrid';
 
@@ -151,71 +150,102 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
     return id;
   };
 
+  const putAtCol = (
+    col: number,
+    r: number,
+    terrain: TerrainType,
+    numberToken: number | null = null
+  ): string => {
+    const q = Math.round(col - r / 2);
+    return putHex(q, r, terrain, numberToken);
+  };
+
   if (!isExtended56) {
     // =========================================================================
-    // TABLERO OFICIAL 2-4 JUGADORES (PDF págs. 5, 12, 15, 17 y 19)
+    // TABLERO OFICIAL 2-4 JUGADORES (PDF págs. 5, 12, 15, 17 y 19 — 7 filas exactas)
     // =========================================================================
     // 1. Isla Inicial al Oeste (15 hexágonos con sus números fijos del manual)
     const startIsland24: Array<[number, number, ResourceType, number]> = [
-      [-2, -3, 'ORE', 11],
-      [-1, -3, 'WOOD', 9],
-      [-3, -2, 'WHEAT', 3],
-      [-2, -2, 'SHEEP', 8],
-      [-4, -1, 'BRICK', 4],
-      [-3, -1, 'SHEEP', 10],
-      [-5, 0, 'SHEEP', 6], // Pieza de marco A1
-      [-4, 0, 'ORE', 12],
-      [-3, 0, 'WOOD', 8],
-      [-5, 1, 'WHEAT', 10],
-      [-4, 1, 'SHEEP', 4],
-      [-5, 2, 'WOOD', 11],
-      [-4, 2, 'BRICK', 6],
-      [-5, 3, 'ORE', 3],
-      [-4, 3, 'WOOD', 5],
+      [-3.5, -3, 'ORE', 11],
+      [-2.5, -3, 'WOOD', 9],
+      [-4.0, -2, 'WHEAT', 3],
+      [-3.0, -2, 'SHEEP', 8],
+      [-4.5, -1, 'BRICK', 4],
+      [-3.5, -1, 'SHEEP', 10],
+      [-5.0, 0, 'SHEEP', 6], // Pieza de marco A1 (siempre Pasto 6)
+      [-4.0, 0, 'ORE', 12],
+      [-3.0, 0, 'WOOD', 8],
+      [-4.5, 1, 'WHEAT', 10],
+      [-3.5, 1, 'SHEEP', 4],
+      [-4.0, 2, 'WOOD', 11],
+      [-3.0, 2, 'BRICK', 6],
+      [-3.5, 3, 'ORE', 3],
+      [-2.5, 3, 'WOOD', 5],
     ];
-    for (const [q, r, terrain, num] of startIsland24) {
-      startingIslandHexIds.push(putHex(q, r, terrain, num));
+    // En escenarios 3, 4 y 5 los 14 terrenos interiores se barajan al azar manteniendo fijo Pasto 6 en A1 y los 15 números
+    const shouldShuffleStart24 =
+      scenarioId === 'FISH_FOR_CATAN' ||
+      scenarioId === 'SPICES_FOR_CATAN' ||
+      scenarioId === 'EXPLORERS_AND_PIRATES_FULL';
+    const nonA1Terrains24: ResourceType[] = startIsland24
+      .filter(([col, r]) => !(col === -5.0 && r === 0))
+      .map(([, , t]) => t);
+    if (shouldShuffleStart24) {
+      for (let i = nonA1Terrains24.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [nonA1Terrains24[i], nonA1Terrains24[j]] = [nonA1Terrains24[j], nonA1Terrains24[i]];
+      }
+    }
+    let sIdx24 = 0;
+    for (const [col, r, terrain, num] of startIsland24) {
+      const finalTerrain = col === -5.0 && r === 0 ? 'SHEEP' : nonA1Terrains24[sIdx24++];
+      startingIslandHexIds.push(putAtCol(col, r, finalTerrain, num));
     }
 
-    // 2. Canal Marítimo Central (C1, D1/D2, E, F, G, C2, A2) y Regiones Inexploradas Norte (Verde) y Sur (Naranja)
-    const eastColMax =
+    // 2. Canal Marítimo Central (C1, D1/D2, E, F, G, C2) y Regiones Inexploradas Norte (Verde) y Sur (Naranja)
+    // Ancho exacto según marco oficial:
+    //   LAND_HO (B3):               filas 6-7-8-8-8-7-6   -> 50 hexágonos (8+8 inexplorados)
+    //   PIRATE_LAIRS / FISH (B3+B1):filas 7-8-9-9-9-8-7   -> 57 hexágonos (11+11 inexplorados)
+    //   SPICES (B3+B2):             filas 8-9-10-10-10-9-8 -> 64 hexágonos (13+13 inexplorados)
+    //   FULL (B3+B1+B2):            filas 9-10-11-11-11-10-9 -> 71 hexágonos (16+16 inexplorados)
+    const extraCols =
       scenarioId === 'LAND_HO'
-        ? 3
+        ? 0
         : scenarioId === 'PIRATE_LAIRS' || scenarioId === 'FISH_FOR_CATAN'
-        ? 4
+        ? 1
         : scenarioId === 'SPICES_FOR_CATAN'
-        ? 5
-        : 6;
+        ? 2
+        : 3;
 
     // Fila r = -3
-    putHex(0, -3, 'SEA');
-    putHex(1, -3, 'SEA');
-    for (let q = 2; q <= eastColMax; q++) {
-      northUnexploredHexIds.push(putHex(q, -3, 'FOG'));
+    putAtCol(-1.5, -3, 'SEA');
+    putAtCol(-0.5, -3, 'SEA');
+    for (let c = 0.5; c <= 1.5 + extraCols; c += 1) {
+      northUnexploredHexIds.push(putAtCol(c, -3, 'FOG'));
     }
 
     // Fila r = -2
-    putHex(-1, -2, 'SEA');
-    putHex(0, -2, 'SEA');
-    for (let q = 1; q <= eastColMax; q++) {
-      northUnexploredHexIds.push(putHex(q, -2, 'FOG'));
+    putAtCol(-2.0, -2, 'SEA');
+    putAtCol(-1.0, -2, 'SEA');
+    for (let c = 0.0; c <= 2.0 + extraCols; c += 1) {
+      northUnexploredHexIds.push(putAtCol(c, -2, 'FOG'));
     }
 
-    // Fila r = -1 (incluye bahía norte de la pieza de mar F y G)
-    putHex(-2, -1, 'SEA');
-    putHex(-1, -1, 'SEA');
-    for (let q = 0; q <= eastColMax; q++) {
-      const isSeaBayF = (scenarioId === 'LAND_HO' && q === 1) || (scenarioId !== 'LAND_HO' && q === 2);
-      const isSeaBayG = (scenarioId === 'SPICES_FOR_CATAN' || scenarioId === 'EXPLORERS_AND_PIRATES_FULL') && q === 4;
-      if (isSeaBayF || isSeaBayG) {
-        putHex(q, -1, 'SEA');
+    // Fila r = -1 (incluye bahía norte de pieza de mar F y, desde Escenario 4, pieza G)
+    putAtCol(-2.5, -1, 'SEA');
+    putAtCol(-1.5, -1, 'SEA');
+    for (let c = -0.5; c <= 2.5 + extraCols; c += 1) {
+      const isSeaF = extraCols === 0 ? c === 0.5 : c === 1.5;
+      const isSeaG = extraCols >= 2 && c === 3.5;
+      if (isSeaF || isSeaG) {
+        putAtCol(c, -1, 'SEA');
       } else {
-        northUnexploredHexIds.push(putHex(q, -1, 'FOG'));
+        northUnexploredHexIds.push(putAtCol(c, -1, 'FOG'));
       }
     }
 
-    // Fila central r = 0 (Canal ecuatorial: D1 o D2 Consejo de Catán + E + F + G + A2)
-    const d1OrD2Id = putHex(-2, 0, 'SEA');
+    // Fila central r = 0 (Canal ecuatorial: D1 o D2 Consejo de Catán + [E] + F(4) + [G] + [Mar B])
+    const d1OrD2Id = putAtCol(-2.0, 0, 'SEA');
     if (
       scenarioId === 'FISH_FOR_CATAN' ||
       scenarioId === 'SPICES_FOR_CATAN' ||
@@ -223,100 +253,138 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
     ) {
       councilHexId = d1OrD2Id;
     }
-    for (let q = -1; q <= eastColMax - 1; q++) {
-      putHex(q, 0, 'SEA');
+    for (let c = -1.0; c <= 2.0 + extraCols; c += 1) {
+      putAtCol(c, 0, 'SEA');
     }
 
-    // Fila r = +1 (incluye bahía sur de la pieza de mar F y G)
-    putHex(-3, 1, 'SEA');
-    putHex(-2, 1, 'SEA');
-    for (let q = -1; q <= eastColMax - 1; q++) {
-      const isSeaBayF = (scenarioId === 'LAND_HO' && q === 0) || (scenarioId !== 'LAND_HO' && q === 1);
-      const isSeaBayG = (scenarioId === 'SPICES_FOR_CATAN' || scenarioId === 'EXPLORERS_AND_PIRATES_FULL') && q === 3;
-      if (isSeaBayF || isSeaBayG) {
-        putHex(q, 1, 'SEA');
+    // Fila r = +1 (espejo exacto de r = -1)
+    putAtCol(-2.5, 1, 'SEA');
+    putAtCol(-1.5, 1, 'SEA');
+    for (let c = -0.5; c <= 2.5 + extraCols; c += 1) {
+      const isSeaF = extraCols === 0 ? c === 0.5 : c === 1.5;
+      const isSeaG = extraCols >= 2 && c === 3.5;
+      if (isSeaF || isSeaG) {
+        putAtCol(c, 1, 'SEA');
       } else {
-        southUnexploredHexIds.push(putHex(q, 1, 'FOG'));
+        southUnexploredHexIds.push(putAtCol(c, 1, 'FOG'));
       }
     }
 
     // Fila r = +2
-    putHex(-3, 2, 'SEA');
-    putHex(-2, 2, 'SEA');
-    for (let q = -1; q <= eastColMax - 2; q++) {
-      southUnexploredHexIds.push(putHex(q, 2, 'FOG'));
+    putAtCol(-2.0, 2, 'SEA');
+    putAtCol(-1.0, 2, 'SEA');
+    for (let c = 0.0; c <= 2.0 + extraCols; c += 1) {
+      southUnexploredHexIds.push(putAtCol(c, 2, 'FOG'));
     }
 
     // Fila r = +3
-    putHex(-3, 3, 'SEA');
-    putHex(-2, 3, 'SEA');
-    for (let q = -1; q <= eastColMax - 3; q++) {
-      southUnexploredHexIds.push(putHex(q, 3, 'FOG'));
+    putAtCol(-1.5, 3, 'SEA');
+    putAtCol(-0.5, 3, 'SEA');
+    for (let c = 0.5; c <= 1.5 + extraCols; c += 1) {
+      southUnexploredHexIds.push(putAtCol(c, 3, 'FOG'));
     }
   } else {
     // =========================================================================
-    // TABLERO OFICIAL 5-6 JUGADORES (PDF Ampliación 5-6 págs. 1 y 2)
+    // TABLERO OFICIAL 5-6 JUGADORES (PDF Ampliación 5-6 págs. 1 y 2 — 9 filas exactas)
     // =========================================================================
-    // 1. Isla Inicial al Oeste (22 hexágonos con sus 22 números fijos del manual 5-6J)
-    const startIsland56: Array<[number, number, ResourceType, number]> = [
-      [-1, -4, 'WHEAT', 2],
-      [0, -4, 'WOOD', 9],
-      [-2, -3, 'ORE', 11],
-      [-1, -3, 'SHEEP', 8],
-      [-3, -2, 'BRICK', 4],
-      [-2, -2, 'SHEEP', 10],
-      [-4, -1, 'WHEAT', 10],
-      [-3, -1, 'ORE', 3],
-      [-2, -1, 'WOOD', 8],
-      [-5, 0, 'SHEEP', 6], // Pieza de marco A1
-      [-4, 0, 'WOOD', 5],
-      [-3, 0, 'ORE', 4],
-      [-2, 0, 'SHEEP', 5],
-      [-5, 1, 'ORE', 3],
-      [-4, 1, 'WHEAT', 10],
-      [-3, 1, 'BRICK', 6],
-      [-5, 2, 'WOOD', 8],
-      [-4, 2, 'SHEEP', 4],
-      [-5, 3, 'WOOD', 11],
-      [-4, 3, 'BRICK', 6],
-      [-5, 4, 'ORE', 12],
-      [-4, 4, 'SHEEP', 9],
+    // 1. Isla Inicial al Oeste (22 hexágonos: Pasto 6 fijo en A1 + 21 terrenos barajados y 22 números fijos)
+    const startIsland56: Array<[number, number, number]> = [
+      [-3.0, -4, 2],
+      [-2.0, -4, 9],
+      [-3.5, -3, 11],
+      [-2.5, -3, 8],
+      [-4.0, -2, 4],
+      [-3.0, -2, 10],
+      [-4.5, -1, 10],
+      [-3.5, -1, 3],
+      [-2.5, -1, 8],
+      [-5.0, 0, 6], // Pieza de marco A1 (Pasto 6 fijo)
+      [-4.0, 0, 5],
+      [-3.0, 0, 4],
+      [-2.0, 0, 5],
+      [-4.5, 1, 3],
+      [-3.5, 1, 10],
+      [-2.5, 1, 6],
+      [-4.0, 2, 8],
+      [-3.0, 2, 4],
+      [-3.5, 3, 11],
+      [-2.5, 3, 6],
+      [-3.0, 4, 12],
+      [-2.0, 4, 9],
     ];
-    for (const [q, r, terrain, num] of startIsland56) {
-      startingIslandHexIds.push(putHex(q, r, terrain, num));
+    // 21 terrenos (14 del juego básico sin Pasto A1 + 7 de la ampliación 5-6J: 2 pastos, 2 montañas, 1 bosque, 1 sembrado, 1 cerro)
+    const terrainsPool56: ResourceType[] = [
+      'WOOD', 'WOOD', 'WOOD', 'WOOD', 'WOOD',
+      'SHEEP', 'SHEEP', 'SHEEP', 'SHEEP', 'SHEEP',
+      'WHEAT', 'WHEAT', 'WHEAT', 'WHEAT',
+      'ORE', 'ORE', 'ORE', 'ORE',
+      'BRICK', 'BRICK', 'BRICK',
+    ];
+    for (let i = terrainsPool56.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [terrainsPool56[i], terrainsPool56[j]] = [terrainsPool56[j], terrainsPool56[i]];
+    }
+    let sIdx56 = 0;
+    for (const [col, r, num] of startIsland56) {
+      const terrain: ResourceType = col === -5.0 && r === 0 ? 'SHEEP' : terrainsPool56[sIdx56++];
+      startingIslandHexIds.push(putAtCol(col, r, terrain, num));
     }
 
-    const eastColMax =
-      scenarioId === 'LAND_HO'
-        ? 4
-        : scenarioId === 'PIRATE_LAIRS' || scenarioId === 'FISH_FOR_CATAN'
-        ? 5
-        : 6;
+    // 2. Tres estructuras oficiales de la Ampliación 5-6J:
+    //   Mapa I  (Escenarios 1 y 2 — B3+B1):    7-8-9-10-10-10-9-8-7   -> 78 hexágonos (14+14 inexplorados)
+    //   Mapa II (Escenarios 3 y 4 — B3+B2):    8-9-10-11-11-11-10-9-8 -> 87 hexágonos (16+16 inexplorados)
+    //   Mapa III (Escenario 5 — B3+B2+B1):     9-10-11-12-12-12-11-10-9 -> 96 hexágonos (20+20 inexplorados)
+    const isMapI = scenarioId === 'LAND_HO' || scenarioId === 'PIRATE_LAIRS';
+    const isMapII = scenarioId === 'FISH_FOR_CATAN' || scenarioId === 'SPICES_FOR_CATAN';
+    const extraCols56 = isMapI ? 0 : isMapII ? 1 : 2;
 
-    // Filas Norte (r = -4..-1)
-    putHex(1, -4, 'SEA');
-    putHex(2, -4, 'SEA');
-    for (let q = 3; q <= eastColMax; q++) northUnexploredHexIds.push(putHex(q, -4, 'FOG'));
-
-    putHex(0, -3, 'SEA');
-    putHex(1, -3, 'SEA');
-    for (let q = 2; q <= eastColMax; q++) northUnexploredHexIds.push(putHex(q, -3, 'FOG'));
-
-    putHex(-1, -2, 'SEA');
-    putHex(0, -2, 'SEA');
-    for (let q = 1; q <= eastColMax; q++) northUnexploredHexIds.push(putHex(q, -2, 'FOG'));
-
-    putHex(-1, -1, 'SEA');
-    for (let q = 0; q <= eastColMax; q++) {
-      if (q === 2 || (eastColMax >= 6 && q === 4)) {
-        putHex(q, -1, 'SEA');
+    // Fila r = -4 (incluye Hexágono de mar verde en col +2.0 y, en Mapa III, EE en col +4.0)
+    putAtCol(-1.0, -4, 'SEA');
+    putAtCol(0.0, -4, 'SEA');
+    for (let c = 1.0; c <= 3.0 + extraCols56; c += 1) {
+      if (c === 2.0 || (extraCols56 === 2 && c === 4.0)) {
+        putAtCol(c, -4, 'SEA');
       } else {
-        northUnexploredHexIds.push(putHex(q, -1, 'FOG'));
+        northUnexploredHexIds.push(putAtCol(c, -4, 'FOG'));
       }
     }
 
-    // Fila Central r = 0 (D3 Consejo de Catán + F + G + EG + E + A2)
-    const d3Id = putHex(-1, 0, 'SEA');
+    // Fila r = -3
+    putAtCol(-1.5, -3, 'SEA');
+    putAtCol(-0.5, -3, 'SEA');
+    for (let c = 0.5; c <= 3.5 + extraCols56; c += 1) {
+      northUnexploredHexIds.push(putAtCol(c, -3, 'FOG'));
+    }
+
+    // Fila r = -2 (en Mapa II incluye las dos casillas superiores de la pieza de mar EG en cols +3.0 y +4.0)
+    putAtCol(-2.0, -2, 'SEA');
+    putAtCol(-1.0, -2, 'SEA');
+    for (let c = 0.0; c <= 4.0 + extraCols56; c += 1) {
+      if (isMapII && (c === 3.0 || c === 4.0)) {
+        putAtCol(c, -2, 'SEA');
+      } else {
+        northUnexploredHexIds.push(putAtCol(c, -2, 'FOG'));
+      }
+    }
+
+    // Fila r = -1 (D3-norte + EE + bahías norte de F, G y EG)
+    putAtCol(-1.5, -1, 'SEA');
+    putAtCol(-0.5, -1, 'SEA');
+    for (let c = 0.5; c <= 4.5 + extraCols56; c += 1) {
+      const isSeaBay =
+        c === 1.5 ||
+        (isMapI && c === 3.5) ||
+        (isMapII && c === 4.5) ||
+        (extraCols56 === 2 && (c === 3.5 || c === 5.5));
+      if (isSeaBay) {
+        putAtCol(c, -1, 'SEA');
+      } else {
+        northUnexploredHexIds.push(putAtCol(c, -1, 'FOG'));
+      }
+    }
+
+    // Fila central r = 0 (D3 Consejo de Catán + F(4) + G/E/EG/EE)
+    const d3Id = putAtCol(-1.0, 0, 'SEA');
     if (
       scenarioId === 'FISH_FOR_CATAN' ||
       scenarioId === 'SPICES_FOR_CATAN' ||
@@ -324,34 +392,57 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
     ) {
       councilHexId = d3Id;
     }
-    for (let q = 0; q <= eastColMax - 1; q++) {
-      putHex(q, 0, 'SEA');
+    for (let c = 0.0; c <= 4.0 + extraCols56; c += 1) {
+      putAtCol(c, 0, 'SEA');
     }
 
-    // Filas Sur (r = +1..+4)
-    putHex(-2, 1, 'SEA');
-    for (let q = -1; q <= eastColMax - 1; q++) {
-      if (q === 1 || (eastColMax >= 6 && q === 3)) {
-        putHex(q, 1, 'SEA');
+    // Fila r = +1 (espejo exacto de r = -1)
+    putAtCol(-1.5, 1, 'SEA');
+    putAtCol(-0.5, 1, 'SEA');
+    for (let c = 0.5; c <= 4.5 + extraCols56; c += 1) {
+      const isSeaBay =
+        c === 1.5 ||
+        (isMapI && c === 3.5) ||
+        (isMapII && c === 4.5) ||
+        (extraCols56 === 2 && (c === 3.5 || c === 5.5));
+      if (isSeaBay) {
+        putAtCol(c, 1, 'SEA');
       } else {
-        southUnexploredHexIds.push(putHex(q, 1, 'FOG'));
+        southUnexploredHexIds.push(putAtCol(c, 1, 'FOG'));
       }
     }
 
-    putHex(-3, 2, 'SEA');
-    putHex(-2, 2, 'SEA');
-    for (let q = -1; q <= eastColMax - 1; q++) southUnexploredHexIds.push(putHex(q, 2, 'FOG'));
+    // Fila r = +2 (en Mapa II incluye las dos casillas inferiores de la pieza de mar G en cols +3.0 y +4.0)
+    putAtCol(-2.0, 2, 'SEA');
+    putAtCol(-1.0, 2, 'SEA');
+    for (let c = 0.0; c <= 4.0 + extraCols56; c += 1) {
+      if (isMapII && (c === 3.0 || c === 4.0)) {
+        putAtCol(c, 2, 'SEA');
+      } else {
+        southUnexploredHexIds.push(putAtCol(c, 2, 'FOG'));
+      }
+    }
 
-    putHex(-3, 3, 'SEA');
-    putHex(-2, 3, 'SEA');
-    for (let q = -1; q <= eastColMax - 2; q++) southUnexploredHexIds.push(putHex(q, 3, 'FOG'));
+    // Fila r = +3
+    putAtCol(-1.5, 3, 'SEA');
+    putAtCol(-0.5, 3, 'SEA');
+    for (let c = 0.5; c <= 3.5 + extraCols56; c += 1) {
+      southUnexploredHexIds.push(putAtCol(c, 3, 'FOG'));
+    }
 
-    putHex(-3, 4, 'SEA');
-    putHex(-2, 4, 'SEA');
-    for (let q = -1; q <= eastColMax - 3; q++) southUnexploredHexIds.push(putHex(q, 4, 'FOG'));
+    // Fila r = +4 (incluye Hexágono de mar naranja en col +2.0 y, en Mapa III, EE en col +4.0)
+    putAtCol(-1.0, 4, 'SEA');
+    putAtCol(0.0, 4, 'SEA');
+    for (let c = 1.0; c <= 3.0 + extraCols56; c += 1) {
+      if (c === 2.0 || (extraCols56 === 2 && c === 4.0)) {
+        putAtCol(c, 4, 'SEA');
+      } else {
+        southUnexploredHexIds.push(putAtCol(c, 4, 'FOG'));
+      }
+    }
   }
 
-  // Construir pilas de hexágonos inexplorados (Norte Verde y Sur Naranja)
+  // Construir pilas oficiales de hexágonos inexplorados (Norte Verde y Sur Naranja)
   const unexploredSecrets: Record<string, EPUnexploredTileSecret> = {};
   const assignUnexploredRegion = (
     hexIds: string[],
@@ -362,7 +453,9 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
 
     if (activeMissions.includes('PIRATE_LAIRS')) {
       const lairNumbers =
-        region === 'NORTH_GREEN'
+        !isExtended56 && scenarioId === 'FISH_FOR_CATAN' && region === 'SOUTH_ORANGE'
+          ? [9, 10] // En Escenario 3 (2-4J) se retira 1 río aurífero naranja (pág. 15)
+          : region === 'NORTH_GREEN'
           ? isExtended56
             ? [8, 9, 10, 9]
             : [8, 9, 10]
@@ -381,7 +474,11 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
 
     if (activeMissions.includes('FISH_FOR_CATAN')) {
       const fishRolls: Array<1 | 2 | 3 | 4 | 5 | 6> =
-        region === 'NORTH_GREEN' ? [1, 2, 3] : [4, 5, 6];
+        !isExtended56 && scenarioId === 'FISH_FOR_CATAN' && region === 'NORTH_GREEN'
+          ? [1, 2] // En Escenario 3 (2-4J) se retira 1 hexágono verde de peces (pág. 15)
+          : region === 'NORTH_GREEN'
+          ? [1, 2, 3]
+          : [4, 5, 6];
       for (const roll of fishRolls) {
         secretsPool.push({
           region,
@@ -410,36 +507,39 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
       }
     }
 
-    // Hexágonos de terreno estándar verdes (plantilla 5) y naranjas (plantilla 6) + mar estándar
-    const baseTerrains: Array<ResourceType | 'SEA'> =
+    // Hexágonos de terreno estándar verdes (6 en 2-4J / 9 en 5-6J) y naranjas (6 en 2-4J / 9 en 5-6J)
+    const landTerrains: ResourceType[] =
       region === 'NORTH_GREEN'
-        ? ['ORE', 'WHEAT', 'WOOD', 'SHEEP', 'BRICK', 'WOOD', 'SEA', 'ORE', 'WHEAT', 'WOOD']
-        : ['WHEAT', 'ORE', 'SHEEP', 'BRICK', 'WOOD', 'SHEEP', 'SEA', 'ORE', 'BRICK', 'SHEEP'];
-    const baseTokens =
+        ? isExtended56
+          ? ['ORE', 'WHEAT', 'WOOD', 'SHEEP', 'BRICK', 'WOOD', 'ORE', 'WHEAT', 'WOOD']
+          : ['ORE', 'WHEAT', 'WOOD', 'SHEEP', 'BRICK', 'WOOD']
+        : isExtended56
+        ? ['WHEAT', 'ORE', 'SHEEP', 'BRICK', 'WOOD', 'SHEEP', 'ORE', 'BRICK', 'SHEEP']
+        : ['WHEAT', 'ORE', 'SHEEP', 'BRICK', 'WOOD', 'SHEEP'];
+    const landTokens =
       region === 'NORTH_GREEN'
-        ? [3, 4, 5, 6, 9, 10, 2, 5, 9]
-        : [4, 5, 8, 9, 10, 11, 3, 4, 10];
-    let tIdx = 0;
-    let numIdx = 0;
+        ? isExtended56
+          ? [3, 4, 5, 6, 9, 10, 2, 5, 9]
+          : [3, 4, 5, 6, 9, 10]
+        : isExtended56
+        ? [4, 5, 8, 9, 10, 11, 3, 4, 10]
+        : [4, 5, 8, 9, 10, 11];
+    for (let i = 0; i < landTerrains.length && secretsPool.length < hexIds.length; i++) {
+      secretsPool.push({
+        region,
+        kind: 'TERRAIN',
+        terrain: landTerrains[i],
+        numberToken: landTokens[i],
+      });
+    }
+    // Completar exactamente las casillas restantes con hexágonos de mar estándar boca abajo
     while (secretsPool.length < hexIds.length) {
-      const t = baseTerrains[tIdx % baseTerrains.length];
-      tIdx++;
-      if (t === 'SEA') {
-        secretsPool.push({
-          region,
-          kind: 'SEA',
-          terrain: 'SEA',
-          numberToken: null,
-        });
-      } else {
-        secretsPool.push({
-          region,
-          kind: 'TERRAIN',
-          terrain: t,
-          numberToken: baseTokens[numIdx % baseTokens.length],
-        });
-        numIdx++;
-      }
+      secretsPool.push({
+        region,
+        kind: 'SEA',
+        terrain: 'SEA',
+        numberToken: null,
+      });
     }
 
     for (let i = secretsPool.length - 1; i > 0; i--) {
@@ -455,18 +555,8 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
   assignUnexploredRegion(northUnexploredHexIds, 'NORTH_GREEN');
   assignUnexploredRegion(southUnexploredHexIds, 'SOUTH_ORANGE');
 
-  // Reconstruir marco de mar decorativo y topología completa (vértices y aristas)
-  const decorativeSeaHexes: Hex[] = getSurroundingSeaCoords(Object.values(hexes)).map((coord) => {
-    const id = coordToId(coord.q, coord.r, coord.s);
-    return {
-      ...coord,
-      id,
-      terrain: 'SEA',
-      numberToken: null,
-      hasRobber: false,
-      center: hexToPixel(coord.q, coord.r, hexSize),
-    };
-  });
+  // Sin anillo exterior de hexágonos decorativos: el marco azul del tablero bordea directamente los hexágonos oficiales
+  const decorativeSeaHexes: Hex[] = [];
 
   const { vertices, edges } = buildTopologyFromHexes(
     hexes,
@@ -488,7 +578,7 @@ export function initializeExplorersPirates(state: GameState, random: () => numbe
 
   for (const e of Object.values(edges)) {
     const hexTerrains = e.hexIds.map((hid) => hexes[hid]?.terrain);
-    const hasSea = hexTerrains.includes('SEA') || e.hexIds.length === 1;
+    const hasSea = hexTerrains.includes('SEA');
     const hasLand = hexTerrains.some((t) => t && t !== 'SEA' && t !== 'FOG');
     e.isCoastal = hasSea && hasLand;
     e.isLand = hasLand;

@@ -919,33 +919,59 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
           {explorersPirates && (
             <g className="pointer-events-none" aria-label="Superficies especiales de Piratas y Exploradores">
-              {/* Regiones inexploradas Norte (Pila Verde 🌙) y Sur (Pila Naranja ☀️) */}
+              {/* Marco oceánico exterior oficial (borde azul oscuro pegado al perímetro de los hexágonos, sin anillo extra) */}
+              <g aria-label="Marco exterior de Piratas y Exploradores">
+                {edgeList
+                  .filter((e) => e.hexIds.length === 1)
+                  .map((e) => (
+                    <g key={`ep-frame-${e.id}`}>
+                      <line
+                        x1={e.x1}
+                        y1={e.y1}
+                        x2={e.x2}
+                        y2={e.y2}
+                        stroke="#1e3a5f"
+                        strokeWidth={11}
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1={e.x1}
+                        y1={e.y1}
+                        x2={e.x2}
+                        y2={e.y2}
+                        stroke="#38bdf8"
+                        strokeWidth={2}
+                        strokeOpacity={0.75}
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  ))}
+              </g>
+
+              {/* Regiones inexploradas Norte (Verde) y Sur (Naranja) — estética calcada al tablero oficial */}
               {Object.entries(explorersPirates.unexploredSecrets).map(([hid, secret]) => {
                 const hex = board.hexes[hid];
                 if (!hex || hex.terrain !== 'FOG') return null;
                 const isNorth = secret.region === 'NORTH_GREEN';
-                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 2)
+                const pts = getHexCornerPoints(hex.center.x, hex.center.y, board.hexSize - 1.5)
                   .map((p) => `${p.x},${p.y}`)
                   .join(' ');
                 return (
                   <g key={`ep-fog-surf-${hid}`}>
                     <polygon
                       points={pts}
-                      fill={isNorth ? '#064e3b' : '#7c2d12'}
-                      stroke={isNorth ? '#34d399' : '#fb923c'}
-                      strokeWidth={2.5}
+                      fill="#cbe9f6"
+                      stroke="#1e3a5f"
+                      strokeWidth={2}
                     />
                     <circle
                       cx={hex.center.x}
-                      cy={hex.center.y - 6}
-                      r={16}
-                      fill={isNorth ? '#047857' : '#9a3412'}
-                      stroke={isNorth ? '#6ee7b7' : '#fdba74'}
-                      strokeWidth={1.5}
+                      cy={hex.center.y}
+                      r={14.5}
+                      fill={isNorth ? '#16a34a' : '#f59e0b'}
+                      stroke={isNorth ? '#14532d' : '#9a3412'}
+                      strokeWidth={2.2}
                     />
-                    <text x={hex.center.x} y={hex.center.y} textAnchor="middle" fontSize="16">
-                      {isNorth ? '🌙' : '☀️'}
-                    </text>
                   </g>
                 );
               })}
@@ -2402,37 +2428,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {/* 10. PIRATAS Y EXPLORADORES (EXPLORERS & PIRATES) BOARD OVERLAYS */}
           {explorersPirates && (
             <g className="pointer-events-none">
-              {/* 10.0 Regiones Inexploradas Norte (Verde 🌙) y Sur (Naranja ☀️) + Círculos Costeros de Fundación */}
-              {Object.entries(explorersPirates.unexploredSecrets).map(([hid, secret]) => {
-                const hex = board.hexes[hid];
-                if (!hex || hex.terrain !== 'FOG') return null;
-                const isNorth = secret.region === 'NORTH_GREEN';
-                return (
-                  <g key={`fog-badge-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 18})`}>
-                    <rect
-                      x={-36}
-                      y={-8}
-                      width={72}
-                      height={16}
-                      rx={7}
-                      fill={isNorth ? '#064e3b' : '#7c2d12'}
-                      stroke={isNorth ? '#34d399' : '#fb923c'}
-                      strokeWidth={1.5}
-                    />
-                    <text
-                      x={0}
-                      y={3}
-                      textAnchor="middle"
-                      fill={isNorth ? '#d1fae5' : '#ffedd5'}
-                      fontSize="7.5"
-                      fontWeight="900"
-                    >
-                      {isNorth ? '🌙 PILA VERDE' : '☀️ PILA NARANJA'}
-                    </text>
-                  </g>
-                );
-              })}
-
+              {/* 10.0 Círculos Costeros de Fundación en la costa Este de la Isla Inicial */}
               {explorersPirates.startingCoastalCityVertexIds.map((vid) => {
                 const v = board.vertices[vid];
                 if (!v || v.building !== null) return null;

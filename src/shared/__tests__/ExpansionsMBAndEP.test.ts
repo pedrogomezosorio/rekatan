@@ -316,12 +316,35 @@ describe('Expansión 2: Piratas y Exploradores (EXPLORERS_AND_PIRATES) - 2-4 y 5
       SPICES_FOR_CATAN: 26, // 13 Norte Verde + 13 Sur Naranja
       EXPLORERS_AND_PIRATES_FULL: 32, // 16 Norte Verde + 16 Sur Naranja
     };
+    const expectedTotalHexes24: Record<ExplorersPiratesScenario, number> = {
+      LAND_HO: 50, // filas 6-7-8-8-8-7-6
+      PIRATE_LAIRS: 57, // filas 7-8-9-9-9-8-7
+      FISH_FOR_CATAN: 57, // filas 7-8-9-9-9-8-7
+      SPICES_FOR_CATAN: 64, // filas 8-9-10-10-10-9-8
+      EXPLORERS_AND_PIRATES_FULL: 71, // filas 9-10-11-11-11-10-9
+    };
+    const expectedFogCount56: Record<ExplorersPiratesScenario, number> = {
+      LAND_HO: 28, // 14 Norte Verde + 14 Sur Naranja (Mapa I 5-6J)
+      PIRATE_LAIRS: 28, // 14 Norte Verde + 14 Sur Naranja (Mapa I 5-6J)
+      FISH_FOR_CATAN: 32, // 16 Norte Verde + 16 Sur Naranja (Mapa II 5-6J)
+      SPICES_FOR_CATAN: 32, // 16 Norte Verde + 16 Sur Naranja (Mapa II 5-6J)
+      EXPLORERS_AND_PIRATES_FULL: 40, // 20 Norte Verde + 20 Sur Naranja (Mapa III 5-6J)
+    };
+    const expectedTotalHexes56: Record<ExplorersPiratesScenario, number> = {
+      LAND_HO: 78, // filas 7-8-9-10-10-10-9-8-7
+      PIRATE_LAIRS: 78, // filas 7-8-9-10-10-10-9-8-7
+      FISH_FOR_CATAN: 87, // filas 8-9-10-11-11-11-10-9-8
+      SPICES_FOR_CATAN: 87, // filas 8-9-10-11-11-11-10-9-8
+      EXPLORERS_AND_PIRATES_FULL: 96, // filas 9-10-11-12-12-12-11-10-9
+    };
     for (const sc of scenarios) {
       const s34 = createEPTestState(sc, 'STANDARD_3_4');
       expect(s34.explorersPirates).toBeDefined();
       expect(s34.explorersPirates?.scenario).toBe(sc);
-      // Isla inicial de 15 hexágonos (pág. 5 del PDF)
+      // Isla inicial de 15 hexágonos (pág. 5 del PDF) y sin anillo extra de mar decorativo
       expect(s34.explorersPirates!.startingIslandHexIds.length).toBe(15);
+      expect(s34.board.decorativeSeaHexes?.length || 0).toBe(0);
+      expect(Object.keys(s34.board.hexes).length).toBe(expectedTotalHexes24[sc]);
       // Cantidad exacta de hexágonos inexplorados (Norte Verde + Sur Naranja) según el PDF
       expect(Object.keys(s34.explorersPirates!.unexploredSecrets).length).toBe(
         expectedFogCount24[sc]
@@ -332,10 +355,12 @@ describe('Expansión 2: Piratas y Exploradores (EXPLORERS_AND_PIRATES) - 2-4 y 5
       const s56 = createEPTestState(sc, 'EXPANSION_5_6');
       expect(s56.explorersPirates).toBeDefined();
       expect(s56.players.length).toBe(5);
-      // Isla inicial de 22 hexágonos (pág. 1 del PDF 5-6J)
+      // Isla inicial de 22 hexágonos (pág. 1 del PDF 5-6J) y sin anillo extra de mar decorativo
       expect(s56.explorersPirates!.startingIslandHexIds.length).toBe(22);
-      expect(Object.keys(s56.explorersPirates!.unexploredSecrets).length).toBeGreaterThan(
-        expectedFogCount24[sc]
+      expect(s56.board.decorativeSeaHexes?.length || 0).toBe(0);
+      expect(Object.keys(s56.board.hexes).length).toBe(expectedTotalHexes56[sc]);
+      expect(Object.keys(s56.explorersPirates!.unexploredSecrets).length).toBe(
+        expectedFogCount56[sc]
       );
     }
   });

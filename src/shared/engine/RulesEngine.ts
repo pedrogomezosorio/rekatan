@@ -2001,7 +2001,7 @@ export function applyGameAction(
       }
 
       if (hasExplorersPirates(state.config)) {
-        state.config.explorersPiratesScenario ||= 'EXPLORERS_AND_PIRATES_FULL';
+        state.config.explorersPiratesScenario ||= 'LAND_HO';
         const epSpec = EXPLORERS_PIRATES_SCENARIOS.find((s) => s.id === state.config.explorersPiratesScenario);
         if (action.config.victoryPointsTarget === undefined && epSpec) {
           state.config.victoryPointsTarget = epSpec.recommendedVP;

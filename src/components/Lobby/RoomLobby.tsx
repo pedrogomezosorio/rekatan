@@ -103,8 +103,8 @@ export const RoomLobby: React.FC = () => {
       return;
     }
     if (expId === 'EXPLORERS_AND_PIRATES') {
-      const scen = config.explorersPiratesScenario || 'EXPLORERS_AND_PIRATES_FULL';
-      const spec = EXPLORERS_PIRATES_SCENARIOS.find((s) => s.id === scen) || EXPLORERS_PIRATES_SCENARIOS[4];
+      const scen = config.explorersPiratesScenario || 'LAND_HO';
+      const spec = EXPLORERS_PIRATES_SCENARIOS.find((s) => s.id === scen) || EXPLORERS_PIRATES_SCENARIOS[0];
       dispatchAction({
         type: 'UPDATE_CONFIG',
         config: {
@@ -685,7 +685,7 @@ export const RoomLobby: React.FC = () => {
                         <div className="space-y-1.5">
                           {EXPLORERS_PIRATES_SCENARIOS.map((scen) => {
                             const isScenActive =
-                              (config.explorersPiratesScenario || 'EXPLORERS_AND_PIRATES_FULL') ===
+                              (config.explorersPiratesScenario || 'LAND_HO') ===
                               scen.id;
                             return (
                               <button
@@ -957,7 +957,7 @@ export const RoomLobby: React.FC = () => {
                   const sc =
                     EXPLORERS_PIRATES_SCENARIOS.find(
                       (s) => s.id === config.explorersPiratesScenario
-                    ) || EXPLORERS_PIRATES_SCENARIOS[4];
+                    ) || EXPLORERS_PIRATES_SCENARIOS[0];
                   return (
                     <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs space-y-1.5">
                       <div className="font-black text-cyan-200">{sc.title}</div>

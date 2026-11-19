@@ -88,7 +88,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
   2. *Guaridas de piratas* (`12 PV`): Barco Pirata móvil, tributos, desembarco de tripulantes, conquista de guaridas (convertidas en Ríos Auríferos) y pista de misión.
   3. *Peces para Catán* (`15 PV`): **Consejo de Catán**, aparición de bancos de peces, captura naval y entregas en la pista de misión.
   4. *Especias para Catán* (`15 PV`): **Aldeas de las Especias**, sacos de especias y habilidades permanentes (*Velocidad*, *Espada*, *Oro*).
-  5. *Piratas y Exploradores — Campaña Completa* (`17 PV`): Las 3 misiones simultáneas, hasta `32` hexágonos inexplorados (`90` hexágonos totales en 5–6J) y oro de compensación en tiradas improductivas.
+  5. *Piratas y Exploradores — Campaña Completa* (`17 PV`): Las 3 misiones simultáneas, hasta `32` hexágonos inexplorados (`50/57/64/71` totales en 2–4J y `78/87/96` totales en 5–6J, calcados a los diagramas oficiales sin mar exterior adicional) y oro de compensación en tiradas improductivas.
 
 ### Dinámica de Juego y Notificaciones Visuales
 - **Animación secuencial de recursos y progreso:** Al arrojar los dados o recibir cartas de progreso/desarrollo, los materiales y dorsos escaneados vuelan hacia el casillero individual de cada jugador y pueden inspeccionarse en abanico al acercar el cursor a perfiles o al botón de **Progreso / Desarrollo**.
