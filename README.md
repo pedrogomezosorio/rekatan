@@ -1,21 +1,21 @@
 # Rekatan — Catan Tabletop
 
-Implementación digital de Catan y sus expansiones **Navegantes** y **Ciudades y Caballeros** para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas, tableros y escenarios oficiales del juego de mesa para 2 a 6 jugadores.
+Implementación digital de Catan y sus **4 expansiones oficiales** (**Navegantes**, **Ciudades y Caballeros**, **Mercaderes y Bárbaros** y **Piratas y Exploradores**, incluyendo sus ampliaciones de **5–6 jugadores**) para escritorio (Windows y macOS) y navegador web, desarrollada con React, TypeScript, Node.js y Electron. El proyecto ofrece partidas multijugador en tiempo real a través de WebSockets y juego local asistido por bots con inteligencia artificial, recreando con fidelidad las mecánicas, tableros y escenarios oficiales del juego de mesa para 2 a 6 jugadores.
 
 Acceso web directo: [rekatan.onrender.com](https://rekatan.onrender.com)
 
 ---
 
-## Descargas (v2.2 — Ciudades y Caballeros & Navegantes)
+## Descargas (v2.3.0 — Las 4 Expansiones Oficiales + 5–6 Jugadores)
 
 Las versiones ejecutables para escritorio se encuentran disponibles en la sección de [Releases de GitHub](https://github.com/pedrogomezosorio/rekatan/releases/latest).
 
 | Sistema Operativo | Tipo de Paquete | Archivo | Enlace de Descarga |
 | :--- | :--- | :--- | :--- |
-| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.2.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.2.0-arm64.dmg) |
-| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.2.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.2.0-arm64-mac.zip) |
-| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.2.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.2.0.exe) |
-| **Windows** | Ejecutable Portable | `Catan Tabletop 2.2.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.2.0.exe) |
+| **macOS** | Instalador DMG (Apple Silicon M1/M2/M3/M4) | `Catan Tabletop-2.3.0-arm64.dmg` | [Descargar DMG](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.3.0-arm64.dmg) |
+| **macOS** | Aplicación directa (ZIP) | `Catan Tabletop-2.3.0-arm64-mac.zip` | [Descargar ZIP](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop-2.3.0-arm64-mac.zip) |
+| **Windows** | Instalador estándar (NSIS) | `Catan Tabletop Setup 2.3.0.exe` | [Descargar Instalador](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.Setup.2.3.0.exe) |
+| **Windows** | Ejecutable Portable | `Catan Tabletop 2.3.0.exe` | [Descargar Portable](https://github.com/pedrogomezosorio/rekatan/releases/latest/download/Catan.Tabletop.2.3.0.exe) |
 | **Cualquier Sistema** | Versión Web (Navegador) | En línea | [Abrir en Navegador](https://rekatan.onrender.com) |
 
 > 💡 **Todas las versiones y notas de la actualización:**  
@@ -72,6 +72,24 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **3 Mazos de Cartas de Progreso (Ciencia, Política y Comercio):** Menú propio de **Progreso (`D`)** con contadores de mazo, interacción mediante mapa o cajitas clicables (sin selectores desplegables) —incluyendo **Alquimista**, **Ingeniero**, **Herrero**, **Inventor**, **Espía**, **Diplomático**, **Mercader** y **Puerto de Mercancías**—, vuelos de dorsos escaneados hacia el casillero y alertas centrales coloreadas por rama al jugar cada carta.
 - **Turnos completos para 5-6 Jugadores:** Tirada de dados obligatoria al inicio del turno de cada jugador (1 tirada por persona en cada ronda) garantizando producción y avance de eventos equitativo, totalmente combinable con los escenarios de Navegantes.
 
+### Expansión: Mercaderes y Bárbaros (2–4 y 5–6 Jugadores)
+- **5 escenarios oficiales con tableros fieles a los manuales (`2–4J` y `5–6J`):**
+  1. *Los pescadores de Catán* (`10 PV`): Lago central (`2, 3, 11, 12`) + caladeros costeros (`4, 5, 6, 8, 9, 10`), mazo de fichas de pescado con **Bota Vieja** y 5 acciones de canje.
+  2. *Los ríos de Catán* (`10 PV`): Ríos fluviales continuos, pantanos costeros, ficha doble `2/12`, puentes, monedas de oro y títulos **El Más Rico (`+1 PV`)** / **El Más Pobre (`-2 PV`)**.
+  3. *La ruta de las caravanas* (`12 PV`): Oasis central(es), subastas de Lana y Grano y 3 rutas de camellos con bonificación de `+1 PV` y doble longitud en la Gran Ruta Comercial.
+  4. *El ataque de los bárbaros* (`12 PV`): Montaje oficial costero e interior con Castillo(s), desembarco bárbaro, conquista de hexágonos (`3` bárbaros), caballeros en aristas, prisioneros y mazo propio de desarrollo.
+  5. *Mercaderes y Bárbaros* (`13 PV`): **El Castillo**, **Cantera de Mármol** y **Fábrica de Vidrio** (7 destinos en 5–6J), carromatos mejorables (`Nv. 1–4`), entregas de Mármol/Vidrio/Herramientas y expulsión de bárbaros en caminos.
+- **4 variantes oficiales combinables:** *El Ladrón Amistoso*, *Eventos en Catán* (36 cartas), *El Amo del Puerto* (`+2 PV`) y *Catán para Dos*.
+- **Interfaz dedicada:** Menú inferior y panel modal opaco al estilo de *Ciudades y Caballeros*, sin selectores desplegables (`<select>`).
+
+### Expansión: Piratas y Exploradores (2–4 y 5–6 Jugadores)
+- **5 escenarios progresivos en archipiélago marítimo Oeste→Este (`2–4J` y `5–6J`):**
+  1. *¡Tierra a la vista!* (`8 PV`): Isla inicial oficial (`15` hexágonos en 2–4J / `22` en 5–6J), ciudades portuarias, barcos con bodega (`2` huecos, `4 PM`), descubrimiento de las pilas **Norte Verde 🌙** y **Sur Naranja ☀️** y colonos.
+  2. *Guaridas de piratas* (`12 PV`): Barco Pirata móvil, tributos, desembarco de tripulantes, conquista de guaridas (convertidas en Ríos Auríferos) y pista de misión.
+  3. *Peces para Catán* (`15 PV`): **Consejo de Catán**, aparición de bancos de peces, captura naval y entregas en la pista de misión.
+  4. *Especias para Catán* (`15 PV`): **Aldeas de las Especias**, sacos de especias y habilidades permanentes (*Velocidad*, *Espada*, *Oro*).
+  5. *Piratas y Exploradores — Campaña Completa* (`17 PV`): Las 3 misiones simultáneas, hasta `32` hexágonos inexplorados (`90` hexágonos totales en 5–6J) y oro de compensación en tiradas improductivas.
+
 ### Dinámica de Juego y Notificaciones Visuales
 - **Animación secuencial de recursos y progreso:** Al arrojar los dados o recibir cartas de progreso/desarrollo, los materiales y dorsos escaneados vuelan hacia el casillero individual de cada jugador y pueden inspeccionarse en abanico al acercar el cursor a perfiles o al botón de **Progreso / Desarrollo**.
 - **Lanzamiento de dados central:** Ventana informativa en el eje central de la pantalla con visualización 3D de los dados numéricos y del dado de acontecimiento sin bloquear la vista de cartas.
@@ -95,7 +113,7 @@ Las versiones ejecutables para escritorio se encuentran disponibles en la secci�
 - **Frontend:** React 18, TypeScript, Tailwind CSS, Framer Motion, Lucide Icons.
 - **Backend:** Node.js, Express, Socket.io, Vite (en modo middleware para desarrollo).
 - **Entorno de Escritorio:** Electron, Electron Builder.
-- **Pruebas Unitarias:** Vitest (266 tests cubriendo reglas completas de Ciudades y Caballeros, creación de salas, contratos Socket.io, validación del motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
+- **Pruebas Unitarias:** Vitest (275 tests cubriendo reglas completas de Ciudades y Caballeros, Mercaderes y Bárbaros, Piratas y Exploradores, creación de salas, contratos Socket.io, validación del motor de reglas, auditoría de los 24 tableros oficiales de Navegantes, maravillas, cámara, rutas continuas y reconexión).
 
 ---
 

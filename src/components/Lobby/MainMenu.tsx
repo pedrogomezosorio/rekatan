@@ -137,8 +137,9 @@ export const MainMenu: React.FC = () => {
                 <Crown className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong className="text-slate-100">Expansiones y Editor Libre:</strong> Soporte
-                  modular para <em>Navegantes</em>, <em>Ciudades y Caballeros</em> y{' '}
-                  <em>Bárbaros</em>, más editor manual de tablero y mapas de 5-6 jugadores.
+                  completo para <em>Navegantes</em>, <em>Ciudades y Caballeros</em>,{' '}
+                  <em>Mercaderes y Bárbaros</em> y <em>Piratas y Exploradores</em> (2–4 y 5–6
+                  jugadores), más editor manual de tablero.
                 </span>
               </div>
               <div className="flex items-start gap-2.5">
