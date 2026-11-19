@@ -2027,7 +2027,12 @@ export function applyGameAction(
           state.config.victoryPointsTarget = action.config.victoryPointsTarget || 13;
           state.board = generateActionBoard(state.config.boardMode, state.config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE, false, state.config.seafarersScenario, state.players.length, false, state.config.seafarersBoardSize);
         }
-      } else if (prevExpansionModule === 'SEAFARERS' || action.config.expansionModule === 'BASE') {
+      } else if (
+        prevExpansionModule === 'SEAFARERS' ||
+        prevExpansionModule === 'BARBARIANS' ||
+        prevExpansionModule === 'EXPLORERS_AND_PIRATES' ||
+        action.config.expansionModule === 'BASE'
+      ) {
         state.config.desertInCenter = action.config.desertInCenter ?? true;
         state.config.victoryPointsTarget = action.config.victoryPointsTarget || (hasCitiesKnights(state.config) ? 13 : 10);
         state.board = generateActionBoard(state.config.boardMode, state.config.preventAdjacentRedNumbers, DEFAULT_HEX_SIZE, state.config.desertInCenter);
@@ -2082,6 +2087,22 @@ export function applyGameAction(
         else if (wasCK && !nowCK && state.config.expansionModule === 'SEAFARERS') state.config.victoryPointsTarget = prevExpansionModule === 'SEAFARERS' ? prevState.config.victoryPointsTarget - 2 : scenarioTarget;
       }
       if (hasCitiesKnights(state.config)) state.board = withOfficialNumberSpiral(state.board, state.config.preventAdjacentRedNumbers);
+      if (hasBarbarians(state.config)) {
+        delete state.explorersPirates;
+        for (const p of state.players) delete p.explorersPirates;
+        initializeBarbarians(state, context.random);
+      } else if (hasExplorersPirates(state.config)) {
+        delete state.barbarians;
+        for (const p of state.players) delete p.barbarians;
+        initializeExplorersPirates(state, context.random);
+      } else {
+        delete state.barbarians;
+        delete state.explorersPirates;
+        for (const p of state.players) {
+          delete p.barbarians;
+          delete p.explorersPirates;
+        }
+      }
       addLog(state, `${actor.name} actualizó la configuración de la sala.`, 'SYSTEM', actor.id);
       return { state };
     }
@@ -2120,6 +2141,11 @@ export function applyGameAction(
       }
       if (action.desertInCenter !== undefined && !isSeaf) {
         state.config.desertInCenter = action.desertInCenter;
+      }
+      if (hasBarbarians(state.config)) {
+        initializeBarbarians(state, context.random);
+      } else if (hasExplorersPirates(state.config)) {
+        initializeExplorersPirates(state, context.random);
       }
       addLog(state, `${actor.name} generó un nuevo mapa aleatorio.`, 'SYSTEM', actor.id);
       return { state };
@@ -2655,11 +2681,33 @@ export function applyGameAction(
         if (actor.explorersPirates) {
           actor.explorersPirates.harborCitiesLeft = Math.max(0, actor.explorersPirates.harborCitiesLeft - 1);
         }
+        // Reemplazar cualquier dársena pre-asignada por la elegida por el jugador
+        for (const [bVid, basin] of Object.entries(state.explorersPirates.harborBasins)) {
+          if (basin.playerId === actor.id && bVid !== vertex.id) {
+            delete state.explorersPirates.harborBasins[bVid];
+          }
+        }
         state.explorersPirates.harborBasins[vertex.id] = {
           vertexId: vertex.id,
           playerId: actor.id,
           cargo: [],
         };
+        const seaEdge = Object.values(state.board.edges).find(
+          (e) => (!e.isLand || e.isCoastal) && e.vertexIds.includes(vertex.id)
+        );
+        if (seaEdge) {
+          const shipId = `ep-ship-${actor.id}-init`;
+          state.explorersPirates.ships[shipId] = {
+            id: shipId,
+            playerId: actor.id,
+            edgeId: seaEdge.id,
+            cargo: ['SETTLER'],
+            mpRemaining: 4,
+            hasMovedThisTurn: false,
+            boostedThisTurn: false,
+            paidPirateTributeThisTurn: false,
+          };
+        }
       }
 
       if (state.phase === 'SETUP_SETTLEMENT_1' || state.phase === 'SETUP_SETTLEMENT_2') {

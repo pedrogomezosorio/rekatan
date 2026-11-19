@@ -1964,6 +1964,8 @@ export const RoomLobby: React.FC = () => {
               board={board}
               players={players}
               lowEndPcMode={lowEndPcMode}
+              barbarians={gameState.barbarians}
+              explorersPirates={gameState.explorersPirates}
               editorTool={isHost ? editorTool : undefined}
               onCustomSwapHexes={(hexIdA, hexIdB) =>
                 dispatchAction({ type: 'CUSTOM_SWAP_HEXES', hexIdA, hexIdB })

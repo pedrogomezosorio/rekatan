@@ -25,6 +25,7 @@ import type {
   Vertex,
 } from '../types';
 import { updateLongestRoadAward } from './LongestRoad';
+import { DEFAULT_HEX_SIZE, generateBoard } from './HexGrid';
 
 export interface BarbariansHooks {
   score: (state: GameState) => void;
@@ -320,11 +321,24 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
     state.config.boardMode === 'MEGA_RADIUS_3' ||
     state.players.length > 4;
 
+  // Regenerar siempre una base limpia del tamaño oficial (3-4J = 19 hex, 5-6J = 30 hex) antes de aplicar el escenario del PDF
+  state.board = generateBoard(
+    isExtended56 ? 'EXPANSION_5_6' : 'STANDARD_3_4',
+    state.config.preventAdjacentRedNumbers,
+    state.board?.hexSize || DEFAULT_HEX_SIZE,
+    true,
+    undefined,
+    state.players.length,
+    false,
+    undefined,
+    random
+  );
+
   const landHexes = Object.values(state.board.hexes).filter((h) => h.terrain !== 'SEA');
   const vertices = Object.values(state.board.vertices);
   const edges = Object.values(state.board.edges);
 
-  // Clasificar hexágonos costeros e interiores
+  // Clasificar hexágonos costeros e interiores ordenados en sentido horario
   const coastalHexIds: string[] = [];
   const interiorHexIds: string[] = [];
   for (const h of landHexes) {
@@ -333,6 +347,11 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
     if (isCoastal) coastalHexIds.push(h.id);
     else interiorHexIds.push(h.id);
   }
+  coastalHexIds.sort((a, b) => {
+    const ha = state.board.hexes[a];
+    const hb = state.board.hexes[b];
+    return Math.atan2(ha.center.y, ha.center.x) - Math.atan2(hb.center.y, hb.center.x);
+  });
 
   const mb: NonNullable<GameState['barbarians']> = {
     scenario,
@@ -375,23 +394,23 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
   }
 
   if (scenario === 'FISHERMEN_OF_CATAN') {
+    // =========================================================================
+    // ESCENARIO 1: LOS PESCADORES DE CATÁN (PDF págs. 6-7 y 5-6J pág. 2)
+    // =========================================================================
     mb.fishDeck = createFishTokenDeck(isExtended56, random);
-    // El lago sustituye al desierto y no puede estar en la costa
+    const exactLakeCoords = isExtended56 ? ['0,-1,1', '0,1,-1'] : ['0,0,0'];
     const deserts = landHexes.filter((h) => h.terrain === 'DESERT');
-    const targetLakeCount = isExtended56 ? 2 : 1;
-    const chosenInteriorIds = interiorHexIds.slice(0, targetLakeCount);
 
-    for (let i = 0; i < chosenInteriorIds.length; i++) {
-      const intHex = state.board.hexes[chosenInteriorIds[i]];
+    exactLakeCoords.forEach((lakeId, i) => {
+      const intHex = state.board.hexes[lakeId] || state.board.hexes[interiorHexIds[i]];
       const desHex = deserts[i];
       if (intHex && desHex && intHex.id !== desHex.id) {
-        intHex.terrain = 'DESERT';
-        desHex.terrain = 'WOOD';
+        desHex.terrain = intHex.terrain === 'DESERT' ? 'WOOD' : intHex.terrain;
         desHex.numberToken = intHex.numberToken || 6;
       }
       if (intHex) {
         intHex.terrain = 'DESERT';
-        intHex.numberToken = 12; // Produce con 2, 3, 11 y 12
+        intHex.numberToken = 12; // Produce pescado con 2, 3, 11 y 12
         intHex.hasRobber = false;
         mb.lakeHexIds.push(intHex.id);
         const lakeVerts = vertices.filter((v) => v.hexIds.includes(intHex.id)).map((v) => v.id);
@@ -403,11 +422,17 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
           isLake: true,
         });
       }
-    }
+    });
 
-    // Caladeros de pesca costeros (4, 5, 6, 8, 9, 10 + 5, 9 en 5-6J)
+    // 6 caladeros costeros en 3-4J (4, 5, 6, 8, 9, 10) en las 6 esquinas; 8 en 5-6J (4, 5, 5, 6, 8, 9, 9, 10)
     const groundNumbers = isExtended56 ? [4, 5, 5, 6, 8, 9, 9, 10] : [4, 5, 6, 8, 9, 10];
-    const coastalSelection = coastalHexIds.slice(0, groundNumbers.length);
+    const cornerIds34 = ['0,-2,2', '2,-2,0', '2,0,-2', '0,2,-2', '-2,2,0', '-2,0,2'];
+    const coastalSelection = isExtended56
+      ? groundNumbers.map((_, idx) =>
+          coastalHexIds[Math.floor((idx * coastalHexIds.length) / groundNumbers.length)]
+        )
+      : cornerIds34.filter((id) => Boolean(state.board.hexes[id]));
+
     coastalSelection.forEach((hid, idx) => {
       const cVerts = vertices
         .filter((v) => v.hexIds.includes(hid) && v.isCoastal)
@@ -422,119 +447,309 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
       }
     });
 
-    // Regla oficial (pág. 6): El ladrón empieza fuera del tablero hasta el primer 7
     for (const h of Object.values(state.board.hexes)) h.hasRobber = false;
     state.board.robberHexId = '';
   } else if (scenario === 'RIVERS_OF_CATAN') {
-    // Ríos y pantanos (2 ríos en 3-4J, 3 ríos en 5-6J)
-    const riverCount = isExtended56 ? 3 : 2;
-    mb.swampHexIds = coastalHexIds.slice(0, riverCount);
-    for (const sid of mb.swampHexIds) {
-      const sh = state.board.hexes[sid];
-      if (sh) {
-        sh.terrain = 'DESERT';
-        sh.numberToken = null;
-        sh.hasRobber = false;
+    // =========================================================================
+    // ESCENARIO 2: LOS RÍOS DE CATÁN (PDF págs. 8-9 y 5-6J pág. 2)
+    // =========================================================================
+    // En 3-4J: Río superior de 3 hexágonos (Montaña 1,-1,0 -> Cerro 0,-1,1 -> Pantano -2,0,2)
+    //          Río inferior de 4 hexágonos (Montaña 1,0,-1 -> Pasto 0,0,0 -> Cerro -1,1,0 -> Pantano -2,2,0)
+    const riverPaths: Array<Array<{ id: string; terrain: ResourceType | 'DESERT' }>> = isExtended56
+      ? [
+          [
+            { id: '2,-2,0', terrain: 'ORE' },
+            { id: '1,-2,1', terrain: 'BRICK' },
+            { id: '0,-2,2', terrain: 'DESERT' },
+          ],
+          [
+            { id: '1,0,-1', terrain: 'ORE' },
+            { id: '0,0,0', terrain: 'SHEEP' },
+            { id: '-1,1,0', terrain: 'BRICK' },
+            { id: '-2,2,0', terrain: 'DESERT' },
+          ],
+          [
+            { id: '1,1,-2', terrain: 'ORE' },
+            { id: '0,2,-2', terrain: 'BRICK' },
+            { id: '-1,3,-2', terrain: 'DESERT' },
+          ],
+        ]
+      : [
+          [
+            { id: '1,-1,0', terrain: 'ORE' },
+            { id: '0,-1,1', terrain: 'BRICK' },
+            { id: '-2,0,2', terrain: 'DESERT' },
+          ],
+          [
+            { id: '1,0,-1', terrain: 'ORE' },
+            { id: '0,0,0', terrain: 'SHEEP' },
+            { id: '-1,1,0', terrain: 'BRICK' },
+            { id: '-2,2,0', terrain: 'DESERT' },
+          ],
+        ];
+
+    // Asegurar que ningún otro hexágono sea DESERT
+    let fallbackNum = 4;
+    for (const h of landHexes) {
+      if (h.terrain === 'DESERT') {
+        h.terrain = 'WOOD';
+        h.numberToken = fallbackNum;
+        fallbackNum = fallbackNum === 4 ? 9 : 5;
+      }
+      h.hasRobber = false;
+    }
+
+    for (const path of riverPaths) {
+      for (const step of path) {
+        const h = state.board.hexes[step.id];
+        if (!h) continue;
+        h.terrain = step.terrain;
+        if (!mb.riverHexIds.includes(h.id)) mb.riverHexIds.push(h.id);
+        if (step.terrain === 'DESERT') {
+          h.numberToken = null;
+          if (!mb.swampHexIds.includes(h.id)) mb.swampHexIds.push(h.id);
+        } else if (h.numberToken === null) {
+          h.numberToken = 5;
+        }
       }
     }
+
     if (mb.swampHexIds[0] && state.board.hexes[mb.swampHexIds[0]]) {
       state.board.hexes[mb.swampHexIds[0]].hasRobber = true;
       state.board.robberHexId = mb.swampHexIds[0];
     }
 
-    const riverHexCount = isExtended56 ? 10 : 7;
-    mb.riverHexIds = [...mb.swampHexIds, ...interiorHexIds.slice(0, riverHexCount - mb.swampHexIds.length)];
     const riverSet = new Set(mb.riverHexIds);
-
-    // Lugares de construcción de puente (aristas entre hexágonos de río)
-    const bridgeEdges = edges
-      .filter((e) => e.isLand && e.hexIds.some((hid) => riverSet.has(hid)))
-      .filter((_, idx) => idx % 3 === 0)
-      .slice(0, isExtended56 ? 10 : 7);
-    mb.bridgeSiteEdgeIds = bridgeEdges.map((e) => e.id);
+    // Lugares de construcción de puente (7 en 3-4J, 10 en 5-6J) en las aristas de los ríos
+    const sharedRiverEdges = edges.filter(
+      (e) => e.isLand && e.hexIds.filter((hid) => riverSet.has(hid)).length >= 2
+    );
+    const bankRiverEdges = edges.filter(
+      (e) => e.isLand && e.hexIds.filter((hid) => riverSet.has(hid)).length === 1
+    );
+    const targetBridges = isExtended56 ? 10 : 7;
+    mb.bridgeSiteEdgeIds = [...sharedRiverEdges, ...bankRiverEdges]
+      .slice(0, targetBridges)
+      .map((e) => e.id);
 
     // En 3-4J la ficha del 2 comparte hexágono con el 12
-    const hex12 = landHexes.find((h) => h.numberToken === 12);
+    const hex12 = Object.values(state.board.hexes).find(
+      (h) => h.terrain !== 'SEA' && h.terrain !== 'DESERT' && h.numberToken === 12
+    );
     if (hex12 && !isExtended56) {
       mb.dualNumberHexId = hex12.id;
     }
     updateWealthiestAndPoorestTitles(state);
   } else if (scenario === 'THE_CARAVANS') {
-    // Oasis en el centro (1 en 3-4J, 2 en 5-6J)
-    const centerHex = state.board.hexes['0,0,0'] || landHexes[0];
-    if (centerHex) {
-      centerHex.terrain = 'DESERT';
-      centerHex.numberToken = null;
-      centerHex.hasRobber = false;
-      mb.oasisHexIds.push(centerHex.id);
+    // =========================================================================
+    // ESCENARIO 3: LA RUTA DE LAS CARAVANAS (PDF págs. 10-11 y 5-6J pág. 3)
+    // =========================================================================
+    const oasisCoords = isExtended56 ? ['1,-1,0', '-1,1,0'] : ['0,0,0'];
+    for (const h of landHexes) {
+      if (h.terrain === 'DESERT' && !oasisCoords.includes(h.id)) {
+        h.terrain = 'SHEEP';
+        h.numberToken = 9;
+      }
+      h.hasRobber = false;
     }
-    if (isExtended56) {
-      const secondOasis = interiorHexIds
-        .map((id) => state.board.hexes[id])
-        .find((h) => h && h.id !== centerHex?.id);
-      if (secondOasis) {
-        secondOasis.terrain = 'DESERT';
-        secondOasis.numberToken = null;
-        secondOasis.hasRobber = false;
-        mb.oasisHexIds.push(secondOasis.id);
+    for (const oid of oasisCoords) {
+      const oh = state.board.hexes[oid];
+      if (oh) {
+        oh.terrain = 'DESERT';
+        oh.numberToken = null;
+        oh.hasRobber = false;
+        mb.oasisHexIds.push(oh.id);
       }
     }
-    for (const h of Object.values(state.board.hexes)) h.hasRobber = false;
     state.board.robberHexId = '';
   } else if (scenario === 'BARBARIAN_ATTACK') {
-    // Castillo en la costa (1 en 3-4J, 2 en 5-6J)
-    const castleCount = isExtended56 ? 2 : 1;
-    mb.castleHexIds = coastalHexIds.slice(0, castleCount);
-    for (const cid of mb.castleHexIds) {
-      const ch = state.board.hexes[cid];
-      if (ch) {
-        ch.terrain = 'GOLD';
-        ch.numberToken = null;
-        ch.hasRobber = false;
+    // =========================================================================
+    // ESCENARIO 4: EL ATAQUE DE LOS BÁRBAROS (PDF págs. 12-13 y 5-6J pág. 4)
+    // =========================================================================
+    if (!isExtended56) {
+      // Montaje oficial exacto 3-4J (pág. 13):
+      // Costa (12 hexágonos): Desierto en (1,-2,1), Castillo en (-1,2,-1) y 10 terrenos costeros con números fijos
+      const coastalOrder34: Array<{
+        id: string;
+        kind: 'CASTLE' | 'DESERT' | 'COAST';
+        num: number | null;
+      }> = [
+        { id: '0,-2,2', kind: 'COAST', num: 8 },
+        { id: '1,-2,1', kind: 'DESERT', num: null },
+        { id: '2,-2,0', kind: 'COAST', num: 10 },
+        { id: '2,-1,-1', kind: 'COAST', num: 11 },
+        { id: '2,0,-2', kind: 'COAST', num: 5 },
+        { id: '1,1,-2', kind: 'COAST', num: 2 },
+        { id: '0,2,-2', kind: 'COAST', num: 6 },
+        { id: '-1,2,-1', kind: 'CASTLE', num: null },
+        { id: '-2,2,0', kind: 'COAST', num: 4 },
+        { id: '-2,1,1', kind: 'COAST', num: 12 },
+        { id: '-2,0,2', kind: 'COAST', num: 9 },
+        { id: '-1,-1,2', kind: 'COAST', num: 3 },
+      ];
+      // 2 bosques, 2 cerros, 3 pastos, 1 montaña, 2 sembrados en el anillo costero
+      const coastalTerrains: ResourceType[] = [
+        'WOOD',
+        'WOOD',
+        'BRICK',
+        'BRICK',
+        'SHEEP',
+        'SHEEP',
+        'SHEEP',
+        'ORE',
+        'WHEAT',
+        'WHEAT',
+      ];
+      for (let i = coastalTerrains.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [coastalTerrains[i], coastalTerrains[j]] = [coastalTerrains[j], coastalTerrains[i]];
       }
-    }
-    for (const h of Object.values(state.board.hexes)) h.hasRobber = false;
-    state.board.robberHexId = '';
+      let cIdx = 0;
+      mb.coastalHexIds = [];
+      for (const spec of coastalOrder34) {
+        const h = state.board.hexes[spec.id];
+        if (!h) continue;
+        h.hasRobber = false;
+        if (spec.kind === 'CASTLE') {
+          h.terrain = 'GOLD';
+          h.numberToken = null;
+          mb.castleHexIds.push(h.id);
+        } else if (spec.kind === 'DESERT') {
+          h.terrain = 'DESERT';
+          h.numberToken = null;
+        } else {
+          h.terrain = coastalTerrains[cIdx++ % coastalTerrains.length];
+          h.numberToken = spec.num;
+          mb.coastalHexIds.push(h.id);
+          if (spec.num === 2 || spec.num === 12) {
+            mb.hexBarbarians[h.id] = 1;
+          }
+        }
+      }
 
-    // 1 bárbaro inicial en los hexágonos costeros con 2 y 12
-    let placedInitial = 0;
-    for (const cid of coastalHexIds) {
-      if (mb.castleHexIds.includes(cid)) continue;
-      const h = state.board.hexes[cid];
-      if (h && (h.numberToken === 2 || h.numberToken === 12)) {
-        mb.hexBarbarians[cid] = 1;
-        placedInitial += 1;
+      // Interior (7 hexágonos): 1 bosque, 1 pasto, 1 cerro, 2 montañas, 2 sembrados con números fijos (4, 5, 8, 3, 9, 6 y 10 en el centro)
+      const interiorOrder34: Array<{ id: string; num: number }> = [
+        { id: '0,-1,1', num: 4 },
+        { id: '1,-1,0', num: 5 },
+        { id: '1,0,-1', num: 8 },
+        { id: '0,1,-1', num: 3 },
+        { id: '-1,1,0', num: 9 },
+        { id: '-1,0,1', num: 6 },
+        { id: '0,0,0', num: 10 },
+      ];
+      const interiorTerrains: ResourceType[] = [
+        'WOOD',
+        'SHEEP',
+        'BRICK',
+        'ORE',
+        'ORE',
+        'WHEAT',
+        'WHEAT',
+      ];
+      for (let i = interiorTerrains.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [interiorTerrains[i], interiorTerrains[j]] = [interiorTerrains[j], interiorTerrains[i]];
       }
+      interiorOrder34.forEach((spec, idx) => {
+        const h = state.board.hexes[spec.id];
+        if (!h) return;
+        h.terrain = interiorTerrains[idx % interiorTerrains.length];
+        h.numberToken = spec.num;
+        h.hasRobber = false;
+      });
+    } else {
+      // Montaje oficial 5-6J (pág. 4): 2 Castillos (2,-3,1 y -1,3,-2) y 2 Desiertos (3,-1,-2 y -2,1,1)
+      const castleCoords56 = ['2,-3,1', '-1,3,-2'];
+      const desertCoords56 = ['3,-1,-2', '-2,1,1'];
+      const coastalNums56 = [9, 10, 11, 5, 2, 6, 5, 4, 12, 9, 3, 8];
+      let cNumIdx = 0;
+      mb.coastalHexIds = [];
+      for (const cid of coastalHexIds) {
+        const h = state.board.hexes[cid];
+        if (!h) continue;
+        h.hasRobber = false;
+        if (castleCoords56.includes(cid)) {
+          h.terrain = 'GOLD';
+          h.numberToken = null;
+          mb.castleHexIds.push(cid);
+        } else if (desertCoords56.includes(cid)) {
+          h.terrain = 'DESERT';
+          h.numberToken = null;
+        } else {
+          if (h.terrain === 'DESERT') h.terrain = 'WOOD';
+          const num = coastalNums56[cNumIdx++ % coastalNums56.length];
+          h.numberToken = num;
+          mb.coastalHexIds.push(cid);
+          if (num === 2 || num === 12) {
+            mb.hexBarbarians[cid] = 1;
+          }
+        }
+      }
+      const interiorNums56 = [6, 11, 3, 10, 4, 9, 6, 8, 5, 10, 4, 11, 3, 8];
+      interiorHexIds.forEach((iid, idx) => {
+        const h = state.board.hexes[iid];
+        if (!h) return;
+        if (h.terrain === 'DESERT') h.terrain = 'WHEAT';
+        h.numberToken = interiorNums56[idx % interiorNums56.length];
+        h.hasRobber = false;
+      });
     }
-    if (placedInitial === 0 && coastalHexIds.length > 2) {
-      mb.hexBarbarians[coastalHexIds[1]] = 1;
-      mb.hexBarbarians[coastalHexIds[2]] = 1;
-      placedInitial = 2;
-    }
+
+    const placedInitial = Object.values(mb.hexBarbarians).reduce((a, b) => a + b, 0);
     mb.barbariansReserve -= placedInitial;
+    state.board.robberHexId = '';
     mb.scenarioDevDeck = createBarbariansScenarioDevDeck('BARBARIAN_ATTACK', isExtended56, random);
     state.devDeck = [];
     state.largestArmyPlayerId = null;
   } else if (scenario === 'TRADERS_AND_BARBARIANS') {
-    // 3 hexágonos de destino en 3-4J (Castillo, Cantera, Fábrica de Vidrio); 7 en 5-6J
-    const destSpecs: DestinationType[] = isExtended56
-      ? ['CASTLE', 'QUARRY', 'GLASSWORKS', 'QUARRY', 'GLASSWORKS', 'QUARRY', 'GLASSWORKS']
-      : ['CASTLE', 'QUARRY', 'GLASSWORKS'];
+    // =========================================================================
+    // ESCENARIO 5: MERCADERES Y BÁRBAROS (PDF pág. 17 y 5-6J pág. 1)
+    // =========================================================================
+    // En 3-4J: 3 hexágonos de destino en las 3 esquinas costeras del diagrama (2,-2,0 Castillo; -2,1,1 Fábrica de Vidrio; 0,2,-2 Cantera de Mármol)
+    // En 5-6J: 1 Castillo central (0,0,0) + 3 Canteras + 3 Fábricas de Vidrio en la costa
+    const destPlacements: Array<{ id: string; type: DestinationType }> = isExtended56
+      ? [
+          { id: '0,0,0', type: 'CASTLE' },
+          { id: '1,-3,2', type: 'QUARRY' },
+          { id: '3,-3,0', type: 'GLASSWORKS' },
+          { id: '3,0,-3', type: 'QUARRY' },
+          { id: '0,3,-3', type: 'GLASSWORKS' },
+          { id: '-2,1,1', type: 'QUARRY' },
+          { id: '-1,-1,2', type: 'GLASSWORKS' },
+        ]
+      : [
+          { id: '2,-2,0', type: 'CASTLE' },
+          { id: '-2,1,1', type: 'GLASSWORKS' },
+          { id: '0,2,-2', type: 'QUARRY' },
+        ];
 
-    const step = Math.max(1, Math.floor(coastalHexIds.length / destSpecs.length));
-    destSpecs.forEach((dtype, idx) => {
-      const hid = coastalHexIds[Math.min(idx * step, coastalHexIds.length - 1)];
-      const h = state.board.hexes[hid];
-      if (!h) return;
+    const destIdSet = new Set(destPlacements.map((d) => d.id));
+    // En 3-4J no se usan ni el desierto ni las fichas 2 ni 12 (16 terrenos con 3,3,4,4,5,5,6,6,8,8,9,9,10,10,11,11)
+    const tokens34 = [3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11];
+    let tokIdx = 0;
+    for (const h of landHexes) {
+      h.hasRobber = false;
+      if (destIdSet.has(h.id)) continue;
+      if (!isExtended56) {
+        if (h.terrain === 'DESERT') h.terrain = 'WOOD';
+        h.numberToken = tokens34[tokIdx++ % tokens34.length];
+      }
+    }
+
+    for (const spec of destPlacements) {
+      const h = state.board.hexes[spec.id];
+      if (!h) continue;
       h.terrain = 'GOLD';
       h.numberToken = null;
       h.hasRobber = false;
 
-      const hexVerts = vertices.filter((v) => v.hexIds.includes(hid));
-      const hexEdges = edges.filter((e) => e.hexIds.includes(hid));
+      const hexVerts = vertices.filter((v) => v.hexIds.includes(spec.id));
+      const hexEdges = edges.filter((e) => e.hexIds.includes(spec.id));
       const seaEdges = hexEdges.filter((e) => e.isCoastal || e.hexIds.length === 1);
-      const centerVert = hexVerts[0]?.id || '';
-      const meta = DESTINATION_HEX_META[dtype];
+      // Elegir un vértice interior del hexágono de destino como punto de entrega
+      const interiorVert = hexVerts.find((v) => !v.isCoastal) || hexVerts[0];
+      const centerVert = interiorVert?.id || '';
+      const meta = DESTINATION_HEX_META[spec.type];
       const stackSize = isExtended56 ? 8 : 12;
       const stack: CommodityDeliveryType[] = [];
       for (let i = 0; i < stackSize; i++) {
@@ -545,23 +760,29 @@ export function initializeBarbarians(state: GameState, random: () => number): vo
         [stack[i], stack[j]] = [stack[j], stack[i]];
       }
 
-      mb.destinationHexes[hid] = {
-        hexId: hid,
-        type: dtype,
+      mb.destinationHexes[spec.id] = {
+        hexId: spec.id,
+        type: spec.type,
         name: meta.name,
         centerVertexId: centerVert,
         cornerVertexIds: hexVerts.map((v) => v.id),
         forbiddenSeaEdgeIds: isExtended56 ? [] : seaEdges.map((e) => e.id),
         stack,
       };
-    });
+    }
 
-    // 3 bárbaros iniciales en caminos interiores
-    const interiorEdges = edges.filter((e) => e.isLand && !e.isCoastal);
-    mb.edgeBarbarians = interiorEdges.slice(0, 3).map((e) => e.id);
+    // 3 bárbaros iniciales en los 3 caminos marcados con X frente a los hexágonos de destino
+    const xEdges = edges.filter(
+      (e) =>
+        e.isLand &&
+        !e.isCoastal &&
+        e.hexIds.some((hid) => destIdSet.has(hid) || ['1,-1,0', '-1,0,1', '0,1,-1'].includes(hid))
+    );
+    mb.edgeBarbarians = (xEdges.length >= 3 ? xEdges : edges.filter((e) => e.isLand && !e.isCoastal))
+      .slice(0, 3)
+      .map((e) => e.id);
     mb.scenarioDevDeck = createBarbariansScenarioDevDeck('TRADERS_AND_BARBARIANS', isExtended56, random);
     state.devDeck = [];
-    for (const h of Object.values(state.board.hexes)) h.hasRobber = false;
     state.board.robberHexId = '';
 
     // Inicializar posición por defecto del carromato y primera ficha de mercancía para cada jugador

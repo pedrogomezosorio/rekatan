@@ -112,14 +112,17 @@ describe('Expansión 1: Mercaderes y Bárbaros (BARBARIANS) - 3-4 y 5-6 Jugadore
       const s34 = createMBTestState(sc, 'STANDARD_3_4');
       expect(s34.barbarians).toBeDefined();
       expect(s34.barbarians?.scenario).toBe(sc);
+      expect(
+        Object.values(s34.board.hexes).filter((h) => h.terrain !== 'SEA').length
+      ).toBe(19);
 
       const s56 = createMBTestState(sc, 'EXPANSION_5_6');
       expect(s56.barbarians).toBeDefined();
       expect(s56.barbarians?.scenario).toBe(sc);
       expect(s56.players.length).toBe(5);
-      expect(Object.keys(s56.board.hexes).length).toBeGreaterThan(
-        Object.keys(s34.board.hexes).length
-      );
+      expect(
+        Object.values(s56.board.hexes).filter((h) => h.terrain !== 'SEA').length
+      ).toBe(30);
     }
   });
 
@@ -306,17 +309,34 @@ describe('Expansión 2: Piratas y Exploradores (EXPLORERS_AND_PIRATES) - 2-4 y 5
       'SPICES_FOR_CATAN',
       'EXPLORERS_AND_PIRATES_FULL',
     ];
+    const expectedFogCount24: Record<ExplorersPiratesScenario, number> = {
+      LAND_HO: 16, // 8 Norte Verde + 8 Sur Naranja
+      PIRATE_LAIRS: 22, // 11 Norte Verde + 11 Sur Naranja
+      FISH_FOR_CATAN: 22, // 11 Norte Verde + 11 Sur Naranja
+      SPICES_FOR_CATAN: 26, // 13 Norte Verde + 13 Sur Naranja
+      EXPLORERS_AND_PIRATES_FULL: 32, // 16 Norte Verde + 16 Sur Naranja
+    };
     for (const sc of scenarios) {
       const s34 = createEPTestState(sc, 'STANDARD_3_4');
       expect(s34.explorersPirates).toBeDefined();
       expect(s34.explorersPirates?.scenario).toBe(sc);
+      // Isla inicial de 15 hexágonos (pág. 5 del PDF)
+      expect(s34.explorersPirates!.startingIslandHexIds.length).toBe(15);
+      // Cantidad exacta de hexágonos inexplorados (Norte Verde + Sur Naranja) según el PDF
+      expect(Object.keys(s34.explorersPirates!.unexploredSecrets).length).toBe(
+        expectedFogCount24[sc]
+      );
       const ratios = getPlayerBankTradeRatios(s34, 'p1');
       expect(ratios.WOOD).toBe(3);
 
       const s56 = createEPTestState(sc, 'EXPANSION_5_6');
       expect(s56.explorersPirates).toBeDefined();
       expect(s56.players.length).toBe(5);
-      expect(Object.keys(s56.explorersPirates!.unexploredSecrets).length).toBeGreaterThan(0);
+      // Isla inicial de 22 hexágonos (pág. 1 del PDF 5-6J)
+      expect(s56.explorersPirates!.startingIslandHexIds.length).toBe(22);
+      expect(Object.keys(s56.explorersPirates!.unexploredSecrets).length).toBeGreaterThan(
+        expectedFogCount24[sc]
+      );
     }
   });
 

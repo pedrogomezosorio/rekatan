@@ -1892,7 +1892,20 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 );
               })}
 
-              {/* 9b. Rivers, Swamps & Bridge Sites (Los ríos de Catán) */}
+              {/* 9b. Rivers, Swamps, Dual 2/12 Token & Bridge Sites (Los ríos de Catán) */}
+              {barbarians.dualNumberHexId && board.hexes[barbarians.dualNumberHexId] && (
+                <g
+                  transform={`translate(${
+                    board.hexes[barbarians.dualNumberHexId].center.x + 18
+                  }, ${board.hexes[barbarians.dualNumberHexId].center.y - 14})`}
+                >
+                  <circle cx={0} cy={0} r={11} fill="#fef3c7" stroke="#b45309" strokeWidth={1.8} />
+                  <text x={0} y={3.5} textAnchor="middle" fill="#1c1917" fontSize="9.5" fontWeight="900">
+                    2
+                  </text>
+                </g>
+              )}
+
               {barbarians.riverHexIds.map((hid) => {
                 const hex = board.hexes[hid];
                 if (!hex) return null;
@@ -2112,6 +2125,55 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
           {/* 10. PIRATAS Y EXPLORADORES (EXPLORERS & PIRATES) BOARD OVERLAYS */}
           {explorersPirates && (
             <g className="pointer-events-none">
+              {/* 10.0 Regiones Inexploradas Norte (Verde 🌙) y Sur (Naranja ☀️) + Círculos Costeros de Fundación */}
+              {Object.entries(explorersPirates.unexploredSecrets).map(([hid, secret]) => {
+                const hex = board.hexes[hid];
+                if (!hex || hex.terrain !== 'FOG') return null;
+                const isNorth = secret.region === 'NORTH_GREEN';
+                return (
+                  <g key={`fog-badge-${hid}`} transform={`translate(${hex.center.x}, ${hex.center.y + 18})`}>
+                    <rect
+                      x={-36}
+                      y={-8}
+                      width={72}
+                      height={16}
+                      rx={7}
+                      fill={isNorth ? '#064e3b' : '#7c2d12'}
+                      stroke={isNorth ? '#34d399' : '#fb923c'}
+                      strokeWidth={1.5}
+                    />
+                    <text
+                      x={0}
+                      y={3}
+                      textAnchor="middle"
+                      fill={isNorth ? '#d1fae5' : '#ffedd5'}
+                      fontSize="7.5"
+                      fontWeight="900"
+                    >
+                      {isNorth ? '🌙 PILA VERDE' : '☀️ PILA NARANJA'}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {explorersPirates.startingCoastalCityVertexIds.map((vid) => {
+                const v = board.vertices[vid];
+                if (!v || v.building !== null) return null;
+                return (
+                  <g key={`start-harbor-spot-${vid}`} transform={`translate(${v.x}, ${v.y})`}>
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={8}
+                      fill="rgba(14, 116, 144, 0.35)"
+                      stroke="#38bdf8"
+                      strokeWidth={1.5}
+                      strokeDasharray="2.5 2"
+                    />
+                  </g>
+                );
+              })}
+
               {/* 10a. Consejo de Catán */}
               {explorersPirates.councilHexId && board.hexes[explorersPirates.councilHexId] && (
                 <g

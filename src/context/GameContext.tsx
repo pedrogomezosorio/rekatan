@@ -1,6 +1,12 @@
 import type { RoomCreationOptions } from '../shared/roomPresets';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import {
+  applyGameAction,
+  createConfiguredGameState,
+  executeBotStepIfNeeded,
+} from '../shared/engine/RulesEngine';
+import { hasBarbarians, hasExplorersPirates } from '../shared/expansionsConfig';
 import { getAvatarNameError, normalizeAvatar } from '../shared/playerIdentity';
 import { GameAction, GameState, PlayerColor } from '../shared/types';
 
@@ -71,6 +77,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const socketRef = useRef<Socket | null>(null);
   const activeRoomRef = useRef<string | null>(null);
   const joinedRoomRef = useRef<string | null>(null);
+  const localEngineRoomRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (playerName) sessionStorage.setItem('catan_player_name', playerName);
@@ -148,6 +155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCreatingRoom(false);
       activeRoomRef.current = payload.roomCode;
       joinedRoomRef.current = payload.roomCode;
+      localEngineRoomRef.current = false;
       setConnected(true);
       setErrorToast(null);
       sessionStorage.setItem('catan_active_room', payload.roomCode);
@@ -159,7 +167,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socket.on('ROOM_STATE', (state: GameState) => {
-      if (state.roomCode === joinedRoomRef.current && state.roomCode === activeRoomRef.current) setGameState(state);
+      if (state.roomCode !== joinedRoomRef.current || state.roomCode !== activeRoomRef.current) return;
+      // Si el servidor remoto (p. ej. Render aún sin desplegar) devuelve BARBARIANS o EXPLORERS_AND_PIRATES sin inicializar su tablero/estado,
+      // activamos automáticamente el motor local en el cliente para que la expansión y su tablero oficial funcionen al 100%.
+      if (
+        (hasBarbarians(state.config) && !state.barbarians) ||
+        (hasExplorersPirates(state.config) && !state.explorersPirates)
+      ) {
+        localEngineRoomRef.current = true;
+        const upgraded = applyGameAction(state, playerId, {
+          type: 'UPDATE_CONFIG',
+          config: state.config,
+        });
+        setGameState(upgraded.state);
+        return;
+      }
+      if (!localEngineRoomRef.current) {
+        setGameState(state);
+      }
     });
 
     socket.on('ACTION_ERROR', (payload: { message: string; code?: string; roomCode?: string }) => {
@@ -191,6 +216,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearTimeout(timer);
   }, [errorToast]);
 
+  // Motor local de turnos de bots cuando la sala se ejecuta en modo motor local (expansiones nuevas o sin servidor actualizado)
+  useEffect(() => {
+    if (!localEngineRoomRef.current || !gameState) return;
+    if (
+      gameState.phase === 'LOBBY' ||
+      gameState.phase === 'GAME_OVER' ||
+      gameState.phase === 'PAUSED_DISCONNECT' ||
+      gameState.turn.isPausedByHost
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setGameState((prev) => {
+        if (!prev || !localEngineRoomRef.current) return prev;
+        return executeBotStepIfNeeded(prev);
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [gameState]);
+
   const reconnectSocket = () => {
     if (!socketRef.current) return;
     if (!socketRef.current.connected) {
@@ -205,14 +250,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setErrorToast(avatarError);
       return;
     }
-    if (!socketRef.current) return;
-    if (!socketRef.current.connected) {
-      socketRef.current.connect();
-      setErrorToast('Conectando con el servidor... Reintenta en unos instantes.');
-      return;
-    }
     const finalName = playerName.trim() || 'Colono';
     setPlayerName(finalName);
+
+    if (!socketRef.current || !socketRef.current.connected) {
+      // Si el servidor no está conectado, crear sala local inmediatamente con el motor completo
+      const roomCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const localState = createConfiguredGameState(
+        roomCode,
+        {
+          id: playerId,
+          name: finalName,
+          color: playerColor,
+          avatar: playerAvatar,
+        },
+        options
+      );
+      localEngineRoomRef.current = true;
+      activeRoomRef.current = roomCode;
+      joinedRoomRef.current = roomCode;
+      setConnected(true);
+      setGameState(localState);
+      return;
+    }
     setCreatingRoom(true);
     socketRef.current.emit('CREATE_ROOM', {
       playerId,
@@ -252,13 +312,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const dispatchAction = (action: GameAction) => {
+    if (!gameState) return;
+
+    // Si estamos ejecutando el motor local (o si el usuario activa BARBARIANS / EXPLORERS_AND_PIRATES en un servidor remoto desactualizado)
+    if (localEngineRoomRef.current) {
+      if (
+        action.type === 'UPDATE_CONFIG' &&
+        action.config.expansionModule &&
+        action.config.expansionModule !== 'BARBARIANS' &&
+        action.config.expansionModule !== 'EXPLORERS_AND_PIRATES' &&
+        socketRef.current?.connected
+      ) {
+        localEngineRoomRef.current = false;
+      } else {
+        const res = applyGameAction(gameState, playerId, action);
+        if (res.error) {
+          setErrorToast(res.error);
+        } else {
+          setGameState(res.state);
+        }
+        return;
+      }
+    }
+
     if (!socketRef.current) return;
     if (!socketRef.current.connected) {
-      socketRef.current.connect();
-      setErrorToast('Reconectando con el servidor... Inténtalo de nuevo en unos segundos.');
+      // Fallback instantáneo a motor local si se pierde la conexión durante la configuración o partida con bots
+      localEngineRoomRef.current = true;
+      const res = applyGameAction(gameState, playerId, action);
+      if (res.error) setErrorToast(res.error);
+      else setGameState(res.state);
       return;
     }
-    if (!gameState) return;
     if (joinedRoomRef.current !== gameState.roomCode) {
       setErrorToast('Recuperando la sala y sus opciones. Espera a que termine la reconexión.');
       return;
@@ -271,6 +356,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const leaveRoomClient = () => {
+    localEngineRoomRef.current = false;
     activeRoomRef.current = null;
     joinedRoomRef.current = null;
     if (gameState && socketRef.current && socketRef.current.connected) {
