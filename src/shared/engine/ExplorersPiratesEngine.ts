@@ -1039,6 +1039,9 @@ export function applyExplorersPiratesAction(
       const toEdge = state.board.edges[action.toEdgeId];
       requireRule(fromEdge && toEdge, 'Travesía marítima no válida.');
 
+      // Verificar que toEdge es una travesía marítima o costera (nunca tierra interior)
+      requireRule(!toEdge!.isLand || toEdge!.isCoastal, 'Los barcos solo pueden navegar por rutas marítimas o costeras.');
+
       // Verificar que toEdge comparte un vértice con fromEdge
       const sharesVertex = fromEdge!.vertexIds.some((vid) => toEdge!.vertexIds.includes(vid));
       requireRule(sharesVertex && fromEdge!.id !== toEdge!.id, 'Debes mover el barco a una travesía marítima adyacente.');
@@ -1253,6 +1256,35 @@ export function applyExplorersPiratesAction(
       return true;
     }
 
+    case 'EP_PICKUP_LAIR_UNIT': {
+      requireRule(isMyMainTurn, 'Solo puedes embarcar unidades durante tu turno.');
+      const ship = ep!.ships[action.shipId];
+      requireRule(ship && ship.playerId === actor.id, 'Barco no encontrado.');
+      const lair = ep!.pirateLairs[action.hexId];
+      requireRule(lair && lair.conquered, 'La guarida aún no ha sido conquistada.');
+      const shipEdge = state.board.edges[ship!.edgeId];
+      requireRule(
+        shipEdge?.hexIds.includes(action.hexId),
+        'Tu barco debe situarse en una costa adyacente a la guarida conquistada.'
+      );
+      const waiting = lair!.waitingPickupByPlayer[actor.id] || 0;
+      requireRule(waiting > 0, 'No tienes unidades esperando recogida en esa guarida.');
+      let picked = 0;
+      while (picked < waiting && canFitCargoItem(ship!.cargo, 'CREW')) {
+        ship!.cargo.push('CREW');
+        picked += 1;
+      }
+      requireRule(picked > 0, 'La bodega del barco no tiene espacio libre para embarcar unidades.');
+      lair!.waitingPickupByPlayer[actor.id] = waiting - picked;
+      addLog(
+        state,
+        `⚓ ${actor.name} embarcó ${picked} unidad(es) desde la Guarida Pirata conquistada.`,
+        'INFO',
+        actor.id
+      );
+      return true;
+    }
+
     case 'EP_ROLL_FISH_SHOAL': {
       requireRule(isMyMainTurn, 'Solo puedes buscar bancos de peces durante tu turno.');
       requireRule(!ep!.hasRolledFishThisTurn, 'Ya has lanzado el dado de bancos de peces en este turno.');
@@ -1375,6 +1407,10 @@ export function applyExplorersPiratesAction(
     }
 
     case 'EP_PLACE_PIRATE_SHIP': {
+      requireRule(
+        state.turn.activePlayerId === playerId && (state.phase === 'MAIN_PHASE' || state.phase === 'ROBBER_MOVE'),
+        'Solo puedes posicionar el Barco Pirata durante tu turno.'
+      );
       const hex = state.board.hexes[action.hexId];
       requireRule(hex && hex.terrain === 'SEA', 'El Barco Pirata solo puede colocarse en un hexágono de mar.');
       requireRule(action.hexId !== ep!.councilHexId, 'No se puede colocar el Barco Pirata en el Consejo de Catán.');
@@ -1574,13 +1610,17 @@ export function explorersPiratesBotActions(state: GameState, botPlayerId: string
       }
     }
 
-    // Buscar travesía adyacente más cercana a un hexágono FOG
+    // Buscar travesía marítima/costera adyacente más cercana a un hexágono FOG
     const fogHexes = Object.values(state.board.hexes).filter((h) => h.terrain === 'FOG');
     const adjEdges = currentEdge.vertexIds
       .flatMap((vid) => state.board.vertices[vid]?.adjacentEdgeIds || [])
       .filter((eid) => eid !== currentEdge.id)
       .map((eid) => state.board.edges[eid])
-      .filter((e): e is NonNullable<typeof e> => Boolean(e));
+      .filter((e): e is NonNullable<typeof e> => {
+        if (!e || (e.isLand && !e.isCoastal)) return false;
+        const shipsHere = Object.values(ep.ships).filter((s) => s.edgeId === e.id && s.id !== ship.id);
+        return shipsHere.length < 2;
+      });
 
     if (adjEdges.length > 0 && fogHexes.length > 0) {
       const targetFog = fogHexes[0];

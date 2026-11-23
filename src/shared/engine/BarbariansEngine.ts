@@ -1478,6 +1478,9 @@ export function applyBarbariansAction(
       } else if (card.type === 'TB_ROAD_BUILDING') {
         state.turn.freeRoadsRemaining = 2;
         state.phase = 'ROAD_BUILDING_DEV';
+      } else if (card.type === 'TB_KNIGHT') {
+        // Mantiene la carta disponible para mover 1 bárbaro de camino y robar si cae en carretera rival
+        card.played = false;
       }
 
       hooks.score(state);
@@ -1504,7 +1507,7 @@ export function applyBarbariansAction(
       };
       resolveBarbarianAttackBattles(state, context.random);
       hooks.score(state);
-      addLog(state, `騎士 ${actor.name} desplegó un Caballero en el camino.`, 'BUILD', actor.id);
+      addLog(state, `⚔️ ${actor.name} desplegó un Caballero en el camino.`, 'BUILD', actor.id);
       return true;
     }
 
@@ -1538,8 +1541,26 @@ export function applyBarbariansAction(
     }
 
     case 'MB_EXPEL_HEX_BARBARIANS': {
+      requireRule(isMyBuildTurn, 'Solo puedes combatir bárbaros durante tu turno.');
       resolveBarbarianAttackBattles(state, context.random, true);
       hooks.score(state);
+      return true;
+    }
+
+    case 'MB_TREASON_MOVE_BARBARIAN': {
+      requireRule(isMyMainTurn, 'Solo puedes reubicar bárbaros durante tu turno principal.');
+      requireRule(mb!.scenario === 'BARBARIAN_ATTACK', 'Acción exclusiva de El ataque de los bárbaros.');
+      requireRule((mb!.hexBarbarians[action.fromHexId] || 0) > 0, 'No hay bárbaros en ese hexágono.');
+      requireRule(
+        mb!.coastalHexIds.includes(action.toHexId) && action.toHexId !== action.fromHexId,
+        'Debes mover al bárbaro a otro hexágono de costa válido.'
+      );
+      requireRule((mb!.hexBarbarians[action.toHexId] || 0) < 3, 'Ese hexágono de costa ya tiene 3 bárbaros.');
+      mb!.hexBarbarians[action.fromHexId] -= 1;
+      mb!.hexBarbarians[action.toHexId] = (mb!.hexBarbarians[action.toHexId] || 0) + 1;
+      refreshConqueredHexesAndVertices(state);
+      hooks.score(state);
+      addLog(state, `⚔️ ${actor.name} reubicó 1 bárbaro entre hexágonos de costa.`, 'ROBBER', actor.id);
       return true;
     }
 
@@ -1653,11 +1674,57 @@ export function applyBarbariansAction(
       return true;
     }
 
+    case 'MB_WAGON_EXPEL_BARBARIAN': {
+      requireRule(isMyMainTurn, 'Solo puedes expulsar bárbaros durante tu turno principal.');
+      requireRule(mb!.scenario === 'TRADERS_AND_BARBARIANS', 'Acción exclusiva de Mercaderes y Bárbaros.');
+      const bIdx = mb!.edgeBarbarians.indexOf(action.edgeId);
+      requireRule(bIdx >= 0, 'No hay un bárbaro en ese camino.');
+      const bEdge = state.board.edges[action.edgeId];
+      requireRule(
+        bEdge && pb.wagonVertexId && bEdge.vertexIds.includes(pb.wagonVertexId),
+        'Tu carromato debe estar en una encrucijada junto al bárbaro.'
+      );
+      const roll = Math.floor(context.random() * 6) + 1;
+      if (roll >= 4) {
+        const destEdge =
+          action.moveBarbarianToEdgeId &&
+          state.board.edges[action.moveBarbarianToEdgeId]?.isLand &&
+          !mb!.edgeBarbarians.includes(action.moveBarbarianToEdgeId)
+            ? state.board.edges[action.moveBarbarianToEdgeId]
+            : Object.values(state.board.edges).find(
+                (e) => e.isLand && e.id !== action.edgeId && !mb!.edgeBarbarians.includes(e.id)
+              );
+        if (destEdge) {
+          mb!.edgeBarbarians[bIdx] = destEdge.id;
+        }
+        pb.goldCoins += 1;
+        addLog(
+          state,
+          `⚔️ ¡El carromato de ${actor.name} expulsó al bárbaro (dado ${roll}) y recuperó +1 moneda de oro!`,
+          'ROBBER',
+          actor.id
+        );
+      } else {
+        addLog(
+          state,
+          `🎲 El carromato de ${actor.name} no logró expulsar al bárbaro (dado ${roll}, necesitaba 4+).`,
+          'DICE',
+          actor.id
+        );
+      }
+      return true;
+    }
+
     case 'MB_MOVE_EDGE_BARBARIAN': {
+      requireRule(isMyMainTurn, 'Solo puedes mover bárbaros de camino durante tu turno principal.');
       const idx = mb!.edgeBarbarians.indexOf(action.fromEdgeId);
       requireRule(idx >= 0, 'No hay un bárbaro en ese camino.');
       const toEdge = state.board.edges[action.toEdgeId];
       requireRule(toEdge && toEdge.isLand && !mb!.edgeBarbarians.includes(toEdge.id), 'Camino de destino no válido.');
+      const heldKnight = pb.scenarioDevCards.find((c) => c.type === 'TB_KNIGHT' && !c.played);
+      if (heldKnight) {
+        heldKnight.played = true;
+      }
       mb!.edgeBarbarians[idx] = toEdge!.id;
       if (toEdge!.building === 'ROAD' && toEdge!.playerId && toEdge!.playerId !== actor.id) {
         const victim = state.players.find((p) => p.id === toEdge!.playerId);
@@ -1675,6 +1742,55 @@ export function applyBarbariansAction(
       payRes(state, actor, BUILDING_COSTS.ROAD);
       pb.damagedRoadEdgeIds = pb.damagedRoadEdgeIds.filter((id) => id !== action.edgeId);
       addLog(state, `🔨 ${actor.name} reparó su carretera dañada por el terremoto.`, 'BUILD', actor.id);
+      return true;
+    }
+
+    case 'MB_TRADE_TOKEN_FORCE_SWAP': {
+      requireRule(isMyMainTurn && mb!.variants.catanForTwo, 'Variante Catán para dos no activa.');
+      const victim = getPlayer(state, action.targetPlayerId);
+      requireRule(victim.id !== actor.id, 'Debes elegir a tu rival.');
+      const maxOtherVP = Math.max(
+        ...state.players.filter((p) => p.id !== actor.id).map((p) => p.publicVictoryPoints)
+      );
+      const tokenCost = actor.publicVictoryPoints > maxOtherVP ? 2 : 1;
+      requireRule(pb.tradeTokens >= tokenCost, `Necesitas ${tokenCost} ficha(s) de comercio.`);
+      const giveEntries = Object.entries(action.giveResources || {}).filter(([, n]) => (n || 0) > 0) as [ResourceType, number][];
+      const totalGiven = giveEntries.reduce((sum, [, n]) => sum + n, 0);
+      requireRule(totalGiven >= 1 && totalGiven <= 2, 'Debes ofrecer 1 o 2 cartas de materia prima para el intercambio forzado.');
+      for (const [res, amt] of giveEntries) {
+        requireRule((actor.resources[res] || 0) >= amt, 'No tienes suficientes cartas para entregar.');
+      }
+      const victimTotal = ALL_RESOURCES.reduce((s, r) => s + (victim.resources[r] || 0), 0);
+      requireRule(victimTotal >= totalGiven, 'Tu rival no tiene suficientes cartas para intercambiar.');
+      pb.tradeTokens -= tokenCost;
+      for (const [res, amt] of giveEntries) {
+        actor.resources[res] -= amt;
+        victim.resources[res] = (victim.resources[res] || 0) + amt;
+      }
+      for (let i = 0; i < totalGiven; i++) {
+        stealRandomResource(victim, actor, context.random);
+      }
+      addLog(
+        state,
+        `🪙 ${actor.name} gastó ${tokenCost} ficha(s) de comercio para realizar un intercambio forzado de ${totalGiven} carta(s) con ${victim.name}.`,
+        'TRADE',
+        actor.id
+      );
+      return true;
+    }
+
+    case 'MB_DISCARD_KNIGHT_FOR_TOKENS': {
+      requireRule(isMyMainTurn && mb!.variants.catanForTwo, 'Variante Catán para dos no activa.');
+      const knightIdx = actor.devCards.findIndex((c) => c.type === 'KNIGHT' && !c.played);
+      requireRule(knightIdx >= 0, 'No tienes ninguna carta de Caballero sin jugar para descartar.');
+      actor.devCards[knightIdx].played = true;
+      pb.tradeTokens += 2;
+      addLog(
+        state,
+        `🪙 ${actor.name} descartó 1 carta de Caballero a cambio de +2 fichas de comercio.`,
+        'DEV',
+        actor.id
+      );
       return true;
     }
 

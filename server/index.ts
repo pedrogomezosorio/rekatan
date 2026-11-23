@@ -1,6 +1,7 @@
 import { getAvatarNameError, getPublicPlayerName, normalizeAvatar } from '../src/shared/playerIdentity';
 import { getRoomPlayerLimit } from '../src/shared/seafarersConfig';
 import { RoomStore } from './roomStore';
+import { sanitizeStateForPlayer } from './sanitizeState';
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
@@ -75,6 +76,20 @@ async function startServer() {
     },
   });
 
+  const emitRoomState = (roomCode: string, state: GameState) => {
+    const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+    if (!roomSockets) return;
+    for (const sid of roomSockets) {
+      const sock = io.sockets.sockets.get(sid);
+      if (!sock) continue;
+      const session = socketToSession.get(sid);
+      sock.emit(
+        'ROOM_STATE',
+        session ? sanitizeStateForPlayer(state, session.playerId) : state
+      );
+    }
+  };
+
   // Health check / room info endpoint
   app.get('/api/rooms/:code', (req, res) => {
     const code = (req.params.code || '').toUpperCase();
@@ -124,7 +139,7 @@ async function startServer() {
         socketToSession.set(socket.id, { roomCode, playerId });
         socket.join(roomCode);
 
-        socket.emit('ROOM_JOINED', { roomCode, playerId, state: gameState });
+        socket.emit('ROOM_JOINED', { roomCode, playerId, state: sanitizeStateForPlayer(gameState, playerId) });
       }
     );
 
@@ -197,8 +212,8 @@ async function startServer() {
           socket.join(roomCode);
           rooms.set(roomCode, room);
 
-          socket.emit('ROOM_JOINED', { roomCode, playerId, state: room });
-          io.to(roomCode).emit('ROOM_STATE', room);
+          socket.emit('ROOM_JOINED', { roomCode, playerId, state: sanitizeStateForPlayer(room, playerId) });
+          emitRoomState(roomCode, room);
           return;
         }
 
@@ -247,9 +262,9 @@ async function startServer() {
             socket.emit('ROOM_JOINED', {
               roomCode,
               playerId: disconnectedMatch.id,
-              state: room,
+              state: sanitizeStateForPlayer(room, disconnectedMatch.id),
             });
-            io.to(roomCode).emit('ROOM_STATE', room);
+            emitRoomState(roomCode, room);
             return;
           }
 
@@ -301,8 +316,8 @@ async function startServer() {
         socketToSession.set(socket.id, { roomCode, playerId });
         socket.join(roomCode);
 
-        socket.emit('ROOM_JOINED', { roomCode, playerId, state: room });
-        io.to(roomCode).emit('ROOM_STATE', room);
+        socket.emit('ROOM_JOINED', { roomCode, playerId, state: sanitizeStateForPlayer(room, playerId) });
+        emitRoomState(roomCode, room);
       }
     );
 
@@ -326,7 +341,7 @@ async function startServer() {
         } catch (error) {
           console.error('[GAME_ACTION]', roomCode, payload.action.type, error);
           socket.emit('ACTION_ERROR', { code: 'ACTION_FAILED', roomCode, message: 'No se pudo aplicar esa opción. Se conserva la sala y el tablero anterior.' });
-          socket.emit('ROOM_STATE', room);
+          socket.emit('ROOM_STATE', sanitizeStateForPlayer(room, payload.playerId));
           return;
         }
         const { state: updatedState, error } = result;
@@ -348,7 +363,7 @@ async function startServer() {
           }
         }
 
-        io.to(roomCode).emit('ROOM_STATE', updatedState);
+        emitRoomState(roomCode, updatedState);
       }
     );
 
@@ -387,7 +402,7 @@ async function startServer() {
               if (firstHuman) firstHuman.isHost = true;
             }
             rooms.set(roomCode, currentRoom);
-            io.to(roomCode).emit('ROOM_STATE', currentRoom);
+            emitRoomState(roomCode, currentRoom);
           }
         }, LOBBY_RECONNECT_GRACE_MS);
         lobbyExpiryTimers.set(`${roomCode}:${playerId}`, expiry);
@@ -409,7 +424,7 @@ async function startServer() {
           'SYSTEM',
           player.id
         );
-        io.to(roomCode).emit('ROOM_STATE', room);
+        emitRoomState(roomCode, room);
       }
       rooms.set(roomCode, room);
     });
@@ -438,7 +453,7 @@ async function startServer() {
         );
         const updated = autoResolveCurrentTurn(room);
         rooms.set(roomCode, updated);
-        io.to(roomCode).emit('ROOM_STATE', updated);
+        emitRoomState(roomCode, updated);
         continue;
       }
 
@@ -495,8 +510,8 @@ async function startServer() {
                   : `${actingBot.name} evalúa sus opciones de juego...`;
 
               currentRoom.turn.botStatusMessage = actionHint;
-              io.to(roomCode).emit('ROOM_STATE', currentRoom);
-              await delay(1600);
+              emitRoomState(roomCode, currentRoom);
+              await delay(1400);
             }
 
             const latestRoom = rooms.get(roomCode);
@@ -521,10 +536,9 @@ async function startServer() {
                 : executeBotStepIfNeeded(latestRoom);
 
             rooms.set(roomCode, updated);
-            io.to(roomCode).emit('ROOM_STATE', updated);
+            emitRoomState(roomCode, updated);
 
-            // 2. Mandatory Humanized Pacing Delays (Reduces bot execution speed to 1/5th):
-            // Gives players ample time to see the dice, follow resource flights, read bot choices, and inspect the board.
+            // 2. Paced delays capped for 5-6 player responsiveness
             const ev =
               updated.lastEvent && updated.lastEvent.nonce !== prevNonce
                 ? updated.lastEvent
@@ -535,16 +549,12 @@ async function startServer() {
             );
 
             if (hasActiveBotTrade) {
-              // Bot has an active trade offer open for other players: check in shorter intervals (700ms)
-              // so as soon as all players reject or someone accepts, it reacts immediately!
               await delay(700);
             } else if (ev?.type === 'RESOURCES_PRODUCED') {
-              // Dice roll display: 1.0s spin + 2.5s landed display = ~3.6s
-              const diceWaitMs = ev.dice ? 3900 : 0;
-              // Each resource flight takes 4.05s sequentially
+              const diceWaitMs = ev.dice ? 3400 : 0;
               const flightCount = ev.flights?.length || 0;
-              const flightsWaitMs = Math.min(flightCount, 8) * 4050;
-              await delay(Math.max(3800, diceWaitMs + flightsWaitMs));
+              const flightsWaitMs = Math.min(flightCount, 4) * 1600;
+              await delay(Math.min(10500, Math.max(3200, diceWaitMs + flightsWaitMs)));
             } else if (ev?.type === 'DICE_ROLLED' || ev?.type === 'ROBBER_DISCARDED') {
               // Dice landed without production (e.g. 7 rolled or discards)
               await delay(4000);

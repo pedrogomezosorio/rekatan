@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, RotateCcw, X } from 'lucide-react';
 import { GameProvider, useGame } from './context/GameContext';
+import { PerformanceProvider } from './context/PerformanceContext';
 import { MainMenu } from './components/Lobby/MainMenu';
-import { RoomLobby } from './components/Lobby/RoomLobby';
-import { GameScreen } from './components/Game/GameScreen';
+
+const RoomLobby = lazy(() =>
+  import('./components/Lobby/RoomLobby').then((m) => ({ default: m.RoomLobby }))
+);
+const GameScreen = lazy(() =>
+  import('./components/Game/GameScreen').then((m) => ({ default: m.GameScreen }))
+);
 
 class UIErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -51,7 +57,7 @@ const AppContent: React.FC = () => {
   const { gameState, connected, reconnectSocket, errorToast, clearErrorToast } = useGame();
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-950 text-slate-100">
+    <div className="relative min-h-[100dvh] w-full bg-[#0f0b08] text-stone-100">
       {/* Floating Reconnection Indicator when socket drops */}
       <AnimatePresence>
         {gameState && !connected && (
@@ -96,13 +102,21 @@ const AppContent: React.FC = () => {
       </AnimatePresence>
 
       <UIErrorBoundary>
-        {!gameState ? (
-          <MainMenu />
-        ) : gameState.phase === 'LOBBY' ? (
-          <RoomLobby />
-        ) : (
-          <GameScreen />
-        )}
+        <Suspense
+          fallback={
+            <div className="min-h-[100dvh] w-full bg-[#110c08] text-amber-100 flex items-center justify-center text-sm font-semibold">
+              Cargando mesa de juego...
+            </div>
+          }
+        >
+          {!gameState ? (
+            <MainMenu />
+          ) : gameState.phase === 'LOBBY' ? (
+            <RoomLobby />
+          ) : (
+            <GameScreen />
+          )}
+        </Suspense>
       </UIErrorBoundary>
     </div>
   );
@@ -110,9 +124,11 @@ const AppContent: React.FC = () => {
 
 export function App() {
   return (
-    <GameProvider>
-      <AppContent />
-    </GameProvider>
+    <PerformanceProvider>
+      <GameProvider>
+        <AppContent />
+      </GameProvider>
+    </PerformanceProvider>
   );
 }
 

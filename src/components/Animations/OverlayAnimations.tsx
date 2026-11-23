@@ -181,6 +181,24 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   const lastAnimatedDiceTurnRef = useRef<number>(-1);
   const sequenceRunIdRef = useRef<number>(0);
   const latestGameStateRef = useRef<GameState>(gameState);
+  const activeTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  const scheduleTimeout = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      activeTimersRef.current.delete(id);
+      fn();
+    }, ms);
+    activeTimersRef.current.add(id);
+    return id;
+  };
+
+  useEffect(() => {
+    return () => {
+      sequenceRunIdRef.current += 1;
+      for (const t of activeTimersRef.current) clearTimeout(t);
+      activeTimersRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     latestGameStateRef.current = gameState;
@@ -333,53 +351,90 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       });
     }
 
-    // 3. Sequential Resource Distribution (1 by 1 with async/await, 4.0s per flight)
+    // 3. Adaptive Resource Distribution (full / balanced / lite)
     if (ev.flights && ev.flights.length > 0) {
       const flightsToRun = [...ev.flights];
-      // Wait for dice (1.0s spin + 2.5s landed display + buffer) before starting resource flights!
-      const waitForDiceMs = shouldSpinDice ? 3650 : 150;
+      const perfTier =
+        typeof document !== 'undefined'
+          ? (document.documentElement.dataset.perfTier as 'full' | 'balanced' | 'lite' | undefined)
+          : undefined;
+      const effectiveLite = lowEndPcMode || perfTier === 'lite';
+      const effectiveBalanced = !effectiveLite && perfTier === 'balanced';
+
+      const waitForDiceMs = shouldSpinDice ? (effectiveLite ? 1400 : 3200) : 120;
       const runId = ++sequenceRunIdRef.current;
 
-      void (async () => {
-        if (waitForDiceMs > 0) {
-          await sleep(waitForDiceMs);
-        }
-        if (sequenceRunIdRef.current !== runId) return;
-
-        for (let i = 0; i < flightsToRun.length; i++) {
+      if (effectiveLite) {
+        // En modo ligero: mostrar resumen compacto simultáneo sin vuelos curvos pesados
+        scheduleTimeout(() => {
           if (sequenceRunIdRef.current !== runId) return;
-          const flight = flightsToRun[i];
           const liveState = latestGameStateRef.current;
-          const origin = resolveHexScreenCenter(flight.hexId, liveState);
-          const target = resolvePlayerCasilleroCenter(flight.playerId, liveState);
-          const instanceKey = `${flight.id}_${ev.nonce}_${i}`;
+          const batch: PositionedResourceFlight[] = flightsToRun.slice(0, 4).map((flight, i) => {
+            const target = resolvePlayerCasilleroCenter(flight.playerId, liveState);
+            return {
+              ...flight,
+              instanceKey: `${flight.id}_${ev.nonce}_${i}`,
+              startX: target.x,
+              startY: target.y,
+              endX: target.x,
+              endY: target.y,
+              stepNumber: i + 1,
+              totalSteps: flightsToRun.length,
+            };
+          });
+          setActiveFlightItems((prev) => [...prev, ...batch]);
+          scheduleTimeout(() => {
+            const keys = new Set(batch.map((b) => b.instanceKey));
+            setActiveFlightItems((prev) => prev.filter((item) => !keys.has(item.instanceKey)));
+          }, 1900);
+        }, waitForDiceMs);
+      } else {
+        const flightDurationMs = effectiveBalanced
+          ? 1850
+          : flightsToRun.length >= 4
+          ? 2400
+          : 3400;
+        const stepGapMs = effectiveBalanced ? 1500 : flightsToRun.length >= 4 ? 1900 : 3200;
 
-          const positionedItem: PositionedResourceFlight = {
-            ...flight,
-            instanceKey,
-            startX: origin.x,
-            startY: origin.y,
-            endX: target.x,
-            endY: target.y,
-            stepNumber: i + 1,
-            totalSteps: flightsToRun.length,
-          };
-
-          setActiveFlightItems((prev) => [...prev, positionedItem]);
-
-          // Remove this card right after its doubled 4.0s flight completes
-          setTimeout(() => {
-            setActiveFlightItems((prev) =>
-              prev.filter((item) => item.instanceKey !== instanceKey)
-            );
-          }, 4050);
-
-          // Wait until this 4.0s flight is finished before launching the next card
-          if (i < flightsToRun.length - 1) {
-            await sleep(3950);
+        void (async () => {
+          if (waitForDiceMs > 0) {
+            await sleep(waitForDiceMs);
           }
-        }
-      })();
+          if (sequenceRunIdRef.current !== runId) return;
+
+          for (let i = 0; i < flightsToRun.length; i++) {
+            if (sequenceRunIdRef.current !== runId) return;
+            const flight = flightsToRun[i];
+            const liveState = latestGameStateRef.current;
+            const origin = resolveHexScreenCenter(flight.hexId, liveState);
+            const target = resolvePlayerCasilleroCenter(flight.playerId, liveState);
+            const instanceKey = `${flight.id}_${ev.nonce}_${i}`;
+
+            const positionedItem: PositionedResourceFlight = {
+              ...flight,
+              instanceKey,
+              startX: origin.x,
+              startY: origin.y,
+              endX: target.x,
+              endY: target.y,
+              stepNumber: i + 1,
+              totalSteps: flightsToRun.length,
+            };
+
+            setActiveFlightItems((prev) => [...prev, positionedItem]);
+
+            scheduleTimeout(() => {
+              setActiveFlightItems((prev) =>
+                prev.filter((item) => item.instanceKey !== instanceKey)
+              );
+            }, flightDurationMs + 80);
+
+            if (i < flightsToRun.length - 1) {
+              await sleep(stepGapMs);
+            }
+          }
+        })();
+      }
     }
 
     // 4. Robber Discard Loss Animation
@@ -401,16 +456,15 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         : [];
 
     if (progressList.length > 0) {
-      const waitMs = shouldSpinDice ? 3400 : 100;
+      const waitMs = shouldSpinDice ? 3000 : 100;
       progressList.forEach((pf, idx) => {
-        setTimeout(() => {
+        scheduleTimeout(() => {
           const liveState = latestGameStateRef.current;
           const origin = resolveDeckScreenCenter();
           const target = resolvePlayerCasilleroCenter(pf.playerId, liveState);
           const buyerName =
             liveState.players.find((p) => p.id === pf.playerId)?.name || 'Jugador';
           const flightId = `PROG_FLIGHT_${ev.nonce}_${pf.playerId}_${idx}_${Date.now()}`;
-          // Always fly the scanned card back toward the profile so rivals see the branch back
           const cardImage = pf.branch
             ? PROGRESS_BACK_IMAGE_PATHS[pf.branch]
             : CARD_BACK_PATHS.development;
@@ -435,10 +489,10 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
             },
           ]);
 
-          setTimeout(() => {
+          scheduleTimeout(() => {
             setActiveDevCardFlights((prev) => prev.filter((f) => f.id !== flightId));
-          }, 2950);
-        }, waitMs + idx * 650);
+          }, 2600);
+        }, waitMs + idx * 550);
       });
     } else if (ev.type === 'DEV_CARD_BOUGHT' && ev.buyerPlayerId) {
       const liveState = latestGameStateRef.current;
@@ -466,9 +520,9 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         },
       ]);
 
-      setTimeout(() => {
+      scheduleTimeout(() => {
         setActiveDevCardFlights((prev) => prev.filter((f) => f.id !== flightId));
-      }, 2950);
+      }, 2600);
     }
   }, [gameState.lastEvent, gameState.phase, currentPlayerId, gameState.players, gameState.board.hexes]);
 
@@ -924,57 +978,87 @@ const ResourceDistributionFlightCard: React.FC<{
   flight: PositionedResourceFlight;
   gameState: GameState;
   lowEndPcMode?: boolean;
-}> = ({ flight, gameState }) => {
+}> = ({ flight, gameState, lowEndPcMode = false }) => {
   const meta = RESOURCE_META[flight.resource];
   const cardImg = RESOURCE_CARD_PATHS[flight.resource];
   const player = gameState.players.find((p) => p.id === flight.playerId);
-  const playerColor = player ? PLAYER_COLORS[player.color]?.primary : '#fbbf24';
+  const playerColor = player ? PLAYER_COLORS[player.color]?.primary : '#c89b3c';
+  const perfTier =
+    typeof document !== 'undefined'
+      ? (document.documentElement.dataset.perfTier as 'full' | 'balanced' | 'lite' | undefined)
+      : undefined;
+  const isLite = lowEndPcMode || perfTier === 'lite';
+  const isBalanced = !isLite && perfTier === 'balanced';
 
+  if (isLite) {
+    return (
+      <div
+        style={{
+          left: '50%',
+          top: `${64 + (flight.stepNumber - 1) * 44}px`,
+          borderColor: playerColor,
+        }}
+        className="fixed -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-[#16100b] shadow-lg pointer-events-none"
+      >
+        <ResourceIcon resource={flight.resource} size={16} />
+        <span className="text-xs font-bold text-amber-100 tabular-nums">
+          +{flight.amount} {meta.name}
+        </span>
+        <span className="text-[11px] text-stone-300">→ {player?.name || 'Jugador'}</span>
+      </div>
+    );
+  }
+
+  const durationSec = isBalanced ? 1.8 : flight.totalSteps >= 4 ? 2.35 : 3.35;
   const midX = flight.startX + (flight.endX - flight.startX) * 0.45;
   const midY = Math.min(flight.startY, flight.endY) - 42;
 
   return (
     <>
-      {/* Origin Hex Pulse Indicator */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: [0, 0.9, 0], scale: [0.65, 1.35, 1.6] }}
-        transition={{ duration: 1.2, ease: 'easeOut' }}
-        style={{ left: flight.startX, top: flight.startY, borderColor: playerColor }}
-        className="fixed -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-4 pointer-events-none"
-      />
+      {!isBalanced && (
+        <>
+          {/* Origin Hex Pulse Indicator */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: [0, 0.85, 0], scale: [0.65, 1.3, 1.5] }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
+            style={{ left: flight.startX, top: flight.startY, borderColor: playerColor }}
+            className="fixed -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full border-4 pointer-events-none"
+          />
 
-      {/* Destination Casillero Target Glow */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: [0, 0.4, 0.95, 0], scale: [0.9, 1.02, 1.08, 1] }}
-        transition={{ duration: 4.0, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
-        style={{ left: flight.endX, top: flight.endY, borderColor: playerColor }}
-        className={`fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none shadow-[0_0_25px_rgba(251,191,36,0.5)] ${
-          gameState.players.length > 4 ? 'tablet-flight-glow' : 'tablet-flight-glow-detailed'
-        }`}
-      />
+          {/* Destination Casillero Target Ring */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.88 }}
+            animate={{ opacity: [0, 0.4, 0.9, 0], scale: [0.92, 1.02, 1.06, 1] }}
+            transition={{ duration: durationSec, times: [0, 0.5, 0.88, 1], ease: 'easeInOut' }}
+            style={{ left: flight.endX, top: flight.endY, borderColor: playerColor }}
+            className={`fixed -translate-x-1/2 -translate-y-1/2 w-56 h-14 rounded-xl border-2 pointer-events-none ${
+              gameState.players.length > 4 ? 'tablet-flight-glow' : 'tablet-flight-glow-detailed'
+            }`}
+          />
+        </>
+      )}
 
-      {/* Floating Resource Card Traveling from Hex to Player Casillero (Doubled 4.0s duration) */}
+      {/* Floating Resource Card Traveling from Hex to Player Casillero */}
       <motion.div
         initial={{
           opacity: 0,
-          scale: 0.6,
+          scale: 0.65,
           left: flight.startX,
           top: flight.startY,
         }}
         animate={{
           opacity: [0, 1, 1, 1, 0],
-          scale: [0.65, 1.15, 1.08, 0.96, 0.78],
+          scale: [0.68, 1.1, 1.05, 0.95, 0.8],
           left: [flight.startX, midX, midX, flight.endX, flight.endX],
           top: [flight.startY, midY, midY, flight.endY, flight.endY],
         }}
         transition={{
-          duration: 4.0,
+          duration: durationSec,
           times: [0, 0.22, 0.48, 0.9, 1],
           ease: 'easeInOut',
         }}
-        className="fixed -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 p-2.5 pr-4 rounded-2xl border-2 bg-[#140e0a]/95 shadow-[0_20px_50px_rgba(0,0,0,0.95)]"
+        className="fixed -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 p-2.5 pr-4 rounded-xl border-2 bg-[#16100b] shadow-2xl"
         style={{ borderColor: playerColor }}
       >
         <div className="relative w-12 aspect-[2/3] drop-shadow-md shrink-0">

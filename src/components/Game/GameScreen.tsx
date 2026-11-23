@@ -55,6 +55,7 @@ import {
   X,
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
+import { PerformancePreference, usePerformance } from '../../context/PerformanceContext';
 import {
   ALL_RESOURCES,
   ALL_TRADE_CARDS,
@@ -104,9 +105,17 @@ export const GameScreen: React.FC = () => {
     playerId,
     dispatchAction,
     leaveRoomClient,
-    lowEndPcMode,
     setLowEndPcMode,
   } = useGame();
+  const {
+    preference: perfPreference,
+    setPreference: setPerfPreference,
+    autoTier,
+    tier: perfTier,
+    isLite: effectiveLowEndMode,
+    lockBoardPan,
+    setLockBoardPan,
+  } = usePerformance();
 
   const [ckHighlightedVertex, setCKHighlightedVertex] = useState<string | null>(null);
   const [activeKnightMode, setActiveKnightMode] = useState<ActiveKnightMode>(null);
@@ -114,6 +123,11 @@ export const GameScreen: React.FC = () => {
   const [isBarbariansDrawerOpen, setIsBarbariansDrawerOpen] = useState(false);
   const [activeBarbariansMode, setActiveBarbariansMode] = useState<ActiveBarbariansBoardMode>(null);
   const [selectedEdgeKnightEdgeId, setSelectedEdgeKnightEdgeId] = useState<string | null>(null);
+  const [selectedEdgeBarbarianId, setSelectedEdgeBarbarianId] = useState<string | null>(null);
+  const [pendingCamelBid, setPendingCamelBid] = useState<{ sheepCards: number; wheatCards: number }>({
+    sheepCards: 0,
+    wheatCards: 0,
+  });
   const [isExplorersDrawerOpen, setIsExplorersDrawerOpen] = useState(false);
   const [activeExplorersMode, setActiveExplorersMode] = useState<ActiveExplorersBoardMode>(null);
   const [selectedEPShipId, setSelectedEPShipId] = useState<string | null>(null);
@@ -452,10 +466,19 @@ export const GameScreen: React.FC = () => {
     return () => clearTimeout(timer);
   }, [currentQueuedNotice?.id]);
 
+  const hasActiveTurnDeadline = Boolean(
+    gameState?.turn.turnDeadlineMs &&
+      !gameState.turn.isPausedByHost &&
+      gameState.phase !== 'GAME_OVER' &&
+      gameState.phase !== 'LOBBY'
+  );
+
   useEffect(() => {
-    const interval = setInterval(() => setNowMs(Date.now()), 250);
+    if (!hasActiveTurnDeadline) return;
+    setNowMs(Date.now());
+    const interval = setInterval(() => setNowMs(Date.now()), 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasActiveTurnDeadline, gameState?.turn.turnDeadlineMs]);
 
   useEffect(() => {
     setBuildMode(null);
@@ -466,6 +489,13 @@ export const GameScreen: React.FC = () => {
     setIsPlacingMerchant(false);
     setActiveProgressCard(null);
     setSelectedDiplomatEdgeId(null);
+    setActiveBarbariansMode(null);
+    setSelectedEdgeKnightEdgeId(null);
+    setSelectedEdgeBarbarianId(null);
+    setIsBarbariansDrawerOpen(false);
+    setActiveExplorersMode(null);
+    setSelectedEPShipId(null);
+    setIsExplorersDrawerOpen(false);
   }, [
     gameState?.phase,
     gameState?.turn.activePlayerId,
@@ -525,9 +555,16 @@ export const GameScreen: React.FC = () => {
         setShowDevModal(false);
         setShowTradeModal(false);
         setIsKnightsDrawerOpen(false);
+        setIsBarbariansDrawerOpen(false);
+        setIsExplorersDrawerOpen(false);
         setBuildMode(null);
         setActiveKnightMode(null);
         setSelectedKnightMoveFrom(null);
+        setActiveBarbariansMode(null);
+        setSelectedEdgeKnightEdgeId(null);
+        setSelectedEdgeBarbarianId(null);
+        setActiveExplorersMode(null);
+        setSelectedEPShipId(null);
         setIsPlacingMerchant(false);
         setActiveProgressCard(null);
         setSelectedDiplomatEdgeId(null);
@@ -541,6 +578,8 @@ export const GameScreen: React.FC = () => {
         setShowTradeModal(false);
         setShowDevModal(false);
         setIsKnightsDrawerOpen(false);
+        setIsBarbariansDrawerOpen(false);
+        setIsExplorersDrawerOpen(false);
         if (buildMode !== null) {
           setBuildMode(null);
         } else {
@@ -551,32 +590,80 @@ export const GameScreen: React.FC = () => {
         setIsBuildDrawerOpen(false);
         setShowTradeModal(false);
         setIsKnightsDrawerOpen(false);
-        if (hasCitiesKnights(gameState.config)) window.dispatchEvent(new Event('open-cities-knights'));
-        else setShowDevModal((prev) => !prev);
+        setIsBarbariansDrawerOpen(false);
+        setIsExplorersDrawerOpen(false);
+        if (hasCitiesKnights(gameState.config)) {
+          window.dispatchEvent(new Event('open-cities-knights'));
+        } else if (hasExplorersPirates(gameState.config)) {
+          window.dispatchEvent(new Event('open-explorers-pirates-panel'));
+        } else if (
+          gameState.barbarians?.scenario === 'BARBARIAN_ATTACK' ||
+          gameState.barbarians?.scenario === 'TRADERS_AND_BARBARIANS'
+        ) {
+          window.dispatchEvent(new Event('open-barbarians-panel'));
+        } else {
+          setShowDevModal((prev) => !prev);
+        }
       } else if (key === 'i') {
         e.preventDefault();
         setIsBuildDrawerOpen(false);
         setShowDevModal(false);
         setIsKnightsDrawerOpen(false);
+        setIsBarbariansDrawerOpen(false);
+        setIsExplorersDrawerOpen(false);
         setTradeModalInitialTab('BANK');
         setShowTradeModal((prev) => !prev);
-      } else if (key === 'k' && hasCitiesKnights(gameState.config)) {
-        e.preventDefault();
-        setIsBuildDrawerOpen(false);
-        setShowDevModal(false);
-        setShowTradeModal(false);
-        if (activeKnightMode !== null) {
-          setActiveKnightMode(null);
-          setSelectedKnightMoveFrom(null);
-        } else {
-          setIsKnightsDrawerOpen((prev) => !prev);
+      } else if (key === 'k') {
+        if (hasCitiesKnights(gameState.config)) {
+          e.preventDefault();
+          setIsBuildDrawerOpen(false);
+          setShowDevModal(false);
+          setShowTradeModal(false);
+          if (activeKnightMode !== null) {
+            setActiveKnightMode(null);
+            setSelectedKnightMoveFrom(null);
+          } else {
+            setIsKnightsDrawerOpen((prev) => !prev);
+          }
+        } else if (hasBarbarians(gameState.config)) {
+          e.preventDefault();
+          setIsBuildDrawerOpen(false);
+          setShowDevModal(false);
+          setShowTradeModal(false);
+          if (activeBarbariansMode !== null) {
+            setActiveBarbariansMode(null);
+            setSelectedEdgeKnightEdgeId(null);
+            setSelectedEdgeBarbarianId(null);
+          } else {
+            setIsBarbariansDrawerOpen((prev) => !prev);
+          }
+        } else if (hasExplorersPirates(gameState.config)) {
+          e.preventDefault();
+          setIsBuildDrawerOpen(false);
+          setShowDevModal(false);
+          setShowTradeModal(false);
+          if (activeExplorersMode !== null) {
+            setActiveExplorersMode(null);
+            setSelectedEPShipId(null);
+          } else {
+            setIsExplorersDrawerOpen((prev) => !prev);
+          }
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isMyTurn, isPausedByHost, buildMode, showAbandonModal]);
+  }, [
+    gameState,
+    isMyTurn,
+    isPausedByHost,
+    buildMode,
+    activeKnightMode,
+    activeBarbariansMode,
+    activeExplorersMode,
+    showAbandonModal,
+  ]);
 
   const validSettlementIds = useMemo(() => {
     if (!gameState || !isMyTurn || isPausedByHost) return [];
@@ -752,7 +839,24 @@ export const GameScreen: React.FC = () => {
   const isCitiesKnights = hasCitiesKnights(config);
   const isBarbarians = hasBarbarians(config);
   const isExplorersPirates = hasExplorersPirates(config);
+  const usesScenarioDevDeck =
+    gameState.barbarians?.scenario === 'BARBARIAN_ATTACK' ||
+    gameState.barbarians?.scenario === 'TRADERS_AND_BARBARIANS';
   const hasBottomExpansionHud = isCitiesKnights || isBarbarians || isExplorersPirates;
+
+  const canBuildWallNow =
+    isCitiesKnights &&
+    isMyTurn &&
+    !isPausedByHost &&
+    (phase === 'MAIN_PHASE' || phase === 'SPECIAL_BUILD_PHASE') &&
+    infraPermission.allowed &&
+    (me.resources.BRICK || 0) >= 2 &&
+    Object.values(gameState.board.vertices).some(
+      (v) => v.playerId === me.id && v.building === 'CITY' && !v.cityWall
+    ) &&
+    Object.values(gameState.board.vertices).filter(
+      (v) => v.playerId === me.id && v.cityWall
+    ).length < 3;
 
   const canRecruitKnightNow =
     isCitiesKnights &&
@@ -1007,7 +1111,14 @@ export const GameScreen: React.FC = () => {
   ]);
 
   const validCKHexIds = useMemo(() => {
-    if (!isCitiesKnights || !gameState) return [];
+    if (!gameState) return [];
+    if (isExplorersPirates && gameState.explorersPirates && activeExplorersMode === 'PLACE_PIRATE_SHIP') {
+      const councilId = gameState.explorersPirates.councilHexId;
+      return Object.values(gameState.board.hexes)
+        .filter((h) => h.terrain === 'SEA' && h.id !== councilId)
+        .map((h) => h.id);
+    }
+    if (!isCitiesKnights) return [];
     if (isPlacingMerchant || activeProgressCard?.type === 'MERCHANT') {
       return Object.values(gameState.board.hexes)
         .filter((h) => {
@@ -1029,7 +1140,16 @@ export const GameScreen: React.FC = () => {
         .map((h) => h.id);
     }
     return [];
-  }, [isCitiesKnights, gameState, isPlacingMerchant, activeProgressCard, playerId, currentRobberHexId]);
+  }, [
+    isCitiesKnights,
+    isExplorersPirates,
+    activeExplorersMode,
+    gameState,
+    isPlacingMerchant,
+    activeProgressCard,
+    playerId,
+    currentRobberHexId,
+  ]);
 
   const validCKEdgeIds = useMemo(() => {
     if (!gameState) return [];
@@ -1090,6 +1210,14 @@ export const GameScreen: React.FC = () => {
               !mb.edgeKnights[e.id] &&
               e.vertexIds.some((vid) => fromEdge.vertexIds.includes(vid))
           )
+          .map((e) => e.id);
+      }
+      if (activeBarbariansMode === 'MOVE_EDGE_BARBARIAN') {
+        if (!selectedEdgeBarbarianId) {
+          return [...mb.edgeBarbarians];
+        }
+        return Object.values(gameState.board.edges)
+          .filter((e) => e.isLand && e.id !== selectedEdgeBarbarianId && !mb.edgeBarbarians.includes(e.id))
           .map((e) => e.id);
       }
     }
@@ -1277,6 +1405,11 @@ export const GameScreen: React.FC = () => {
 
   const handleCKHexClick = (hexId: string) => {
     if (isPausedByHost) return;
+    if (isExplorersPirates && activeExplorersMode === 'PLACE_PIRATE_SHIP') {
+      dispatchAction({ type: 'EP_PLACE_PIRATE_SHIP', hexId });
+      setActiveExplorersMode(null);
+      return;
+    }
     if (isPlacingMerchant || activeProgressCard?.type === 'MERCHANT') {
       const cardId =
         activeProgressCard?.id ||
@@ -1344,7 +1477,13 @@ export const GameScreen: React.FC = () => {
         return;
       }
       if (activeBarbariansMode === 'PLACE_CAMEL') {
-        dispatchAction({ type: 'MB_VOTE_CAMEL', edgeId });
+        dispatchAction({
+          type: 'MB_VOTE_CAMEL',
+          edgeId,
+          sheepCards: pendingCamelBid.sheepCards,
+          wheatCards: pendingCamelBid.wheatCards,
+        });
+        setPendingCamelBid({ sheepCards: 0, wheatCards: 0 });
         setActiveBarbariansMode(null);
         return;
       }
@@ -1363,6 +1502,20 @@ export const GameScreen: React.FC = () => {
             toEdgeId: edgeId,
           });
           setSelectedEdgeKnightEdgeId(null);
+          setActiveBarbariansMode(null);
+        }
+        return;
+      }
+      if (activeBarbariansMode === 'MOVE_EDGE_BARBARIAN') {
+        if (!selectedEdgeBarbarianId) {
+          setSelectedEdgeBarbarianId(edgeId);
+        } else {
+          dispatchAction({
+            type: 'MB_MOVE_EDGE_BARBARIAN',
+            fromEdgeId: selectedEdgeBarbarianId,
+            toEdgeId: edgeId,
+          });
+          setSelectedEdgeBarbarianId(null);
           setActiveBarbariansMode(null);
         }
         return;
@@ -1537,11 +1690,11 @@ export const GameScreen: React.FC = () => {
         />
       )}
 
-      {/* Overlay Animations for Slow Center Dice, Sequential Resource Flights, Critical Alerts, Discards & Steals */}
+      {/* Overlay Animations for Slow Center Dice, Adaptive Resource Flights, Critical Alerts, Discards & Steals */}
       <OverlayAnimations
         gameState={gameState}
         currentPlayerId={playerId}
-        lowEndPcMode={lowEndPcMode}
+        lowEndPcMode={effectiveLowEndMode}
       />
 
       {/* Disconnect Resolution Banner */}
@@ -1691,12 +1844,12 @@ export const GameScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
-            className={`tablet-header-btn px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 ${
-              lowEndPcMode
-                ? 'bg-sky-950/90 border-sky-400/60 text-sky-200'
-                : 'bg-[#211710] hover:bg-[#2c1f16] border-[#d4af37]/35 text-amber-200'
+            className={`tablet-header-btn px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer active:scale-95 ${
+              effectiveLowEndMode
+                ? 'bg-[#192836] border-sky-400/60 text-sky-200'
+                : 'bg-[#211710] hover:bg-[#2c1f16] border-[#c89b3c]/35 text-amber-200'
             }`}
-            title="Ajustes de Rendimiento y Animaciones"
+            title="Ajustes de rendimiento y animaciones"
           >
             <Settings className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Ajustes</span>
@@ -1739,7 +1892,8 @@ export const GameScreen: React.FC = () => {
               gameState.config.seafarersPirateMode !== 'PACIFIC_NO_PIRATE'
             }
             producingHexIds={boardProducingHexIds}
-            lowEndPcMode={lowEndPcMode}
+            lowEndPcMode={effectiveLowEndMode}
+            lockBoardPan={lockBoardPan}
             lastEvent={gameState.lastEvent}
             highlightedVertexId={ckHighlightedVertex}
             isCitiesKnights={hasBottomExpansionHud}
@@ -2023,41 +2177,47 @@ export const GameScreen: React.FC = () => {
                   exit={{ scale: 0.9, opacity: 0 }}
                   className="relative max-w-md w-full rounded-3xl bg-[#1c140e]/98 border-2 border-amber-500/80 p-6 text-center shadow-[0_25px_80px_rgba(0,0,0,0.95)] space-y-4"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      dispatchAction({ type: 'RESUME_GAME' });
-                    }}
-                    className="absolute top-4 right-4 p-2 rounded-xl text-stone-400 hover:text-amber-200 hover:bg-stone-800 transition cursor-pointer"
-                    title="Cerrar y Reanudar"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300">
-                    <PauseCircle className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h2 className="font-display text-xl font-black text-amber-100">
-                      Partida en Pausa
-                    </h2>
-                    <p className="text-xs text-stone-300 mt-1">
-                      {isPausedByHost
-                        ? 'La partida ha sido pausada por el anfitrión.'
-                        : 'La partida está pausada esperando resolver la situación de un jugador.'}
-                    </p>
-                  </div>
-                  <div className="pt-2 flex justify-center">
+                  {(!isPausedByHost || me.isHost) && (
                     <button
                       type="button"
                       onClick={() => {
                         dispatchAction({ type: 'RESUME_GAME' });
                       }}
-                      className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 border border-emerald-300 text-stone-950 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl cursor-pointer"
+                      className="absolute top-4 right-4 p-2 rounded-lg text-stone-400 hover:text-amber-200 hover:bg-stone-800 transition cursor-pointer"
+                      title="Cerrar y reanudar"
                     >
-                      <Play className="w-4 h-4 fill-current" />
-                      <span>Reanudar Partida</span>
+                      <X className="w-5 h-5" />
                     </button>
+                  )}
+                  <div className="w-14 h-14 mx-auto rounded-xl bg-amber-500/15 border border-[#c89b3c]/50 flex items-center justify-center text-amber-300">
+                    <PauseCircle className="w-8 h-8" />
                   </div>
+                  <div>
+                    <h2 className="font-display text-xl font-bold text-amber-100">
+                      Partida en pausa
+                    </h2>
+                    <p className="text-xs text-stone-300 mt-1">
+                      {isPausedByHost
+                        ? me.isHost
+                          ? 'Has pausado la partida. Pulsa abajo para reanudarla cuando estéis listos.'
+                          : 'La partida ha sido pausada por el anfitrión. Esperando a que reanude.'
+                        : 'La partida está pausada esperando resolver la situación de un jugador.'}
+                    </p>
+                  </div>
+                  {(!isPausedByHost || me.isHost) && (
+                    <div className="pt-2 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dispatchAction({ type: 'RESUME_GAME' });
+                        }}
+                        className="w-full py-3.5 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/70 text-stone-950 font-bold text-sm tracking-wide flex items-center justify-center gap-2 shadow-xl cursor-pointer"
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>Reanudar partida</span>
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               </motion.div>
             )}
@@ -2143,29 +2303,32 @@ export const GameScreen: React.FC = () => {
 
           {/* Mercaderes y Bárbaros / Piratas y Exploradores: Floating Helper Banner for active map modes */}
           {((isBarbarians && activeBarbariansMode) || (isExplorersPirates && activeExplorersMode)) && isMyTurn && !isPausedByHost && (
-            <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
-              <div className="flex items-center gap-3 bg-[#1e140d]/95 border-2 border-amber-400 text-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto animate-pulse">
-                <Swords className="w-4 h-4 text-amber-400 shrink-0" />
+            <div className="absolute top-14 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
+              <div className="flex items-center gap-3 bg-[#1a120c] border border-[#c89b3c] text-amber-100 px-4 py-2 rounded-xl text-xs font-bold shadow-2xl pointer-events-auto">
+                <Swords className="w-4 h-4 text-[#d4af37] shrink-0" />
                 <span>
-                  {activeBarbariansMode === 'FISH_FREE_ROAD' && '🐟 Haz clic en una arista iluminada para construir tu Carretera gratis (5 pescados)'}
-                  {activeBarbariansMode === 'PLACE_BRIDGE' && '🌉 Haz clic en un tramo fluvial iluminado conectado a tu red para construir tu Puente (2 arcillas + 1 madera)'}
-                  {activeBarbariansMode === 'PLACE_CAMEL' && '🐪 Haz clic en una arista iluminada para extender la Caravana desde el Oasis'}
-                  {activeBarbariansMode === 'PLACE_EDGE_KNIGHT' && '⚔️ Haz clic en una arista iluminada junto al Castillo para reclutar tu Caballero'}
-                  {activeBarbariansMode === 'MOVE_EDGE_KNIGHT' && (!selectedEdgeKnightEdgeId ? 'Paso 1: Haz clic en el Caballero en arista que deseas desplazar' : 'Paso 2: Haz clic en la arista terrestre contigua iluminada')}
-                  {activeBarbariansMode === 'MOVE_WAGON' && `🛒 Haz clic en una intersección contigua iluminada para mover tu Carromato (PM: ${me.barbarians?.wagonMpRemaining ?? 0})`}
-                  {activeExplorersMode === 'UPGRADE_HARBOR_CITY' && '🏛️ Haz clic en un Poblado costero propio iluminado para mejorarlo a Ciudad Portuaria (2 trigos + 2 minerales)'}
-                  {activeExplorersMode === 'BUILD_EP_SHIP' && '⛵ Haz clic en una arista marítima iluminada junto a tu Ciudad Portuaria para botar tu Barco (1 madera + 1 oveja)'}
-                  {activeExplorersMode === 'MOVE_EP_SHIP' && (!selectedEPShipId ? 'Paso 1: Haz clic en la arista donde se encuentra el Barco que deseas navegar' : 'Paso 2: Haz clic en una arista marítima contigua para navegar (o en un vértice costero iluminado si lleva Colono para fundar poblado)')}
+                  {activeBarbariansMode === 'FISH_FREE_ROAD' && 'Pulsa en un camino iluminado para construir tu carretera gratis (5 pescados)'}
+                  {activeBarbariansMode === 'PLACE_BRIDGE' && 'Pulsa en un paso fluvial iluminado conectado a tu red para construir tu puente (2 arcillas + 1 madera)'}
+                  {activeBarbariansMode === 'PLACE_CAMEL' && `Pulsa en un camino iluminado para extender la caravana desde el oasis${pendingCamelBid.sheepCards + pendingCamelBid.wheatCards > 0 ? ` (puja: ${pendingCamelBid.sheepCards} lana, ${pendingCamelBid.wheatCards} trigo)` : ''}`}
+                  {activeBarbariansMode === 'PLACE_EDGE_KNIGHT' && 'Pulsa en un camino iluminado junto al Castillo para reclutar tu caballero'}
+                  {activeBarbariansMode === 'MOVE_EDGE_KNIGHT' && (!selectedEdgeKnightEdgeId ? 'Paso 1: Pulsa en el caballero en camino que deseas desplazar' : 'Paso 2: Pulsa en el camino terrestre contiguo iluminado')}
+                  {activeBarbariansMode === 'MOVE_EDGE_BARBARIAN' && (!selectedEdgeBarbarianId ? 'Paso 1: Pulsa en el camino donde se encuentra el bárbaro que deseas mover' : 'Paso 2: Pulsa en el camino terrestre destino iluminado')}
+                  {activeBarbariansMode === 'MOVE_WAGON' && `Pulsa en una encrucijada contigua iluminada para mover tu carromato (PM: ${me.barbarians?.wagonMpRemaining ?? 0})`}
+                  {activeExplorersMode === 'UPGRADE_HARBOR_CITY' && 'Pulsa en un poblado costero propio iluminado para mejorarlo a Ciudad Portuaria (2 trigos + 2 minerales)'}
+                  {activeExplorersMode === 'BUILD_EP_SHIP' && 'Pulsa en una travesía marítima iluminada junto a tu Ciudad Portuaria para botar tu barco (1 madera + 1 oveja)'}
+                  {activeExplorersMode === 'MOVE_EP_SHIP' && (!selectedEPShipId ? 'Paso 1: Pulsa en la travesía donde se encuentra el barco que deseas navegar' : 'Paso 2: Pulsa en una travesía marítima contigua para navegar (o en una encrucijada costera iluminada si lleva colono)')}
+                  {activeExplorersMode === 'PLACE_PIRATE_SHIP' && 'Pulsa en un hexágono de mar iluminado para situar el Barco Pirata'}
                 </span>
                 <button
                   type="button"
                   onClick={() => {
                     setActiveBarbariansMode(null);
                     setSelectedEdgeKnightEdgeId(null);
+                    setSelectedEdgeBarbarianId(null);
                     setActiveExplorersMode(null);
                     setSelectedEPShipId(null);
                   }}
-                  className="px-2 py-1 rounded-lg bg-red-700/80 hover:bg-red-600 text-white text-[10px] font-black cursor-pointer"
+                  className="px-2.5 py-1 rounded-md bg-[#9e2b25] hover:bg-[#b5352e] text-white text-[11px] font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -2224,9 +2387,18 @@ export const GameScreen: React.FC = () => {
               gameState={gameState}
               playerId={playerId}
               dispatchAction={dispatchAction}
-              onStartBoardMode={(mode) => {
+              onStartBoardMode={(mode, options) => {
                 setActiveBarbariansMode(mode);
                 setSelectedEdgeKnightEdgeId(null);
+                setSelectedEdgeBarbarianId(null);
+                if (options) {
+                  setPendingCamelBid({
+                    sheepCards: options.camelBidSheep || 0,
+                    wheatCards: options.camelBidWheat || 0,
+                  });
+                } else {
+                  setPendingCamelBid({ sheepCards: 0, wheatCards: 0 });
+                }
               }}
             />
           )}
@@ -2394,6 +2566,8 @@ export const GameScreen: React.FC = () => {
                 onFinishRoadBuilding={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
                 isSeafarers={isSeafarers}
                 isCitiesKnights={isCitiesKnights}
+                hideDevCardOption={isExplorersPirates || usesScenarioDevDeck}
+                canBuildWallNow={canBuildWallNow}
                 hasMedicineDiscount={Boolean(gameState.citiesKnights?.turnEffects?.medicine)}
               />
 
@@ -2405,10 +2579,10 @@ export const GameScreen: React.FC = () => {
                   setTradeModalInitialTab('BANK');
                   setShowTradeModal(true);
                 }}
-                className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-extrabold flex items-center justify-between gap-2 transition opacity-100 ${
+                className={`tablet-action-btn w-full px-3 py-2 rounded-lg border text-xs font-bold flex items-center justify-between gap-2 transition-colors opacity-100 ${
                   isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                     ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 hover:from-orange-400 hover:to-yellow-500 border-amber-300 text-stone-950 shadow cursor-pointer active:scale-98'
+                    : 'bg-[#b85a27] hover:bg-[#c96630] border-[#e2a46f]/70 text-amber-50 shadow-[inset_0_1px_0_rgba(255,244,214,0.25)] cursor-pointer active:scale-98'
                 }`}
                 title={
                   !tradePermission.allowed
@@ -2418,7 +2592,7 @@ export const GameScreen: React.FC = () => {
               >
                 <span className="flex items-center gap-1.5 truncate">
                   {isMyTurn && !tradePermission.allowed && !isWaitingForMandatoryDice ? (
-                    <Lock className="w-3.5 h-3.5 text-red-950 shrink-0" />
+                    <Lock className="w-3.5 h-3.5 text-red-200 shrink-0" />
                   ) : hasAnyPort ? (
                     <Anchor className="w-3.5 h-3.5 shrink-0" />
                   ) : (
@@ -2426,23 +2600,24 @@ export const GameScreen: React.FC = () => {
                   )}
                   <span className="truncate">Intercambiar</span>
                   {gameState.activeTradeOffers.length > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-black animate-bounce">
+                    <span className="px-1.5 py-0.2 rounded-full bg-red-600 text-white text-[9px] font-bold">
                       {gameState.activeTradeOffers.length}
                     </span>
                   )}
                 </span>
-                <span className="px-1.5 py-0.5 rounded bg-black/25 text-[9px] font-mono opacity-80">
+                <span className="px-1.5 py-0.5 rounded bg-black/30 text-[9px] font-mono opacity-85">
                   I
                 </span>
               </button>
 
               {gameState.config.seafarersScenario === 'WONDERS_OF_CATAN' && (
                 <button type="button" onClick={() => setShowWonders(true)}
-                  className="w-full px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950 text-amber-100 text-xs font-bold flex items-center gap-2 opacity-100">
-                  <Award className="w-4 h-4" /> Maravillas
+                  className="w-full px-3 py-2 rounded-lg border border-[#c89b3c]/50 bg-[#2a1d11] hover:bg-[#362516] text-amber-100 text-xs font-bold flex items-center gap-2 opacity-100 cursor-pointer">
+                  <Award className="w-4 h-4 text-[#d4af37]" /> Maravillas
                 </button>
               )}
-              {/* 3. Cartas de Desarrollo / Progreso (D) */}
+              {/* 3. Cartas de Desarrollo / Progreso / Escenario (D) — oculto en Piratas y Exploradores */}
+              {!isExplorersPirates && (
               <div className="relative group/progbtn w-full">
                 <button
                   type="button"
@@ -2450,27 +2625,37 @@ export const GameScreen: React.FC = () => {
                   onClick={() => {
                     if (isCitiesKnights) {
                       window.dispatchEvent(new Event('open-cities-knights'));
+                    } else if (usesScenarioDevDeck) {
+                      window.dispatchEvent(new Event('open-barbarians-panel'));
                     } else {
                       setShowDevModal(true);
                     }
                   }}
-                  className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 transition opacity-100 ${
+                  className={`tablet-action-btn w-full px-3 py-2 rounded-lg border text-xs font-bold flex items-center justify-between gap-2 transition-colors opacity-100 ${
                     isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)
                       ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
-                      : 'bg-[#261a11] hover:bg-[#332317] border-[#d4af37]/50 text-amber-200 cursor-pointer shadow active:scale-98'
+                      : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/45 text-amber-200 cursor-pointer shadow active:scale-98'
                   }`}
-                  title={isCitiesKnights ? "Ver tus Cartas de Progreso y Mazos (Atajo: D)" : "Ver o comprar Cartas de Desarrollo (Atajo: D)"}
+                  title={
+                    isCitiesKnights
+                      ? 'Ver tus Cartas de Progreso y Mazos (Atajo: D)'
+                      : usesScenarioDevDeck
+                      ? 'Ver y comprar cartas del mazo de escenario (Atajo: D)'
+                      : 'Ver o comprar Cartas de Desarrollo (Atajo: D)'
+                  }
                 >
                   <span className="flex items-center gap-1.5 truncate">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+                    <span className="truncate tabular-nums">
                       {isCitiesKnights
                         ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
+                        : usesScenarioDevDeck
+                        ? `Cartas (${me.barbarians?.scenarioDevCards.filter((c) => !c.played).length ?? 0})`
                         : `Desarrollo (${unplayedDevCount})`}
                     </span>
                     {isCitiesKnights && (gameState.citiesKnights?.turnEffects?.harborPartners?.length ?? 0) > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-stone-950 text-[9px] font-black animate-bounce">
-                        ⚓
+                      <span className="px-1.5 py-0.2 rounded-full bg-[#c89b3c] text-stone-950 text-[9px] font-bold">
+                        Puerto
                       </span>
                     )}
                   </span>
@@ -2479,12 +2664,12 @@ export const GameScreen: React.FC = () => {
                   </span>
                 </button>
 
-                {/* Hover Card Backs Fan Preview on the Progreso / Desarrollo Button */}
+                {/* Hover Card Backs Fan Preview on Desktop fine pointers */}
                 {((isCitiesKnights && (me.citiesKnights?.progressCards.length ?? 0) > 0) ||
-                  (!isCitiesKnights && unplayedDevCount > 0)) && (
-                  <div className="hidden group-hover/progbtn:flex absolute bottom-[calc(100%+8px)] left-0 z-50 p-2.5 rounded-2xl bg-[#160f0a]/98 border-2 border-[#d4af37]/70 shadow-[0_15px_40px_rgba(0,0,0,0.95)] flex-col items-center gap-1.5 pointer-events-none min-w-[160px]">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-300">
-                      {isCitiesKnights ? 'Dorsos de tus Cartas de Progreso' : 'Dorsos de Desarrollo en Mano'}
+                  (!isCitiesKnights && !usesScenarioDevDeck && unplayedDevCount > 0)) && (
+                  <div className="hidden lg:group-hover/progbtn:flex absolute bottom-[calc(100%+8px)] left-0 z-50 p-2.5 rounded-xl bg-[#16100b] border border-[#c89b3c]/60 shadow-[0_14px_36px_rgba(0,0,0,0.9)] flex-col items-center gap-1.5 pointer-events-none min-w-[160px]">
+                    <span className="text-[10px] font-bold text-amber-300">
+                      {isCitiesKnights ? 'Tus cartas de progreso' : 'Cartas de desarrollo en mano'}
                     </span>
                     <div className="flex items-center justify-center -space-x-2 py-1">
                       {isCitiesKnights
@@ -2494,7 +2679,7 @@ export const GameScreen: React.FC = () => {
                               src={PROGRESS_BACK_IMAGE_PATHS[c.branch]}
                               alt={BRANCH_META[c.branch].name}
                               style={{ transform: `rotate(${(idx - (me.citiesKnights!.progressCards.length - 1) / 2) * 8}deg)` }}
-                              className="w-11 h-16 object-cover rounded-md border border-amber-300/80 shadow-lg bg-stone-900"
+                              className="w-11 h-16 object-cover rounded border border-amber-300/70 shadow-lg bg-stone-900"
                             />
                           ))
                         : Array.from({ length: Math.min(unplayedDevCount, 6) }).map((_, idx) => (
@@ -2503,13 +2688,14 @@ export const GameScreen: React.FC = () => {
                               src={CARD_BACK_PATHS.development}
                               alt="Dorso de Desarrollo"
                               style={{ transform: `rotate(${(idx - (Math.min(unplayedDevCount, 6) - 1) / 2) * 8}deg)` }}
-                              className="w-11 h-16 object-cover rounded-md border border-amber-300/80 shadow-lg bg-stone-900"
+                              className="w-11 h-16 object-cover rounded border border-amber-300/70 shadow-lg bg-stone-900"
                             />
                           ))}
                     </div>
                   </div>
                 )}
               </div>
+              )}
 
               {/* 4. Caballeros (K) - Exclusivo Ciudades y Caballeros */}
               {isCitiesKnights && (
@@ -2592,7 +2778,7 @@ export const GameScreen: React.FC = () => {
                     setActiveExplorersMode(mode);
                     setSelectedEPShipId(null);
                   }}
-                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-explorers-pirates'))}
+                  onOpenPanelModal={() => window.dispatchEvent(new Event('open-explorers-pirates-panel'))}
                   onBuildSettler={() => dispatchAction({ type: 'EP_BUILD_SETTLER' })}
                   onBuildUnit={() => dispatchAction({ type: 'EP_BUILD_UNIT' })}
                   onRollFishShoal={() => dispatchAction({ type: 'EP_ROLL_FISH_SHOAL' })}
@@ -2746,11 +2932,7 @@ export const GameScreen: React.FC = () => {
             resources={me.resources}
             portRatios={myPortRatios}
             onCardClick={() => {
-              const isTabletTouch =
-                typeof window !== 'undefined' &&
-                window.matchMedia('(pointer: coarse)').matches;
-              if (isTabletTouch) return;
-              if (!isWaitingForMandatoryDice && !isPausedByHost) {
+              if (!isPausedByHost && !(isMyTurn && isWaitingForMandatoryDice)) {
                 setTradeModalInitialTab('BANK');
                 setShowTradeModal(true);
               }
@@ -2761,10 +2943,15 @@ export const GameScreen: React.FC = () => {
               <button
                 key={resource}
                 type="button"
+                disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
                 title={`${RESOURCE_META[resource].name}: ${me.resources[resource] || 0}`}
                 aria-label={`${RESOURCE_META[resource].name}: ${me.resources[resource] || 0}`}
-                onClick={() => { setTradeModalInitialTab('BANK'); setShowTradeModal(true); }}
-                className="relative flex items-center justify-center min-w-0 min-h-[54px] rounded-lg py-0.5 transition-transform active:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-200"
+                onClick={() => {
+                  if (isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)) return;
+                  setTradeModalInitialTab('BANK');
+                  setShowTradeModal(true);
+                }}
+                className="relative flex items-center justify-center min-w-0 min-h-[48px] rounded-md py-0.5 transition-transform active:-translate-y-0.5 disabled:opacity-55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-200"
               >
                 <img
                   src={RESOURCE_CARD_PATHS[resource]}
@@ -2876,53 +3063,105 @@ export const GameScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#0d0906] border border-[#d4af37]/35 space-y-3">
-                <div className="flex items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-[#120d09] border border-[#c89b3c]/30 space-y-3">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <Cpu className="w-5 h-5 text-sky-400 shrink-0" />
+                    <Cpu className="w-5 h-5 text-[#d4af37] shrink-0" />
                     <div>
-                      <div className="text-sm font-black text-amber-100">
-                        Modo de Animaciones Simplificadas
+                      <div className="text-sm font-bold text-amber-100">
+                        Rendimiento y animaciones
                       </div>
                       <div className="text-[11px] text-stone-400">
-                        Ideal para ordenadores de bajo rendimiento (Low-End PC Mode)
+                        Nivel activo:{' '}
+                        <strong className="text-amber-200">
+                          {perfTier === 'full'
+                            ? 'Completo'
+                            : perfTier === 'balanced'
+                            ? 'Equilibrado'
+                            : 'Ligero'}
+                        </strong>
+                        {perfPreference === 'auto' && (
+                          <span>
+                            {' '}
+                            (detectado automáticamente:{' '}
+                            {autoTier === 'full'
+                              ? 'Completo'
+                              : autoTier === 'balanced'
+                              ? 'Equilibrado'
+                              : 'Ligero'}
+                            )
+                          </span>
+                        )}
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(
+                    [
+                      { id: 'auto', label: 'Automático', desc: 'Según dispositivo' },
+                      { id: 'full', label: 'Completo', desc: 'Máximo detalle' },
+                      { id: 'balanced', label: 'Equilibrado', desc: 'Sin blur pesado' },
+                      { id: 'lite', label: 'Ligero', desc: 'Mínimo consumo' },
+                    ] as Array<{ id: PerformancePreference; label: string; desc: string }>
+                  ).map((opt) => {
+                    const active = perfPreference === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setPerfPreference(opt.id);
+                          setLowEndPcMode(opt.id === 'lite');
+                        }}
+                        className={`p-2 min-h-[44px] rounded-md border text-left transition cursor-pointer ${
+                          active
+                            ? 'bg-[#2a1f14] border-[#c89b3c] text-amber-100'
+                            : 'bg-[#1a130e] border-stone-800 text-stone-300 hover:border-stone-600'
+                        }`}
+                      >
+                        <div className="text-xs font-bold">{opt.label}</div>
+                        <div className="text-[10px] text-stone-400 leading-tight">{opt.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-stone-800">
+                  <div>
+                    <div className="text-xs font-bold text-amber-100">
+                      Bloquear arrastre del mapa en (0, 0)
+                    </div>
+                    <div className="text-[11px] text-stone-400">
+                      Mantiene el tablero centrado y permite acercar o alejar solo con botones de zoom.
                     </div>
                   </div>
 
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={lowEndPcMode}
-                    onClick={() => setLowEndPcMode(!lowEndPcMode)}
-                    className={`relative w-14 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${
-                      lowEndPcMode ? 'bg-emerald-500' : 'bg-stone-700'
+                    aria-checked={lockBoardPan}
+                    onClick={() => setLockBoardPan(!lockBoardPan)}
+                    className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer shrink-0 ${
+                      lockBoardPan ? 'bg-emerald-600' : 'bg-stone-700'
                     }`}
                   >
                     <span
-                      className={`block w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                        lowEndPcMode ? 'translate-x-8' : 'translate-x-1'
+                      className={`block w-5 h-5 rounded-full bg-white shadow transform transition-transform ${
+                        lockBoardPan ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>
                 </div>
-
-                <ul className="text-xs text-stone-300 space-y-1.5 pl-4 list-disc border-t border-stone-800 pt-2.5">
-                  <li>
-                    Desactiva filtros pesados y efectos de iluminación complejos.
-                  </li>
-                  <li>
-                    <strong>Bloqueo del Pan (Arrastre del Mapa):</strong> El tablero permanece fijo y centrado en <code>(0, 0)</code>; solo podrás acercar o alejar la vista mediante los botones de <em>Zoom In</em> y <em>Zoom Out</em>.
-                  </li>
-                </ul>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 font-black text-sm uppercase tracking-wider shadow-lg cursor-pointer"
+                className="w-full py-3 min-h-[44px] rounded-lg bg-[#c89b3c] hover:bg-[#d6aa4c] text-stone-950 font-bold text-sm shadow cursor-pointer"
               >
-                Guardar y Volver
+                Guardar y volver
               </button>
             </motion.div>
           </motion.div>
@@ -3119,6 +3358,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   isCitiesKnights = false,
   playerDefense = 0,
 }) => {
+  const [showCardBacksTouch, setShowCardBacksTouch] = useState(false);
   const totalRes = countTotalResources(player.resources);
   const unplayedDevs = player.citiesKnights?.progressCards.length ?? (isLocalPlayer
     ? player.devCards.filter((c) => !c.played).length
@@ -3132,9 +3372,14 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
   return (
     <div
       id={`player-casillero-${player.id}`}
+      onClick={() => {
+        if (devBackUrls.length > 0 && window.matchMedia('(pointer: coarse)').matches) {
+          setShowCardBacksTouch((v) => !v);
+        }
+      }}
       className={`tablet-player-card group/profile ${
         useCompactLayout ? 'tablet-player-card-compact' : ''
-      } relative p-2.5 rounded-2xl border-2 transition-all duration-200 pointer-events-auto`}
+      } relative p-2.5 rounded-xl border-2 transition-all duration-200 pointer-events-auto`}
       style={playerCardStyle(player.color, isActiveTurn)}
     >
       {/* Left Horizontal Resource & Progress Card Fan (Opened towards the left - Hidden on Tablet) */}
@@ -3142,9 +3387,13 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
         {showCardFan && <ProfileHorizontalCardFan totalCards={totalRes} devBackUrls={devBackUrls} />}
       </div>
 
-      {/* Hover Popover showing Scanned Progress / Development Card Backs when approaching the profile */}
+      {/* Hover (desktop) or Tap (touch) Popover showing Scanned Progress / Development Card Backs */}
       {devBackUrls.length > 0 && (
-        <div className="hidden group-hover/profile:flex absolute right-[calc(100%+42px)] top-1/2 -translate-y-1/2 z-50 p-2.5 rounded-2xl bg-[#140d08]/98 border-2 border-[#d4af37]/80 shadow-[0_15px_45px_rgba(0,0,0,0.95)] flex-col items-center gap-1.5 pointer-events-none min-w-[140px]">
+        <div
+          className={`${
+            showCardBacksTouch ? 'flex' : 'hidden lg:group-hover/profile:flex'
+          } absolute right-[calc(100%+12px)] lg:right-[calc(100%+42px)] top-1/2 -translate-y-1/2 z-50 p-2.5 rounded-xl bg-[#16100b] border border-[#c89b3c]/75 shadow-[0_14px_36px_rgba(0,0,0,0.92)] flex-col items-center gap-1.5 pointer-events-none min-w-[140px]`}
+        >
           <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 whitespace-nowrap">
             {player.citiesKnights
               ? `Progreso de ${player.name} (${devBackUrls.length})`
@@ -3393,7 +3642,7 @@ const PlayerSummaryCard: React.FC<PlayerSummaryCardProps> = ({
             )}
             {isCitiesKnights && (player.citiesKnights?.defenderPoints || 0) > 0 && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-400/60 text-amber-200 text-[8px] font-black">
-                <img src="/assets/tokens/catan_chit.png" className="w-3.5 h-3.5 object-contain" alt="" />
+                <img src="/assets/tokens/catan_chit.webp" className="w-3.5 h-3.5 object-contain" alt="" />
                 Campeador de Catán (+{player.citiesKnights!.defenderPoints} PV)
               </span>
             )}

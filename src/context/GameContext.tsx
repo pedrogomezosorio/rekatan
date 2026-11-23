@@ -368,11 +368,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!socketRef.current) return;
     if (!socketRef.current.connected) {
-      // Fallback instantáneo a motor local si se pierde la conexión durante la configuración o partida con bots
-      localEngineRoomRef.current = true;
-      const res = applyGameAction(gameState, playerId, action);
-      if (res.error) setErrorToast(res.error);
-      else setGameState(res.state);
+      // No bifurcar permanentemente una sala online ante un microcorte de red móvil:
+      // reconectar el socket y avisar al jugador para mantener la sincronización con el servidor.
+      socketRef.current.connect();
+      setErrorToast('Conexión interrumpida temporalmente. Reconectando con la sala...');
       return;
     }
     if (joinedRoomRef.current !== gameState.roomCode) {

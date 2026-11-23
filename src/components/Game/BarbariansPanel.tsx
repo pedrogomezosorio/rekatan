@@ -3,6 +3,7 @@ import {
   ALL_RESOURCES,
   PLAYER_COLORS,
   RESOURCE_META,
+  createEmptyResources,
 } from '../../shared/constants';
 import {
   BARBARIANS_SCENARIOS,
@@ -44,7 +45,10 @@ interface BarbariansPanelProps {
   gameState: GameState;
   playerId: string;
   dispatchAction: (action: GameAction) => void;
-  onStartBoardMode: (mode: ActiveBarbariansBoardMode) => void;
+  onStartBoardMode: (
+    mode: ActiveBarbariansBoardMode,
+    options?: { camelBidSheep?: number; camelBidWheat?: number }
+  ) => void;
 }
 
 export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
@@ -60,6 +64,9 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
   const [selectedStealTargetId, setSelectedStealTargetId] = useState<string | null>(null);
   const [camelBidSheep, setCamelBidSheep] = useState(0);
   const [camelBidWheat, setCamelBidWheat] = useState(0);
+  const [treasonFromHex, setTreasonFromHex] = useState<string>('');
+  const [treasonToHex, setTreasonToHex] = useState<string>('');
+  const [swapResource, setSwapResource] = useState<ResourceType>('WOOD');
 
   useEffect(() => {
     const openHandler = () => setIsModalOpen(true);
@@ -772,11 +779,14 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                     disabled={!isMyBuildTurn || mb.camelsRemaining <= 0}
                     onClick={() => {
                       setIsModalOpen(false);
-                      onStartBoardMode('PLACE_CAMEL');
+                      onStartBoardMode('PLACE_CAMEL', {
+                        camelBidSheep,
+                        camelBidWheat,
+                      });
                     }}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
+                    className="px-4 py-2.5 min-h-[42px] rounded-lg bg-[#c89b3c] hover:bg-[#d6aa4c] disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-bold text-xs cursor-pointer"
                   >
-                    Seleccionar Camino de Camello en el Mapa
+                    Seleccionar camino de caravana en el mapa
                   </button>
                 </div>
               </div>
@@ -911,6 +921,42 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                     <span className="text-xs font-black uppercase tracking-wider text-amber-300">
                       Cartas de Desarrollo — Mercaderes y Bárbaros ({mb.scenarioDevDeck.length} en mazo)
                     </span>
+                    {pb.scenarioDevCards.some((c) => c.type === 'TB_KNIGHT' && !c.played) && (
+                      <button
+                        type="button"
+                        disabled={!isMyMainTurn || mb.edgeBarbarians.length === 0}
+                        onClick={() => {
+                          setIsModalOpen(false);
+                          onStartBoardMode('MOVE_EDGE_BARBARIAN');
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-[#245c7a] hover:bg-[#2d6f94] disabled:bg-stone-800 disabled:text-stone-500 text-white font-bold text-xs cursor-pointer"
+                      >
+                        Jugar Caballero Escolta (mover bárbaro)
+                      </button>
+                    )}
+                    {pb.wagonVertexId &&
+                      mb.edgeBarbarians.some((eid) =>
+                        s.board.edges[eid]?.vertexIds.includes(pb.wagonVertexId!)
+                      ) && (
+                        <button
+                          type="button"
+                          disabled={!isMyMainTurn}
+                          onClick={() => {
+                            const adjBarbEdge = mb.edgeBarbarians.find((eid) =>
+                              s.board.edges[eid]?.vertexIds.includes(pb.wagonVertexId!)
+                            );
+                            if (adjBarbEdge) {
+                              dispatchAction({
+                                type: 'MB_WAGON_EXPEL_BARBARIAN',
+                                edgeId: adjBarbEdge,
+                              });
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#9e2b25] hover:bg-[#b5352e] disabled:bg-stone-800 disabled:text-stone-500 text-white font-bold text-xs cursor-pointer"
+                        >
+                          Expulsar bárbaro junto al carromato (4+)
+                        </button>
+                      )}
                     <button
                       type="button"
                       disabled={
@@ -921,9 +967,9 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                         (me.resources.ORE || 0) < (BUILDING_COSTS.DEV_CARD.ORE || 1)
                       }
                       onClick={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-[#c89b3c] hover:bg-[#d6aa4c] disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-bold text-xs cursor-pointer"
                     >
-                      Comprar Carta (1🐑 1🌾 1⛰️)
+                      Comprar carta de caravana
                     </button>
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 items-start">
@@ -1053,6 +1099,77 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                     })}
                   </div>
                 </div>
+
+                {/* Reubicación de bárbaro costero (Traición) */}
+                {mb.coastalHexIds.some((hid) => (mb.hexBarbarians[hid] || 0) > 0) && (
+                  <div className="pt-3 border-t border-white/10 space-y-2">
+                    <div className="text-[11px] font-bold text-amber-200">
+                      Reubicar bárbaro costero (Traición)
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {mb.coastalHexIds
+                        .filter((hid) => (mb.hexBarbarians[hid] || 0) > 0)
+                        .map((hid) => {
+                          const h = s.board.hexes[hid];
+                          const active = treasonFromHex === hid;
+                          return (
+                            <button
+                              key={`from-${hid}`}
+                              type="button"
+                              onClick={() => setTreasonFromHex(hid)}
+                              className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${
+                                active
+                                  ? 'bg-[#c89b3c] border-[#f1d98c] text-stone-950'
+                                  : 'bg-[#140e0a] border-stone-700 text-stone-300'
+                              }`}
+                            >
+                              Origen {h?.numberToken ?? hid} ({mb.hexBarbarians[hid]} bárb.)
+                            </button>
+                          );
+                        })}
+                      {treasonFromHex &&
+                        mb.coastalHexIds
+                          .filter((hid) => hid !== treasonFromHex && (mb.hexBarbarians[hid] || 0) < 3)
+                          .slice(0, 6)
+                          .map((hid) => {
+                            const h = s.board.hexes[hid];
+                            const active = treasonToHex === hid;
+                            return (
+                              <button
+                                key={`to-${hid}`}
+                                type="button"
+                                onClick={() => setTreasonToHex(hid)}
+                                className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${
+                                  active
+                                    ? 'bg-emerald-600 border-emerald-300 text-white'
+                                    : 'bg-[#140e0a] border-stone-700 text-stone-300'
+                                }`}
+                              >
+                                → Destino {h?.numberToken ?? hid}
+                              </button>
+                            );
+                          })}
+                      {treasonFromHex && treasonToHex && (
+                        <button
+                          type="button"
+                          disabled={!isMyMainTurn}
+                          onClick={() => {
+                            dispatchAction({
+                              type: 'MB_TREASON_MOVE_BARBARIAN',
+                              fromHexId: treasonFromHex,
+                              toHexId: treasonToHex,
+                            });
+                            setTreasonFromHex('');
+                            setTreasonToHex('');
+                          }}
+                          className="px-3 py-1 rounded-md bg-[#9e2b25] hover:bg-[#b5352e] disabled:opacity-40 text-white text-xs font-bold cursor-pointer"
+                        >
+                          Mover bárbaro
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1159,20 +1276,18 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                       </div>
                       <p className="text-[11px] text-stone-300">
                         {mb.harborMasterPlayerId
-                          ? `Poseedor actual: ${
-                              s.players.find((p) => p.id === mb.harborMasterPlayerId)?.name || '—'
-                            }`
+                          ? `Poseedor actual: ${s.players.find((p) => p.id === mb.harborMasterPlayerId)?.name || '—'
+                          }`
                           : 'Nadie ha alcanzado aún los 3 puntos de puerto (1 por poblado costero en puerto, 2 por ciudad).'}
                       </p>
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {s.players.map((pl) => (
                           <span
                             key={pl.id}
-                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${
-                              mb.harborMasterPlayerId === pl.id
-                                ? 'bg-sky-900/60 border-sky-400 text-sky-100'
-                                : 'bg-[#140e0a] border-stone-800 text-stone-300'
-                            }`}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${mb.harborMasterPlayerId === pl.id
+                              ? 'bg-sky-900/60 border-sky-400 text-sky-100'
+                              : 'bg-[#140e0a] border-stone-800 text-stone-300'
+                              }`}
                           >
                             {pl.name}: {pl.barbarians?.harborPoints || 0} pts
                           </span>
@@ -1197,14 +1312,71 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                       <p className="text-[11px] text-stone-300">
                         Gasta 1 ficha (o 2 si vas empatado/por delante) para intercambiar a ciegas con tu rival o retirar al Ladrón al desierto.
                       </p>
-                      <button
-                        type="button"
-                        disabled={!isMyMainTurn || pb.tradeTokens < 1 || !s.board.robberHexId}
-                        onClick={() => dispatchAction({ type: 'MB_TRADE_TOKEN_DISMISS_ROBBER' })}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-black text-xs cursor-pointer"
-                      >
-                        Retirar Ladrón con Ficha de Comercio
-                      </button>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          disabled={!isMyMainTurn || pb.tradeTokens < 1 || !s.board.robberHexId}
+                          onClick={() => dispatchAction({ type: 'MB_TRADE_TOKEN_DISMISS_ROBBER' })}
+                          className="px-3 py-1.5 rounded-lg bg-[#c89b3c] hover:bg-[#d6aa4c] disabled:bg-stone-800 disabled:text-stone-500 text-stone-950 font-bold text-xs cursor-pointer"
+                        >
+                          Retirar ladrón
+                        </button>
+                        {(() => {
+                          const rival = s.players.find((pl) => pl.id !== me.id);
+                          const hasOwnedRes = (me.resources[swapResource] || 0) >= 1;
+                          return (
+                            <>
+                              <div className="flex items-center gap-1">
+                                {ALL_RESOURCES.map((res) => (
+                                  <button
+                                    key={`swap-${res}`}
+                                    type="button"
+                                    disabled={(me.resources[res] || 0) < 1}
+                                    onClick={() => setSwapResource(res)}
+                                    className={`p-1 rounded-md border cursor-pointer disabled:opacity-30 ${
+                                      swapResource === res
+                                        ? 'border-[#c89b3c] bg-[#2a1f16]'
+                                        : 'border-stone-800 bg-[#140e0a]'
+                                    }`}
+                                    title={`Ofrecer ${RESOURCE_META[res].name}`}
+                                  >
+                                    <ResourceIcon resource={res} size={15} />
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                disabled={!isMyMainTurn || pb.tradeTokens < 1 || !rival || !hasOwnedRes}
+                                onClick={() => {
+                                  if (!rival) return;
+                                  dispatchAction({
+                                    type: 'MB_TRADE_TOKEN_FORCE_SWAP',
+                                    targetPlayerId: rival.id,
+                                    giveResources: {
+                                      ...createEmptyResources(),
+                                      [swapResource]: 1,
+                                    },
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-[#245c7a] hover:bg-[#2d6f94] disabled:bg-stone-800 disabled:text-stone-500 text-white font-bold text-xs cursor-pointer"
+                              >
+                                Intercambio forzado (1 carta)
+                              </button>
+                            </>
+                          );
+                        })()}
+                        <button
+                          type="button"
+                          disabled={
+                            !isMyMainTurn ||
+                            !me.devCards.some((c) => c.type === 'KNIGHT' && !c.played)
+                          }
+                          onClick={() => dispatchAction({ type: 'MB_DISCARD_KNIGHT_FOR_TOKENS' })}
+                          className="px-3 py-1.5 rounded-lg bg-[#231912] hover:bg-[#312317] border border-[#c89b3c]/40 disabled:opacity-40 text-amber-100 font-bold text-xs cursor-pointer"
+                        >
+                          Descartar Caballero (+2 fichas)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

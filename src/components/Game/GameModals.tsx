@@ -391,12 +391,12 @@ export const ActiveTradeFloatingBanner: React.FC<{
                   <span>{completedTrade.proposerName}</span>
                 </span>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {ALL_RESOURCES.map(
+                  {ALL_TRADE_CARDS.map(
                     (r) =>
-                      completedTrade.offered[r] > 0 && (
+                      (completedTrade.offered[r] || 0) > 0 && (
                         <span
                           key={r}
-                          className="px-2 py-0.5 rounded-lg bg-emerald-950/90 border border-emerald-400/50 text-emerald-100 text-xs font-black inline-flex items-center gap-1 shadow-sm"
+                          className="px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-400/45 text-emerald-100 text-xs font-bold inline-flex items-center gap-1 shadow-sm tabular-nums"
                         >
                           <span>{completedTrade.offered[r]}x</span>
                           <ResourceIcon resource={r} size={14} />
@@ -406,18 +406,18 @@ export const ActiveTradeFloatingBanner: React.FC<{
                 </div>
               </div>
 
-              <div className="px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-black flex items-center justify-center shrink-0">
+              <div className="px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold flex items-center justify-center shrink-0">
                 <ArrowLeftRight className="w-4 h-4" />
               </div>
 
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <div className="flex items-center gap-1 flex-wrap">
-                  {ALL_RESOURCES.map(
+                  {ALL_TRADE_CARDS.map(
                     (r) =>
-                      completedTrade.requested[r] > 0 && (
+                      (completedTrade.requested[r] || 0) > 0 && (
                         <span
                           key={r}
-                          className="px-2 py-0.5 rounded-lg bg-sky-950/90 border border-sky-400/50 text-sky-100 text-xs font-black inline-flex items-center gap-1 shadow-sm"
+                          className="px-2 py-0.5 rounded-md bg-sky-950/90 border border-sky-400/45 text-sky-100 text-xs font-bold inline-flex items-center gap-1 shadow-sm tabular-nums"
                         >
                           <span>{completedTrade.requested[r]}x</span>
                           <ResourceIcon resource={r} size={14} />
@@ -502,12 +502,12 @@ export const ActiveTradeFloatingBanner: React.FC<{
                   <span className="text-[10px] font-extrabold uppercase text-emerald-400 mr-1">
                     Da:
                   </span>
-                  {ALL_RESOURCES.map(
+                  {ALL_TRADE_CARDS.map(
                     (r) =>
-                      tOffer.offer[r] > 0 && (
+                      (tOffer.offer[r] || 0) > 0 && (
                         <span
                           key={r}
-                          className="px-2 py-1 rounded-lg bg-emerald-950/90 border border-emerald-500/50 text-emerald-100 text-xs font-black flex items-center gap-1"
+                          className="px-2 py-1 rounded-md bg-emerald-950/90 border border-emerald-500/45 text-emerald-100 text-xs font-bold flex items-center gap-1 tabular-nums"
                         >
                           <span>{tOffer.offer[r]}x</span>
                           <ResourceIcon resource={r} size={14} />
@@ -523,12 +523,12 @@ export const ActiveTradeFloatingBanner: React.FC<{
                   <span className="text-[10px] font-extrabold uppercase text-amber-400 mr-1">
                     Pide:
                   </span>
-                  {ALL_RESOURCES.map(
+                  {ALL_TRADE_CARDS.map(
                     (r) =>
-                      tOffer.request[r] > 0 && (
+                      (tOffer.request[r] || 0) > 0 && (
                         <span
                           key={r}
-                          className="px-2 py-1 rounded-lg bg-amber-950/90 border border-amber-500/50 text-amber-100 text-xs font-black flex items-center gap-1"
+                          className="px-2 py-1 rounded-md bg-amber-950/90 border border-amber-500/45 text-amber-100 text-xs font-bold flex items-center gap-1 tabular-nums"
                         >
                           <span>{tOffer.request[r]}x</span>
                           <ResourceIcon resource={r} size={14} />
@@ -677,7 +677,7 @@ export const RobberDiscardModal: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 max-h-[55dvh] overflow-y-auto pr-0.5">
           {(me.citiesKnights ? ALL_TRADE_CARDS : ALL_RESOURCES).map((res) => {
             const owned = (me.resources[res] || 0);
             const picked = selected[res] || 0;
@@ -685,32 +685,34 @@ export const RobberDiscardModal: React.FC<{
             return (
               <div
                 key={res}
-                className={`p-3 rounded-2xl border text-center flex flex-col items-center justify-between gap-2 ${
+                className={`p-3 rounded-lg border text-center flex flex-col items-center justify-between gap-2 ${
                   picked > 0
-                    ? 'bg-red-950/50 border-red-400 text-amber-100'
-                    : 'bg-[#140e0a] border-stone-800 text-stone-300'
+                    ? 'bg-red-950/60 border-red-400/80 text-amber-100'
+                    : 'bg-[#1a130d] border-stone-800 text-stone-300'
                 }`}
               >
                 <ResourceIcon resource={res} size={28} />
                 <div className="text-xs font-bold">{meta.name}</div>
-                <div className="text-[10px] text-stone-400">Tienes: {owned}</div>
+                <div className="text-[11px] text-stone-400 tabular-nums">Tienes: {owned}</div>
                 <div className="flex items-center gap-1.5 mt-1">
                   <button
                     type="button"
                     onClick={() => adjust(res, -1)}
                     disabled={picked <= 0}
-                    className="w-6 h-6 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-black text-xs cursor-pointer"
+                    aria-label={`Quitar 1 ${meta.name}`}
+                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-sm cursor-pointer flex items-center justify-center"
                   >
-                    -
+                    −
                   </button>
-                  <span className="w-5 text-center font-mono text-sm font-black text-red-300">
+                  <span className="w-6 text-center font-mono text-sm font-bold text-red-300 tabular-nums">
                     {picked}
                   </span>
                   <button
                     type="button"
                     onClick={() => adjust(res, 1)}
                     disabled={picked >= owned || currentSum >= target}
-                    className="w-6 h-6 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-black text-xs cursor-pointer"
+                    aria-label={`Añadir 1 ${meta.name}`}
+                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-sm cursor-pointer flex items-center justify-center"
                   >
                     +
                   </button>

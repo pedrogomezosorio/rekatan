@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --surface-table: #110c08;
+  --surface-wood: #1c140e;
+  --surface-elevated: #261c14;
+  --accent-brass: #c89b3c;
+  --accent-terracotta: #b84a27;
+  --accent-sea: #245c7a;
+}
+
 @layer base {
   html, body, #root {
     height: 100%;
@@ -9,12 +18,14 @@
     overscroll-behavior: none;
     -webkit-touch-callout: none;
     touch-action: manipulation;
+    background-color: var(--surface-table);
   }
 
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     user-select: none;
     -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
   }
 
   h1, h2, .font-display {
@@ -22,410 +33,532 @@
   }
 }
 
-/* Desktop PC / Mac defaults: single-row tablet view is hidden, desktop multi-row card is displayed */
-.tablet-player-single-row {
-  display: none !important;
-}
-.desktop-player-card-content {
-  display: block !important;
+/* ============================================================================
+   Adaptive Performance Tiers (Automatic & Manual via PerformanceContext)
+   Desktop defaults to 'full' so PC/Mac experience remains completely intact.
+   ============================================================================ */
+html[data-perf-tier='balanced'] .backdrop-blur-xl,
+html[data-perf-tier='balanced'] .backdrop-blur-2xl,
+html[data-perf-tier='balanced'] .backdrop-blur-md,
+html[data-perf-tier='balanced'] .backdrop-blur-sm,
+html[data-perf-tier='lite'] .backdrop-blur-xl,
+html[data-perf-tier='lite'] .backdrop-blur-2xl,
+html[data-perf-tier='lite'] .backdrop-blur-md,
+html[data-perf-tier='lite'] .backdrop-blur-sm {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
 
-/* Tablet Touchscreen Optimizations (pointer: coarse keeps desktop PC/Mac 100% untouched) */
-@media (pointer: coarse) {
+html[data-perf-tier='lite'] .animate-pulse,
+html[data-perf-tier='lite'] .animate-bounce,
+html[data-perf-tier='lite'] .animate-ping {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping {
+    animation: none !important;
+  }
+}
+
+/* Desktop PC / Mac defaults: single-row tablet view is hidden, desktop multi-row card is displayed */
+.tablet-player-single-row {
+  display: none;
+}
+.desktop-player-card-content {
+  display: block;
+}
+
+/* ============================================================================
+   Tablet Touchscreen Layout (768px+ coarse pointers; PC/Mac fine pointers untouched)
+   ============================================================================ */
+@media (pointer: coarse) and (min-width: 768px) {
   button, [role="button"], a {
     touch-action: manipulation;
   }
 
-  /* 1. Header Bar */
   .tablet-header {
-    height: 64px !important;
-    padding-left: 1.25rem !important;
-    padding-right: 1.25rem !important;
+    min-height: 60px;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
   }
   .tablet-header-title {
-    font-size: 1.35rem !important;
+    font-size: 1.2rem;
   }
   .tablet-header-badge {
-    font-size: 0.85rem !important;
-    padding: 0.35rem 0.75rem !important;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.65rem;
   }
   .tablet-header-instruction {
-    font-size: 0.875rem !important;
-    padding: 0.5rem 1rem !important;
-    min-height: 42px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.9rem;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .tablet-header-btn {
-    min-height: 44px !important;
-    padding: 0.55rem 1rem !important;
-    font-size: 0.875rem !important;
-    gap: 0.5rem !important;
-  }
-  .tablet-header-btn svg {
-    width: 1.2rem !important;
-    height: 1.2rem !important;
+    min-height: 44px;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.85rem;
+    gap: 0.45rem;
   }
 
-  /* 2. Right Sidebar (Player Profiles, Bank Resources, Chronicles) */
   .tablet-sidebar {
-    width: 320px !important;
-  }
-  @media (min-width: 768px) {
-    .tablet-sidebar {
-      width: 340px !important;
-    }
+    width: 300px;
   }
 
-  /* Physical Development Deck on Tablet (Immediate upper-left of player profiles) */
   .tablet-dev-deck-container {
-    top: 10px !important;
-    right: 342px !important;
-  }
-  @media (min-width: 768px) {
-    .tablet-dev-deck-container {
-      right: 362px !important;
-    }
+    top: 10px;
+    right: 320px;
   }
 
-  /* Player Casillero List (Supports both Detailed 4-player and Compact 5-6 player modes) */
   .tablet-player-list {
-    display: flex !important;
-    flex-direction: column !important;
-    overflow-y: auto !important;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
   }
   .tablet-player-list-compact {
-    gap: 0.3rem !important;
+    gap: 0.3rem;
   }
 
-  /* A. Compact Single-Line Player Profile (Only when > 4 players on Tablet) */
   .tablet-player-card-compact .tablet-player-single-row {
-    display: flex !important;
+    display: flex;
   }
-  .tablet-player-card-compact .desktop-player-card-content {
-    display: none !important;
-  }
+  .tablet-player-card-compact .desktop-player-card-content,
   .tablet-player-card-compact .profile-card-fan {
-    display: none !important;
+    display: none;
   }
   .tablet-player-card-compact {
-    padding: 0.35rem 0.6rem !important;
-    border-radius: 0.85rem !important;
-    border-width: 1.5px !important;
-    min-height: 40px !important;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.75rem;
+    min-height: 42px;
   }
 
-  /* B. Detailed Full Player Profile (When <= 4 players on Tablet, matches PC layout with touch-friendly sizes) */
   .tablet-player-card:not(.tablet-player-card-compact) {
-    padding: 0.65rem 0.75rem !important;
-    border-radius: 1.15rem !important;
-    margin-bottom: 0.35rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-single-row {
-    display: none !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .desktop-player-card-content {
-    display: block !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar {
-    width: 2.3rem !important;
-    height: 2.3rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar svg,
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-avatar img {
-    width: 1.5rem !important;
-    height: 1.5rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-name {
-    font-size: 0.9rem !important;
-    max-width: 140px !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-status {
-    font-size: 0.75rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-vp {
-    font-size: 0.9rem !important;
-    padding: 0.25rem 0.65rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-strip {
-    margin-top: 0.45rem !important;
-    padding-top: 0.35rem !important;
-    gap: 0.35rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-box {
-    padding: 0.35rem 0.45rem !important;
-    min-height: 30px !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-label {
-    font-size: 0.65rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-value {
-    font-size: 0.85rem !important;
-  }
-  .tablet-player-card:not(.tablet-player-card-compact) .tablet-player-stat-icon {
-    width: 0.8rem !important;
-    height: 0.8rem !important;
+    padding: 0.6rem 0.7rem;
+    border-radius: 1rem;
+    margin-bottom: 0.3rem;
   }
 
-  /* Compact Bank Resources Box (Reduced size to give vertical room for 6 profiles) */
-  .tablet-bank-box {
-    border-radius: 0.95rem !important;
-    margin-top: 0.35rem !important;
-  }
-  .tablet-bank-header {
-    font-size: 0.725rem !important;
-    margin-bottom: 0.25rem !important;
-    padding: 0.2rem 0.35rem !important;
-  }
-  .tablet-bank-slot {
-    padding: 0.25rem 0.2rem !important;
-    border-radius: 0.5rem !important;
-  }
-  .tablet-bank-slot img, .tablet-bank-slot svg {
-    width: 1.05rem !important;
-    height: 1.05rem !important;
-  }
-  .tablet-bank-num {
-    font-size: 0.85rem !important;
-  }
-  .tablet-bank-name {
-    font-size: 0.625rem !important;
-    margin-top: 0.1rem !important;
-  }
-
-  /* Slim Island Chronicles Trigger */
-  .tablet-chronicle-btn {
-    padding: 0.35rem 0.65rem !important;
-    font-size: 0.775rem !important;
-    min-height: 32px !important;
-  }
-  .tablet-chronicle-btn svg {
-    width: 0.95rem !important;
-    height: 0.95rem !important;
-  }
-  .tablet-chronicle-badge {
-    font-size: 0.7rem !important;
-  }
-  .tablet-chronicle-log {
-    font-size: 0.75rem !important;
-    padding: 0.35rem 0.5rem !important;
-    line-height: 1.3 !important;
-  }
-
-  /* 3. Bottom-Left Floating Action Buttons */
   .tablet-action-box {
-    width: 240px !important;
-    padding: 0.65rem !important;
-    gap: 0.5rem !important;
-    border-radius: 1.25rem !important;
-    opacity: 1 !important;
-  }
-  @media (min-width: 640px) {
-    .tablet-action-box {
-      width: 260px !important;
-    }
+    width: 244px;
+    padding: 0.6rem;
+    gap: 0.45rem;
+    border-radius: 1rem;
   }
   .tablet-action-btn {
-    min-height: 48px !important;
-    padding: 0.7rem 1rem !important;
-    font-size: 0.9rem !important;
-  }
-  .tablet-action-btn svg {
-    width: 1.25rem !important;
-    height: 1.25rem !important;
+    min-height: 46px;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.875rem;
   }
 
-  /* Camera Zoom Controls (Positioned immediately to the right of the action box) */
-  .tablet-zoom-controls {
-    left: 260px !important;
-    bottom: 12px !important;
-  }
-  @media (min-width: 640px) {
-    .tablet-zoom-controls {
-      left: 280px !important;
-      bottom: 12px !important;
-    }
-  }
-
-  /* 4. Bottom Footer Bar & Pass Turn */
   .tablet-footer {
-    height: 84px !important;
-    padding-left: 1.25rem !important;
-    padding-right: 1.25rem !important;
+    height: 82px;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
   .tablet-end-turn-btn {
-    min-height: 52px !important;
-    padding: 0.85rem 1.85rem !important;
-    font-size: 0.975rem !important;
-  }
-  .tablet-end-turn-btn svg {
-    width: 1.3rem !important;
-    height: 1.3rem !important;
+    min-height: 48px;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
   }
 
-  /* 5. Modals & Drawers on Tablet */
-  .tablet-modal-title {
-    font-size: 1.35rem !important;
-  }
-  .tablet-modal-sub {
-    font-size: 0.85rem !important;
-  }
   .tablet-modal-btn {
-    min-height: 48px !important;
-    font-size: 0.95rem !important;
-    padding: 0.75rem 1.25rem !important;
+    min-height: 46px;
+    font-size: 0.92rem;
+    padding: 0.7rem 1.15rem;
   }
   .tablet-drawer {
-    width: 412px !important;
-    max-width: 92vw !important;
-    max-height: calc(100vh - 120px) !important;
-    overflow-y: auto !important;
-    padding: 0.75rem 0.85rem !important;
-    border-radius: 1.25rem !important;
-    opacity: 1 !important;
-  }
-  .tablet-drawer::-webkit-scrollbar {
-    width: 4px;
-  }
-  .tablet-drawer::-webkit-scrollbar-thumb {
-    background: rgba(212, 175, 55, 0.4);
-    border-radius: 4px;
+    width: 412px;
+    max-width: 92vw;
+    max-height: calc(100dvh - 130px);
+    overflow-y: auto;
   }
   .tablet-drawer-item {
-    min-height: 48px !important;
-    padding: 0.5rem 0.65rem !important;
-    font-size: 0.825rem !important;
-    border-radius: 0.85rem !important;
-    gap: 0.5rem !important;
-    opacity: 1 !important;
-  }
-  .tablet-drawer-item .w-10 {
-    width: 2.1rem !important;
-    height: 2.1rem !important;
-  }
-  .tablet-drawer-item .w-10 svg {
-    width: 1.1rem !important;
-    height: 1.1rem !important;
-  }
-  .tablet-cost-badge {
-    min-width: 29px !important;
-    padding: 0.15rem 0.3rem !important;
-    border-radius: 0.6rem !important;
-  }
-  .tablet-cost-badge img,
-  .tablet-cost-badge svg {
-    width: 15px !important;
-    height: 15px !important;
+    min-height: 48px;
   }
 
-  /* 6. Material Flight Animations Target Glow on Tablet */
   .tablet-flight-glow {
-    width: 300px !important;
-    height: 42px !important;
-    border-radius: 0.75rem !important;
+    width: 280px;
+    height: 42px;
+    border-radius: 0.75rem;
   }
   .tablet-flight-glow-detailed {
-    width: 280px !important;
-    height: 76px !important;
-    border-radius: 1.15rem !important;
+    width: 270px;
+    height: 76px;
+    border-radius: 1rem;
   }
 }
 
-/* Custom thin scrollbar for game logs and sidebars */
+/* Custom thin scrollbar (warm walnut & antique brass) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(17, 12, 8, 0.7);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: rgba(200, 155, 60, 0.35);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.6);
+  background: rgba(200, 155, 60, 0.65);
 }
 
-/* Layout follows viewport width as well as pointer type: phones and narrow
-   desktop windows must keep the game controls inside the visible board. */
+/* ============================================================================
+   Tablet & Narrow Window Responsive Breakpoint (<= 1023px)
+   ============================================================================ */
 @media (max-width: 1023px) {
-  .room-lobby { height: auto; min-height: 100dvh; overflow: visible; }
-  .room-lobby-header { height: auto; min-height: 64px; flex-wrap: wrap; gap: 10px; padding: 12px; }
-  .room-lobby-header > div { flex-wrap: wrap; gap: 8px; }
-  .room-lobby-grid { display: flex; flex-direction: column; overflow: visible; }
-  .room-lobby-options { overflow: visible; border-right: 0; }
-  .room-lobby-board { order: -1; flex: none; height: 360px; min-height: 280px; border-bottom: 1px solid #334155; }
-  .room-lobby-board > .flex-1 { min-height: 0; }
-  .game-screen .tablet-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; height: auto !important; padding: 8px 12px !important; gap: 6px; }
-  .game-screen .tablet-header > div:first-child { gap: 8px; min-width: 0; }
-  .game-screen .tablet-header > div:first-child > :nth-child(n+3) { display: none; }
-  .game-screen .tablet-header-instruction { grid-column: 1 / -1; grid-row: 2; max-width: 100%; font-size: 12px !important; padding: 6px 10px !important; min-height: 30px !important; }
+  .room-lobby {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .room-lobby-header {
+    height: auto;
+    min-height: 60px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+  }
+  .room-lobby-header > div {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .room-lobby-grid {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .room-lobby-options {
+    overflow: visible;
+    border-right: 0;
+  }
+  .room-lobby-board {
+    order: -1;
+    flex: none;
+    height: min(46dvh, 380px);
+    min-height: 260px;
+    border-bottom: 1px solid rgba(200, 155, 60, 0.25);
+  }
+  .room-lobby-board > .flex-1 {
+    min-height: 0;
+  }
+
+  .game-screen .tablet-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    height: auto;
+    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+  .game-screen .tablet-header > div:first-child {
+    gap: 8px;
+    min-width: 0;
+  }
+  .game-screen .tablet-header > div:first-child > :nth-child(n+3) {
+    display: none;
+  }
+  .game-screen .tablet-header-instruction {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    max-width: 100%;
+    font-size: 12px;
+    padding: 6px 10px;
+    min-height: 30px;
+  }
+
+  /* When sidebar is collapsed on tablets, keep dice/dev deck snug near right edge */
+  .game-screen .tablet-dev-deck-container {
+    top: 52px;
+    right: 12px;
+  }
 }
 
+/* ============================================================================
+   Mobile Portrait & Small Touch Screens (<= 767px)
+   Prioritizes full-bleed map, thumb-zone controls, and zero overlapping HUDs.
+   ============================================================================ */
 @media (max-width: 767px) {
-  .main-menu select, .main-menu input { font-size: 16px; }
-  .main-menu { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  .game-screen { width: 100%; }
-  .tablet-header { height: auto !important; min-height: 82px; padding: 6px 8px !important; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px !important; }
-  .tablet-header > div:first-child { gap: 6px; min-width: 0; }
-  .tablet-header > div:first-child > :nth-child(n+3) { display: none; }
-  .tablet-header-title { font-size: 14px !important; }
-  .tablet-header-badge { font-size: 10px !important; padding: 3px 5px !important; }
-  .tablet-header > div:last-child { gap: 4px; }
-  .tablet-header-btn { min-height: 38px !important; min-width: 36px; padding: 7px !important; font-size: 11px !important; gap: 4px !important; }
-  .tablet-header-btn svg { width: 16px !important; height: 16px !important; }
-  .tablet-header-btn span { display: none !important; }
-  .tablet-header-instruction { grid-column: 1 / -1; grid-row: 2; min-height: 28px !important; max-height: 42px; padding: 5px 8px !important; font-size: 11px !important; line-height: 1.3; white-space: normal; max-width: 100%; }
-  .game-turn-timer { padding: 4px; gap: 2px; }
-  .game-turn-timer > svg, .game-turn-timer .h-1\.5, .game-turn-timer .flex.justify-between > span:first-child { display: none; }
-  .game-turn-timer .w-20 { width: 32px; }
-  .game-turn-timer .flex.justify-between { justify-content: center; margin: 0; }
-  .tablet-sidebar { width: min(290px, calc(100vw - 24px)) !important; top: 52px; bottom: 6px; }
-  .tablet-player-list { overflow-y: auto !important; }
-  .profile-card-fan { display: none; }
-  .game-players-toggle { min-height: 40px; padding: 8px; font-size: 11px; }
-  .cities-knights-hud { top: 8px; left: 8px; width: min(235px, calc(100vw - 118px)); border-radius: 12px; padding: 10px; }
-  .cities-knights-hud > button { min-height: 24px; font-size: 11px; gap: 6px; }
-  .cities-knights-hud .ck-mobile-summary { display: block; }
-  .cities-knights-hud .ck-hud-details { display: none; }
-  .cities-knights-hud > .ck-special-build { display: none; }
-  .cities-knights-dialog { padding: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
-  .cities-knights-dialog > div { max-height: calc(100dvh - 24px); padding: 12px; border-radius: 16px; }
-  .cities-knights-dialog h2 { font-size: 16px; }
-  .cities-knights-dialog select, .cities-knights-dialog input { max-width: 100%; font-size: 16px; }
-  .cities-knights-dialog button { min-height: 42px; }
-  .cities-knights-dialog .ck-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
-  .cities-knights-dialog .ck-tabs button { padding: 8px 4px; font-size: 11px; }
-  .game-dice-hud { top: 58px !important; right: 8px !important; }
-  .has-cities-knights .game-dice-hud { display: none; }
-  .game-build-controls { left: 8px; bottom: 8px; }
-  .tablet-action-box { width: min(44vw, 180px) !important; padding: 5px !important; gap: 4px !important; border-radius: 12px !important; opacity: 1 !important; }
-  .tablet-action-btn { min-height: 42px !important; padding: 8px !important; font-size: 11px !important; }
-  .tablet-action-btn svg { width: 16px !important; height: 16px !important; }
-  .tablet-zoom-controls { left: auto !important; right: 8px !important; bottom: 8px !important; padding: 4px; gap: 0; }
-  .tablet-zoom-controls button { min-width: 36px; min-height: 40px; padding: 8px; }
-  .tablet-footer { height: auto !important; min-height: 96px; padding: 5px 8px max(5px, env(safe-area-inset-bottom)) !important; flex-wrap: wrap; gap: 4px; }
-  .tablet-footer > .hidden.sm\:block { display: none; }
-  .game-resource-hand { min-width: 0; flex: 0 0 100%; width: 100%; }
-  .game-desktop-hand { display: none; }
-  .game-mobile-hand { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
-  .game-end-turn { flex: 0 0 100%; width: 100%; min-width: 0; justify-content: space-between; gap: 6px; }
-  .game-mobile-turn { display: block; }
-  .tablet-end-turn-btn { min-height: 40px !important; padding: 8px 12px !important; font-size: 12px !important; }
-  .game-screen .grid-cols-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .game-screen {
+    width: 100%;
+    height: 100dvh;
+  }
+
+  .game-screen .tablet-header {
+    min-height: 76px;
+    padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+    gap: 5px;
+  }
+  .tablet-header-title {
+    font-size: 14px;
+  }
+  .tablet-header-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  .tablet-header > div:last-child {
+    gap: 4px;
+  }
+  .tablet-header-btn {
+    min-height: 40px;
+    min-width: 40px;
+    padding: 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .tablet-header-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .tablet-header-btn span {
+    display: none;
+  }
+  .game-screen .tablet-header-instruction {
+    min-height: 26px;
+    max-height: 42px;
+    padding: 4px 8px;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: normal;
+  }
+
+  .game-turn-timer {
+    padding: 4px;
+    gap: 2px;
+  }
+  .game-turn-timer > svg,
+  .game-turn-timer .h-1\.5,
+  .game-turn-timer .flex.justify-between > span:first-child {
+    display: none;
+  }
+  .game-turn-timer .w-20 {
+    width: 34px;
+  }
+  .game-turn-timer .flex.justify-between {
+    justify-content: center;
+    margin: 0;
+  }
+
+  /* Slide-over Players / Bank / Chronicles Drawer */
+  .game-screen .tablet-sidebar {
+    width: min(320px, calc(100vw - 16px));
+    top: 52px;
+    bottom: 8px;
+    right: 8px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .tablet-player-list {
+    overflow-y: auto;
+  }
+  .profile-card-fan {
+    display: none;
+  }
+  .game-players-toggle {
+    min-height: 42px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  /* Compact Expansion HUD Pill (top-left, NEVER stretched vertically) */
+  .game-screen .cities-knights-hud {
+    top: 8px;
+    bottom: auto;
+    left: 8px;
+    width: min(215px, calc(100vw - 122px));
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .game-screen .cities-knights-hud .ck-mobile-summary {
+    display: block;
+  }
+  .game-screen .cities-knights-hud .ck-hud-details,
+  .game-screen .cities-knights-hud > .ck-special-build {
+    display: none;
+  }
+
+  /* Expansion Modals on Mobile: Full-bleed comfortable sheets */
+  .cities-knights-dialog {
+    padding: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .cities-knights-dialog > div {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 14px;
+    border-radius: 16px;
+  }
+  .cities-knights-dialog h2 {
+    font-size: 16px;
+  }
+  .cities-knights-dialog input {
+    max-width: 100%;
+    font-size: 16px;
+  }
+  .cities-knights-dialog button {
+    min-height: 42px;
+  }
+  .cities-knights-dialog .ck-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .cities-knights-dialog .ck-tabs button {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+
+  /* Dice, Dev Deck & Catan Events HUD stays visible across ALL expansions (compact right column) */
+  .game-screen .game-dice-hud {
+    top: 54px;
+    right: 8px;
+    gap: 6px;
+    transform: scale(0.84);
+    transform-origin: top right;
+  }
+
+  /* Bottom-Left Thumb Controls & Fixed Bottom-Sheet Drawers */
+  .game-build-controls {
+    left: 8px;
+    bottom: 8px;
+  }
+  .game-screen .tablet-action-box {
+    width: min(47vw, 184px);
+    padding: 5px;
+    gap: 4px;
+    border-radius: 12px;
+  }
+  .game-screen .tablet-action-btn {
+    min-height: 42px;
+    padding: 8px 9px;
+    font-size: 11px;
+  }
+  .game-screen .tablet-action-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* Drawers open cleanly as bottom sheets spanning viewport width on phones */
+  .game-screen .tablet-drawer {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(104px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: min(68dvh, 460px);
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  /* Zoom Controls tucked bottom-right opposite action box */
+  .game-screen .tablet-zoom-controls {
+    left: auto;
+    right: 8px;
+    bottom: 8px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .game-screen .tablet-zoom-controls button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+  }
+
+  /* Bottom Resource & End Turn Thumb Bar */
+  .game-screen .tablet-footer {
+    height: auto;
+    min-height: 96px;
+    padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .tablet-footer > .hidden.sm\:block {
+    display: none;
+  }
+  .game-resource-hand {
+    min-width: 0;
+    flex: 0 0 100%;
+    width: 100%;
+  }
+  .game-desktop-hand {
+    display: none;
+  }
+  .game-mobile-hand {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .game-end-turn {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .game-mobile-turn {
+    display: block;
+  }
+  .game-screen .tablet-end-turn-btn {
+    min-height: 42px;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
 }
 
-@media (max-height: 520px) and (max-width: 1023px) {
-  .game-screen .tablet-header { min-height: 44px; }
-  .game-screen .tablet-header-instruction { display: none !important; }
-  .game-screen .tablet-footer { min-height: 64px; }
-  .game-screen .cities-knights-hud { padding: 6px; }
-  .game-screen .ck-hud-details { display: none; }
-  .game-screen .ck-mobile-summary { display: block; }
+/* ============================================================================
+   Mobile Landscape (short height <= 500px, width < 960px)
+   Maximizes playable board height for large 63-96 hex expansion maps.
+   ============================================================================ */
+@media (max-height: 500px) and (max-width: 960px) {
+  .game-screen .tablet-header {
+    min-height: 44px;
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-bottom: 4px;
+  }
+  .game-screen .tablet-header-instruction {
+    display: none;
+  }
+  .game-screen .tablet-footer {
+    min-height: 58px;
+    flex-wrap: nowrap;
+    padding-top: 4px;
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .game-resource-hand {
+    flex: 1 1 auto;
+    width: auto;
+  }
+  .game-end-turn {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  .game-mobile-turn {
+    display: none;
+  }
+  .game-screen .cities-knights-hud {
+    top: 6px;
+    bottom: auto;
+    left: 6px;
+    padding: 6px 8px;
+  }
+  .game-screen .ck-hud-details {
+    display: none;
+  }
+  .game-screen .tablet-drawer {
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    max-height: 72dvh;
+  }
 }
-

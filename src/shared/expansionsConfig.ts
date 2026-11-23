@@ -133,31 +133,31 @@ export const BARBARIANS_VARIANTS_CATALOG: Array<{
   badge: string;
   description: string;
 }> = [
-  {
-    key: 'friendlyRobber',
-    title: 'Ladrón piadoso',
-    badge: 'Variante Oficial',
-    description: 'No se puede mover el ladrón a un hexágono donde tenga poblado o ciudad un jugador con 2 o menos Puntos de Victoria públicos.',
-  },
-  {
-    key: 'catanEventsDeck',
-    title: 'Eventos en Catán',
-    badge: 'Mazo de 37 Cartas',
-    description: 'Sustituye la tirada de dados por el mazo estadístico de Eventos (Terremoto, Epidemia, Año abundante, Torneo, Buenos vecinos, Nochevieja).',
-  },
-  {
-    key: 'harborMaster',
-    title: 'El capitán del puerto',
-    badge: '+2 PV Especial',
-    description: '1 punto de puerto por poblado en puerto y 2 por ciudad en puerto. El primero con 3+ puntos gana «Capitán del puerto» (+2 PV). Aumenta la meta en +1 PV.',
-  },
-  {
-    key: 'catanForTwo',
-    title: 'Catán para dos',
-    badge: 'Modo 2 Jugadores',
-    description: '20 fichas de comercio (obtenidas en costa/desierto) para forzar comercio obligatorio de 2 cartas o enviar al ladrón al desierto.',
-  },
-];
+    {
+      key: 'friendlyRobber',
+      title: 'Ladrón piadoso',
+      badge: 'Variante Oficial',
+      description: 'No se puede mover el ladrón a un hexágono donde tenga poblado o ciudad un jugador con 2 o menos Puntos de Victoria públicos.',
+    },
+    {
+      key: 'catanEventsDeck',
+      title: 'Eventos en Catán',
+      badge: 'Mazo de 37 Cartas',
+      description: 'Sustituye la tirada de dados por el mazo estadístico de Eventos (Terremoto, Epidemia, Año abundante, Torneo, Buenos vecinos, Nochevieja).',
+    },
+    {
+      key: 'harborMaster',
+      title: 'El capitán del puerto',
+      badge: '+2 PV Especial',
+      description: '1 punto de puerto por poblado en puerto y 2 por ciudad en puerto. El primero con 3+ puntos gana «Capitán del puerto» (+2 PV). Aumenta la meta en +1 PV.',
+    },
+    {
+      key: 'catanForTwo',
+      title: 'Catán para dos',
+      badge: 'Modo 2 Jugadores',
+      description: '20 fichas de comercio (obtenidas en costa/desierto) para forzar comercio obligatorio de 2 cartas o enviar al ladrón al desierto.',
+    },
+  ];
 
 export interface WagonLevelSpec {
   level: 1 | 2 | 3 | 4 | 5;
@@ -741,110 +741,110 @@ export function createEmptyExplorersPiratesPlayer(): ExplorersPiratesPlayer {
 // ============================================================================
 
 export const MB_TILE_ASSETS = {
-  LAKE: '/assets/barbarians/tiles/lake.png',
-  RIVER_BRICK: '/assets/barbarians/tiles/river_brick.png',
-  RIVER_SHEEP: '/assets/barbarians/tiles/river_sheep.png',
-  SWAMP_UPPER: '/assets/barbarians/tiles/swamp_upper.png',
-  SWAMP_LOWER: '/assets/barbarians/tiles/swamp_lower.png',
-  CASTLE_ATTACK: '/assets/barbarians/tiles/castle_barbarian_attack.png',
-  DEST_CASTLE: '/assets/barbarians/tiles/dest_castle.png',
-  DEST_GLASSWORKS: '/assets/barbarians/tiles/dest_glassworks.png',
-  DEST_QUARRY: '/assets/barbarians/tiles/dest_quarry.png',
+  LAKE: '/assets/barbarians/tiles/lake.webp',
+  RIVER_BRICK: '/assets/barbarians/tiles/river_brick.webp',
+  RIVER_SHEEP: '/assets/barbarians/tiles/river_sheep.webp',
+  SWAMP_UPPER: '/assets/barbarians/tiles/swamp_upper.webp',
+  SWAMP_LOWER: '/assets/barbarians/tiles/swamp_lower.webp',
+  CASTLE_ATTACK: '/assets/barbarians/tiles/castle_barbarian_attack.webp',
+  DEST_CASTLE: '/assets/barbarians/tiles/dest_castle.webp',
+  DEST_GLASSWORKS: '/assets/barbarians/tiles/dest_glassworks.webp',
+  DEST_QUARRY: '/assets/barbarians/tiles/dest_quarry.webp',
 } as const;
 
 export const MB_TOKEN_ASSETS = {
-  FISH: '/assets/barbarians/tokens/fish_token.png',
-  OLD_BOOT: '/assets/barbarians/tokens/old_boot.png',
-  WEALTHIEST_SETTLER: '/assets/barbarians/tokens/wealthiest_settler.png',
-  POOREST_SETTLER: '/assets/barbarians/tokens/poorest_settler.png',
-  BARBARIAN: '/assets/barbarians/tokens/barbarian_token.png',
-  CAMEL: '/assets/barbarians/tokens/camel_token.png',
-  TRADE_TOKEN: '/assets/barbarians/tokens/trade_token.png',
-  GOLD_COIN_1: '/assets/barbarians/tokens/gold_coin_1.png',
-  GOLD_COIN_5: '/assets/barbarians/tokens/gold_coin_5.png',
-  BADGE_CASTLE: '/assets/barbarians/tokens/badge_castle.png',
-  BADGE_QUARRY: '/assets/barbarians/tokens/badge_quarry.png',
-  BADGE_GLASSWORKS: '/assets/barbarians/tokens/badge_glassworks.png',
+  FISH: '/assets/barbarians/tokens/fish_token.webp',
+  OLD_BOOT: '/assets/barbarians/tokens/old_boot.webp',
+  WEALTHIEST_SETTLER: '/assets/barbarians/tokens/wealthiest_settler.webp',
+  POOREST_SETTLER: '/assets/barbarians/tokens/poorest_settler.webp',
+  BARBARIAN: '/assets/barbarians/tokens/barbarian_token.webp',
+  CAMEL: '/assets/barbarians/tokens/camel_token.webp',
+  TRADE_TOKEN: '/assets/barbarians/tokens/trade_token.webp',
+  GOLD_COIN_1: '/assets/barbarians/tokens/gold_coin_1.webp',
+  GOLD_COIN_5: '/assets/barbarians/tokens/gold_coin_5.webp',
+  BADGE_CASTLE: '/assets/barbarians/tokens/badge_castle.webp',
+  BADGE_QUARRY: '/assets/barbarians/tokens/badge_quarry.webp',
+  BADGE_GLASSWORKS: '/assets/barbarians/tokens/badge_glassworks.webp',
   COMMODITIES: {
-    MARBLE: '/assets/barbarians/tokens/commodity_marble.png',
-    GLASS: '/assets/barbarians/tokens/commodity_glass.png',
-    TOOLS: '/assets/barbarians/tokens/commodity_tools.png',
-    SAND: '/assets/barbarians/tokens/commodity_sand.png',
+    MARBLE: '/assets/barbarians/tokens/commodity_marble.webp',
+    GLASS: '/assets/barbarians/tokens/commodity_glass.webp',
+    TOOLS: '/assets/barbarians/tokens/commodity_tools.webp',
+    SAND: '/assets/barbarians/tokens/commodity_sand.webp',
   } as Record<CommodityDeliveryType, string>,
   FISHING_GROUNDS: {
-    4: '/assets/barbarians/tokens/fishing_ground_4.png',
-    5: '/assets/barbarians/tokens/fishing_ground_5.png',
-    6: '/assets/barbarians/tokens/fishing_ground_6.png',
-    8: '/assets/barbarians/tokens/fishing_ground_8.png',
-    9: '/assets/barbarians/tokens/fishing_ground_9.png',
-    10: '/assets/barbarians/tokens/fishing_ground_10.png',
+    4: '/assets/barbarians/tokens/fishing_ground_4.webp',
+    5: '/assets/barbarians/tokens/fishing_ground_5.webp',
+    6: '/assets/barbarians/tokens/fishing_ground_6.webp',
+    8: '/assets/barbarians/tokens/fishing_ground_8.webp',
+    9: '/assets/barbarians/tokens/fishing_ground_9.webp',
+    10: '/assets/barbarians/tokens/fishing_ground_10.webp',
   } as Record<number, string>,
 } as const;
 
 export const MB_CARD_ASSETS = {
   // Variantes y tarjetas especiales
-  HARBOR_MASTER: '/assets/barbarians/cards/harbor_master.png',
+  HARBOR_MASTER: '/assets/barbarians/cards/harbor_master.webp',
   // Pescadores de Catán — tarjeta oficial de costes de pescado
-  FISH_COSTS_FRONT: '/assets/barbarians/cards/fish_costs_front.png',
-  FISH_COSTS_BACK: '/assets/barbarians/cards/fish_costs_back.png',
+  FISH_COSTS_FRONT: '/assets/barbarians/cards/fish_costs_front.webp',
+  FISH_COSTS_BACK: '/assets/barbarians/cards/fish_costs_back.webp',
   // El Ataque de los Bárbaros — cartas de desarrollo
-  DEV_BACK: '/assets/barbarians/cards/dev_back.png',
-  DEV_COMMISSION: '/assets/barbarians/cards/dev_commission.png',
-  DEV_STRONG_KNIGHT: '/assets/barbarians/cards/dev_strong_knight.png',
-  DEV_PRISONER: '/assets/barbarians/cards/dev_prisoner.png',
-  DEV_TREACHERY: '/assets/barbarians/cards/dev_treachery.png',
+  DEV_BACK: '/assets/barbarians/cards/dev_back.webp',
+  DEV_COMMISSION: '/assets/barbarians/cards/dev_commission.webp',
+  DEV_STRONG_KNIGHT: '/assets/barbarians/cards/dev_strong_knight.webp',
+  DEV_PRISONER: '/assets/barbarians/cards/dev_prisoner.webp',
+  DEV_TREACHERY: '/assets/barbarians/cards/dev_treachery.webp',
   // Mercaderes y Bárbaros — cartas de desarrollo
-  TB_DEV_BACK: '/assets/barbarians/cards/tb_dev_back.png',
-  TB_DEV_KNIGHT: '/assets/barbarians/cards/tb_dev_knight.png',
-  TB_DEV_GOOD_TRIP: '/assets/barbarians/cards/tb_dev_good_trip.png',
-  TB_DEV_ROAD_BUILDING: '/assets/barbarians/cards/tb_dev_road_building.png',
-  TB_DEV_TECH_QUARRY: '/assets/barbarians/cards/tb_dev_tech_quarry.png',
-  TB_DEV_TECH_TOOLS: '/assets/barbarians/cards/tb_dev_tech_tools.png',
-  TB_DEV_TECH_GLASS: '/assets/barbarians/cards/tb_dev_tech_glass.png',
+  TB_DEV_BACK: '/assets/barbarians/cards/tb_dev_back.webp',
+  TB_DEV_KNIGHT: '/assets/barbarians/cards/tb_dev_knight.webp',
+  TB_DEV_GOOD_TRIP: '/assets/barbarians/cards/tb_dev_good_trip.webp',
+  TB_DEV_ROAD_BUILDING: '/assets/barbarians/cards/tb_dev_road_building.webp',
+  TB_DEV_TECH_QUARRY: '/assets/barbarians/cards/tb_dev_tech_quarry.webp',
+  TB_DEV_TECH_TOOLS: '/assets/barbarians/cards/tb_dev_tech_tools.webp',
+  TB_DEV_TECH_GLASS: '/assets/barbarians/cards/tb_dev_tech_glass.webp',
   // Eventos en Catán — mazo completo (36 cartas + Nochevieja + Resumen)
-  EVENT_BACK: '/assets/barbarians/cards/event_back.png',
-  EVENT_RULES: '/assets/barbarians/cards/event_rules.png',
-  EVENT_NEW_YEAR: '/assets/barbarians/cards/event_new_year.png',
-  EVENT_PLENTIFUL_YEAR: '/assets/barbarians/cards/event_plentiful_year.png',
-  EVENT_CONFLICT: '/assets/barbarians/cards/event_conflict.png',
-  EVENT_ROBBER_FLEES: '/assets/barbarians/cards/event_robber_flees.png',
-  EVENT_TOURNAMENT: '/assets/barbarians/cards/event_tournament.png',
-  EVENT_TRADE_ADVANTAGE: '/assets/barbarians/cards/event_trade_advantage.png',
-  EVENT_EPIDEMIC_6: '/assets/barbarians/cards/event_epidemic.png',
-  EVENT_EPIDEMIC_8: '/assets/barbarians/cards/event_epidemic_8.png',
-  EVENT_EARTHQUAKE: '/assets/barbarians/cards/event_earthquake.png',
-  EVENT_GOOD_NEIGHBORS: '/assets/barbarians/cards/event_good_neighbors.png',
-  EVENT_ROBBER_ATTACK: '/assets/barbarians/cards/event_robber_attack.png',
-  EVENT_CALM_SEA_9: '/assets/barbarians/cards/event_calm_sea_9.png',
-  EVENT_CALM_SEA_12: '/assets/barbarians/cards/event_calm_sea_12.png',
-  EVENT_NEIGHBORLY_HELP_10: '/assets/barbarians/cards/event_neighborly_help_10.png',
-  EVENT_NEIGHBORLY_HELP_11: '/assets/barbarians/cards/event_neighborly_help_11.png',
-  EVENT_CALM_3: '/assets/barbarians/cards/event_calm_3.png',
-  EVENT_CALM_4: '/assets/barbarians/cards/event_calm_4.png',
-  EVENT_CALM_5: '/assets/barbarians/cards/event_calm_5.png',
-  EVENT_CALM_6: '/assets/barbarians/cards/event_calm_6.png',
-  EVENT_CALM_8: '/assets/barbarians/cards/event_calm_8.png',
-  EVENT_CALM_9: '/assets/barbarians/cards/event_calm_9.png',
-  EVENT_CALM_10: '/assets/barbarians/cards/event_calm_10.png',
-  EVENT_CALM_11: '/assets/barbarians/cards/event_calm_11.png',
+  EVENT_BACK: '/assets/barbarians/cards/event_back.webp',
+  EVENT_RULES: '/assets/barbarians/cards/event_rules.webp',
+  EVENT_NEW_YEAR: '/assets/barbarians/cards/event_new_year.webp',
+  EVENT_PLENTIFUL_YEAR: '/assets/barbarians/cards/event_plentiful_year.webp',
+  EVENT_CONFLICT: '/assets/barbarians/cards/event_conflict.webp',
+  EVENT_ROBBER_FLEES: '/assets/barbarians/cards/event_robber_flees.webp',
+  EVENT_TOURNAMENT: '/assets/barbarians/cards/event_tournament.webp',
+  EVENT_TRADE_ADVANTAGE: '/assets/barbarians/cards/event_trade_advantage.webp',
+  EVENT_EPIDEMIC_6: '/assets/barbarians/cards/event_epidemic.webp',
+  EVENT_EPIDEMIC_8: '/assets/barbarians/cards/event_epidemic_8.webp',
+  EVENT_EARTHQUAKE: '/assets/barbarians/cards/event_earthquake.webp',
+  EVENT_GOOD_NEIGHBORS: '/assets/barbarians/cards/event_good_neighbors.webp',
+  EVENT_ROBBER_ATTACK: '/assets/barbarians/cards/event_robber_attack.webp',
+  EVENT_CALM_SEA_9: '/assets/barbarians/cards/event_calm_sea_9.webp',
+  EVENT_CALM_SEA_12: '/assets/barbarians/cards/event_calm_sea_12.webp',
+  EVENT_NEIGHBORLY_HELP_10: '/assets/barbarians/cards/event_neighborly_help_10.webp',
+  EVENT_NEIGHBORLY_HELP_11: '/assets/barbarians/cards/event_neighborly_help_11.webp',
+  EVENT_CALM_3: '/assets/barbarians/cards/event_calm_3.webp',
+  EVENT_CALM_4: '/assets/barbarians/cards/event_calm_4.webp',
+  EVENT_CALM_5: '/assets/barbarians/cards/event_calm_5.webp',
+  EVENT_CALM_6: '/assets/barbarians/cards/event_calm_6.webp',
+  EVENT_CALM_8: '/assets/barbarians/cards/event_calm_8.webp',
+  EVENT_CALM_9: '/assets/barbarians/cards/event_calm_9.webp',
+  EVENT_CALM_10: '/assets/barbarians/cards/event_calm_10.webp',
+  EVENT_CALM_11: '/assets/barbarians/cards/event_calm_11.webp',
 } as const;
 
-export const MB_WAGON_BACK_ASSET = '/assets/barbarians/wagons/wagon_back.png';
+export const MB_WAGON_BACK_ASSET = '/assets/barbarians/wagons/wagon_back.webp';
 
 export function getWagonCardImage(level: 1 | 2 | 3 | 4 | 5, color: PlayerColor): string {
   const colorSlug =
     color === 'BLUE' || color === 'PURPLE'
       ? 'blue'
       : color === 'WHITE' || color === 'GREEN'
-      ? 'white'
-      : color === 'ORANGE'
-      ? 'orange'
-      : 'red';
-  return `/assets/barbarians/wagons/wagon_${level}_${colorSlug}.png`;
+        ? 'white'
+        : color === 'ORANGE'
+          ? 'orange'
+          : 'red';
+  return `/assets/barbarians/wagons/wagon_${level}_${colorSlug}.webp`;
 }
 
 export function getWagonCostCardImage(level: 1 | 2 | 3 | 4 | 5): string {
-  return `/assets/barbarians/wagons/wagon_cost_${level}.png`;
+  return `/assets/barbarians/wagons/wagon_cost_${level}.webp`;
 }
 
 function getMBColorSlug(color: PlayerColor): 'blue' | 'white' | 'orange' | 'red' {
@@ -855,11 +855,11 @@ function getMBColorSlug(color: PlayerColor): 'blue' | 'white' | 'orange' | 'red'
 }
 
 export function getWagonPieceToken(color: PlayerColor): string {
-  return `/assets/barbarians/tokens/wagon_piece_${getMBColorSlug(color)}.png`;
+  return `/assets/barbarians/tokens/wagon_piece_${getMBColorSlug(color)}.webp`;
 }
 
 export function getBridgeToken(color: PlayerColor): string {
-  return `/assets/barbarians/tokens/bridge_${getMBColorSlug(color)}.png`;
+  return `/assets/barbarians/tokens/bridge_${getMBColorSlug(color)}.webp`;
 }
 
 export function getCommodityTokenImage(commodity: CommodityDeliveryType): string {
@@ -949,43 +949,43 @@ export function getCatanEventCardImage(card: CatanEventCard): string {
 // ============================================================================
 
 export const EP_TILE_ASSETS = {
-  COUNCIL_OF_CATAN: '/assets/explorers-pirates/tiles/council_of_catan.png',
-  PIRATE_LAIR_GOLD_RIVER: '/assets/explorers-pirates/tiles/pirate_lair_gold_river.png',
-  SPICE_PIRATE_BONUS: '/assets/explorers-pirates/tiles/spice_pirate_bonus.png',
-  SPICE_GOLD_TRADE: '/assets/explorers-pirates/tiles/spice_gold_trade.png',
-  SPICE_SWIFT_VOYAGE: '/assets/explorers-pirates/tiles/spice_swift_voyage.png',
+  COUNCIL_OF_CATAN: '/assets/explorers-pirates/tiles/council_of_catan.webp',
+  PIRATE_LAIR_GOLD_RIVER: '/assets/explorers-pirates/tiles/pirate_lair_gold_river.webp',
+  SPICE_PIRATE_BONUS: '/assets/explorers-pirates/tiles/spice_pirate_bonus.webp',
+  SPICE_GOLD_TRADE: '/assets/explorers-pirates/tiles/spice_gold_trade.webp',
+  SPICE_SWIFT_VOYAGE: '/assets/explorers-pirates/tiles/spice_swift_voyage.webp',
   FISH_GROUNDS: {
-    1: '/assets/explorers-pirates/tiles/fish_ground_1.png',
-    2: '/assets/explorers-pirates/tiles/fish_ground_2.png',
-    3: '/assets/explorers-pirates/tiles/fish_ground_3.png',
-    4: '/assets/explorers-pirates/tiles/fish_ground_4.png',
-    5: '/assets/explorers-pirates/tiles/fish_ground_5.png',
-    6: '/assets/explorers-pirates/tiles/fish_ground_6.png',
+    1: '/assets/explorers-pirates/tiles/fish_ground_1.webp',
+    2: '/assets/explorers-pirates/tiles/fish_ground_2.webp',
+    3: '/assets/explorers-pirates/tiles/fish_ground_3.webp',
+    4: '/assets/explorers-pirates/tiles/fish_ground_4.webp',
+    5: '/assets/explorers-pirates/tiles/fish_ground_5.webp',
+    6: '/assets/explorers-pirates/tiles/fish_ground_6.webp',
   } as Record<1 | 2 | 3 | 4 | 5 | 6, string>,
   // Guardada en reserva para intercambiar a petición (mantiene coherencia con el océano unificado actual)
-  SEA_EP: '/assets/explorers-pirates/tiles/sea_ep.png',
+  SEA_EP: '/assets/explorers-pirates/tiles/sea_ep.webp',
 } as const;
 
 export const EP_TOKEN_ASSETS = {
-  FISH_SHOAL: '/assets/explorers-pirates/tokens/fish_shoal.png',
-  SPICE_SACK: '/assets/explorers-pirates/tokens/spice_sack.png',
+  FISH_SHOAL: '/assets/explorers-pirates/tokens/fish_shoal.webp',
+  SPICE_SACK: '/assets/explorers-pirates/tokens/spice_sack.webp',
   // Monedas oficiales escaneadas con números 1 y 3 (guardadas en reserva para intercambio opcional)
-  GOLD_COIN_1: '/assets/explorers-pirates/tokens/ep_gold_coin_1.png',
-  GOLD_COIN_3: '/assets/explorers-pirates/tokens/ep_gold_coin_3.png',
+  GOLD_COIN_1: '/assets/explorers-pirates/tokens/ep_gold_coin_1.webp',
+  GOLD_COIN_3: '/assets/explorers-pirates/tokens/ep_gold_coin_3.webp',
 } as const;
 
 export const EP_CARD_ASSETS = {
-  TURN_SUMMARY: '/assets/explorers-pirates/cards/turn_summary.png',
-  VP_PIRATE_SCOURGE: '/assets/explorers-pirates/cards/vp_pirate_scourge.png',
-  VP_BEST_FISHER: '/assets/explorers-pirates/cards/vp_best_fisher.png',
-  VP_BEST_SPICE_MERCHANT: '/assets/explorers-pirates/cards/vp_best_spice_merchant.png',
+  TURN_SUMMARY: '/assets/explorers-pirates/cards/turn_summary.webp',
+  VP_PIRATE_SCOURGE: '/assets/explorers-pirates/cards/vp_pirate_scourge.webp',
+  VP_BEST_FISHER: '/assets/explorers-pirates/cards/vp_best_fisher.webp',
+  VP_BEST_SPICE_MERCHANT: '/assets/explorers-pirates/cards/vp_best_spice_merchant.webp',
   // Pistas verticales y guías de bolsa originales (accesibles en el modal y listas para intercambio)
-  TRACK_PIRATE_LAIRS: '/assets/explorers-pirates/cards/track_pirate_lairs.png',
-  TRACK_FISH_FOR_CATAN: '/assets/explorers-pirates/cards/track_fish_for_catan.png',
-  TRACK_SPICES_FOR_CATAN: '/assets/explorers-pirates/cards/track_spices_for_catan.png',
-  MISSION_CARD_PIRATE_LAIRS: '/assets/explorers-pirates/cards/mission_card_pirate_lairs.png',
-  MISSION_CARD_FISH: '/assets/explorers-pirates/cards/mission_card_fish.png',
-  MISSION_CARD_SPICES: '/assets/explorers-pirates/cards/mission_card_spices.png',
+  TRACK_PIRATE_LAIRS: '/assets/explorers-pirates/cards/track_pirate_lairs.webp',
+  TRACK_FISH_FOR_CATAN: '/assets/explorers-pirates/cards/track_fish_for_catan.webp',
+  TRACK_SPICES_FOR_CATAN: '/assets/explorers-pirates/cards/track_spices_for_catan.webp',
+  MISSION_CARD_PIRATE_LAIRS: '/assets/explorers-pirates/cards/mission_card_pirate_lairs.webp',
+  MISSION_CARD_FISH: '/assets/explorers-pirates/cards/mission_card_fish.webp',
+  MISSION_CARD_SPICES: '/assets/explorers-pirates/cards/mission_card_spices.webp',
 } as const;
 
 /**
@@ -1009,19 +1009,19 @@ export const EP_STANDBY_ASSETS = {
 } as const;
 
 export function getEPHarborCityToken(color: PlayerColor): string {
-  return `/assets/explorers-pirates/tokens/harbor_city_${getMBColorSlug(color)}.png`;
+  return `/assets/explorers-pirates/tokens/harbor_city_${getMBColorSlug(color)}.webp`;
 }
 
 export function getEPShipToken(color: PlayerColor): string {
-  return `/assets/explorers-pirates/tokens/ship_${getMBColorSlug(color)}.png`;
+  return `/assets/explorers-pirates/tokens/ship_${getMBColorSlug(color)}.webp`;
 }
 
 export function getEPSettlerToken(color: PlayerColor): string {
-  return `/assets/explorers-pirates/tokens/settler_${getMBColorSlug(color)}.png`;
+  return `/assets/explorers-pirates/tokens/settler_${getMBColorSlug(color)}.webp`;
 }
 
 export function getEPUnitToken(color: PlayerColor): string {
-  return `/assets/explorers-pirates/tokens/unit_${getMBColorSlug(color)}.png`;
+  return `/assets/explorers-pirates/tokens/unit_${getMBColorSlug(color)}.webp`;
 }
 
 export function getEPCargoToken(item: EPCargoItem, color: PlayerColor): string {

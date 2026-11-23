@@ -7,10 +7,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Cinzel', 'Georgia', 'serif'],
       },
       colors: {
+        tabletop: {
+          base: '#110c08',
+          wood: '#1c140e',
+          elevated: '#261c14',
+          parchment: '#efe4cf',
+          brass: '#c89b3c',
+          terracotta: '#b84a27',
+          sea: '#245c7a',
+        },
         catan: {
           sea: '#0e4a6f',
           seaDeep: '#082f49',

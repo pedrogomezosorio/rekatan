@@ -4116,11 +4116,15 @@ export function applyGameAction(
     }
 
     case 'RESUME_GAME': {
+      if (state.turn.isPausedByHost && !actor.isHost) {
+        return { state: prevState, error: 'Solo el anfitrión de la sala puede reanudar una partida pausada por él.' };
+      }
       if (state.phase === 'PAUSED_DISCONNECT') {
         state.phase = state.turn.phaseBeforePause || 'MAIN_PHASE';
         state.turn.phaseBeforePause = undefined;
         state.turn.pausedForPlayerId = null;
       }
+      const savedRemaining = state.turn.pausedRemainingTimerMs;
       if (state.turn.isPausedByHost) {
         state.turn.isPausedByHost = false;
         state.turn.pausedRemainingTimerMs = null;
@@ -4130,7 +4134,11 @@ export function applyGameAction(
           p.status = 'ACTIVE';
         }
       }
-      refreshTurnDeadline(state, state.actionTimestamp);
+      if (savedRemaining && savedRemaining > 0) {
+        state.turn.turnDeadlineMs = (state.actionTimestamp ?? Date.now()) + savedRemaining;
+      } else {
+        refreshTurnDeadline(state, state.actionTimestamp);
+      }
       addLog(state, `La partida se ha reanudado.`, 'SYSTEM');
       return { state };
     }

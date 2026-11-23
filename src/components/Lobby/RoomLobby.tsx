@@ -154,22 +154,22 @@ export const RoomLobby: React.FC = () => {
   };
 
   return (
-    <div className="room-lobby h-screen h-[100dvh] w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+    <div className="room-lobby h-screen h-[100dvh] w-screen flex flex-col bg-[#110c08] text-stone-100 overflow-hidden">
       {/* Top Header */}
-      <header className="room-lobby-header h-16 px-4 sm:px-6 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between shrink-0 z-20">
+      <header className="room-lobby-header h-16 px-4 sm:px-6 bg-[#18110c] border-b border-[#c89b3c]/25 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <span className="font-display text-xl font-extrabold text-amber-400 tracking-wider">
-            CATAN
+          <span className="font-display text-xl font-bold text-[#e5c26b] tracking-wider">
+            REKATAN
           </span>
-          <div className="h-5 w-px bg-slate-800" />
-          <div className="flex items-center gap-2 bg-slate-950 border border-amber-500/40 px-3 py-1 rounded-xl">
-            <span className="text-xs text-slate-400">Sala:</span>
-            <span className="font-mono text-sm font-black tracking-widest text-amber-300">
+          <div className="h-5 w-px bg-[#c89b3c]/25" />
+          <div className="flex items-center gap-2 bg-[#110c08] border border-[#c89b3c]/40 px-3 py-1 rounded-lg">
+            <span className="text-xs text-stone-400">Sala:</span>
+            <span className="font-mono text-sm font-bold tracking-widest text-amber-200 tabular-nums">
               {gameState.roomCode}
             </span>
             <button
               onClick={copyRoomCode}
-              className="p-1 hover:bg-slate-800 rounded text-slate-300 hover:text-amber-300 transition"
+              className="p-1.5 hover:bg-[#261c14] rounded text-stone-300 hover:text-amber-200 transition cursor-pointer"
               title="Copiar código"
             >
               {copiedCode ? (
@@ -182,41 +182,41 @@ export const RoomLobby: React.FC = () => {
 
           <button
             onClick={copyShareLink}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-xs font-semibold transition cursor-pointer"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] rounded-lg bg-[#245c7a]/25 hover:bg-[#245c7a]/40 border border-[#4c90b5]/40 text-sky-200 text-xs font-semibold transition cursor-pointer"
           >
             {copiedLink ? (
               <Check className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
               <Link2 className="w-3.5 h-3.5" />
             )}
-            <span>{copiedLink ? '¡Enlace Copiado!' : 'Compartir Enlace'}</span>
+            <span>{copiedLink ? 'Enlace copiado' : 'Compartir enlace'}</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          {isHost && <button type="button" onClick={() => dispatchAction({ type: 'START_WITH_BOTS', difficulty: selectedDifficulty })} className="lobby-quick-start min-h-11 rounded-xl border border-emerald-500/50 bg-emerald-950/40 px-3 py-2 text-xs font-bold text-emerald-100 flex items-center gap-2"><Bot size={16}/><span>Completar con bots y jugar</span></button>}
+        <div className="flex items-center gap-2.5">
+          {isHost && <button type="button" onClick={() => dispatchAction({ type: 'START_WITH_BOTS', difficulty: selectedDifficulty })} className="lobby-quick-start min-h-[42px] rounded-lg border border-emerald-500/45 bg-[#12261b] hover:bg-[#193526] px-3 py-2 text-xs font-bold text-emerald-100 flex items-center gap-2 cursor-pointer transition"><Bot size={16}/><span>Completar con bots y jugar</span></button>}
           {isHost ? (
             <button
               onClick={() => dispatchAction({ type: 'START_GAME' })}
               disabled={players.length < (hasCitiesKnights(config) ? 3 : 2)}
-              className={`px-5 py-2 rounded-xl font-extrabold text-sm flex items-center gap-2 shadow-lg transition cursor-pointer ${
+              className={`px-5 py-2 min-h-[42px] rounded-lg font-bold text-sm flex items-center gap-2 shadow transition cursor-pointer ${
                 players.length >= (hasCitiesKnights(config) ? 3 : 2)
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  ? 'bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/60 text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]'
+                  : 'bg-[#231912] text-stone-500 border border-stone-800 cursor-not-allowed'
               }`}
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>Iniciar Partida ({players.length}/{config.maxPlayers})</span>
+              <span className="tabular-nums">Iniciar partida ({players.length}/{config.maxPlayers})</span>
             </button>
           ) : (
-            <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+            <div className="px-3 py-1.5 rounded-lg bg-[#261c14] border border-[#c89b3c]/35 text-amber-200 text-xs font-semibold">
               Esperando a que el anfitrión inicie la partida...
             </div>
           )}
 
           <button
             onClick={leaveRoomClient}
-            className="px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/70 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+            className="px-3 py-2 min-h-[42px] rounded-lg bg-[#2a1210] hover:bg-[#3a1815] border border-red-500/35 text-red-200 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Salir</span>
@@ -227,9 +227,9 @@ export const RoomLobby: React.FC = () => {
       {/* Main Content Split: Left Settings/Players + Right Live Board & Custom Builder */}
       <div className="room-lobby-grid flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left Configuration Column */}
-        <div className="room-lobby-options lg:col-span-5 xl:col-span-4 bg-slate-900/90 border-r border-slate-800 overflow-y-auto p-4 sm:p-5 space-y-5">
+        <div className="room-lobby-options lg:col-span-5 xl:col-span-4 bg-[#150f0a] border-r border-[#c89b3c]/20 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* 1. Players Section with Bot AI Difficulty Controls */}
-          <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3.5">
+          <section className="bg-[#1b140e] border border-[#c89b3c]/20 rounded-xl p-4 space-y-3.5">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-amber-400" />
@@ -400,14 +400,14 @@ export const RoomLobby: React.FC = () => {
           </section>
 
           {/* 2. Selector de Juego y Expansiones (Exclusivo: 1 expansión o Juego Base) */}
-          <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <section className="bg-[#1b140e] border border-[#c89b3c]/20 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#e5c26b] flex items-center gap-1.5">
                 <Layers className="w-4 h-4" />
-                <span>Selector de Juego / Expansión</span>
+                <span>Edición y expansiones</span>
               </h3>
-              <span className="text-[10px] text-slate-400 font-medium">
-                (Navegantes y Ciudades y Caballeros combinables)
+              <span className="text-[10px] text-stone-400 font-medium">
+                Navegantes y C&amp;C combinables
               </span>
             </div>
 
@@ -865,7 +865,7 @@ export const RoomLobby: React.FC = () => {
                   {selectedScenario.id === 'THROUGH_THE_DESERT' && effectiveSeafarersSize === '4P' && (
                     <details className="text-[11px] text-slate-300">
                       <summary className="cursor-pointer text-sky-300">Ver montaje original del reglamento (página 11)</summary>
-                      <img src="/assets/scenarios/through_desert_4p_reference.png" alt="Montaje original de A través del desierto para cuatro jugadores, página 11 del reglamento" className="mt-2 w-full rounded" />
+                      <img src="/assets/scenarios/through_desert_4p_reference.webp" alt="Montaje original de A través del desierto para cuatro jugadores, página 11 del reglamento" className="mt-2 w-full rounded" />
                       <p className="mt-1">La esquina inferior derecha contiene el trigo 12, junto al mineral 6. En el tablero se aplica la sustitución de desiertos por terrenos productivos de esta sala.</p>
                     </details>
                   )}
@@ -1020,16 +1020,20 @@ export const RoomLobby: React.FC = () => {
 
             {isHost && (
               <div className="pt-2 flex flex-col gap-2">
-                {config.expansionModule === 'SEAFARERS' ? (
-                  <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 px-3 py-2 rounded-xl border border-slate-800">
-                    <span>Desierto en el Centro (q:0, r:0, s:0)</span>
-                    <span className="text-[10px] font-semibold text-sky-400 bg-sky-950/60 px-2 py-0.5 rounded border border-sky-500/30">
-                      Desiertos sustituidos por terrenos productivos
+                {config.expansionModule === 'SEAFARERS' ||
+                config.expansionModule === 'BARBARIANS' ||
+                config.expansionModule === 'EXPLORERS_AND_PIRATES' ? (
+                  <div className="flex items-center justify-between gap-2 text-xs text-stone-300 bg-[#1a130e] px-3 py-2 rounded-lg border border-stone-800">
+                    <span>Geografía del escenario</span>
+                    <span className="text-[10px] font-semibold text-amber-200 bg-[#261c14] px-2 py-0.5 rounded border border-[#c89b3c]/30">
+                      {config.expansionModule === 'SEAFARERS'
+                        ? 'Desiertos sustituidos por terrenos productivos'
+                        : 'Definida por el escenario oficial'}
                     </span>
                   </div>
                 ) : (
-                  <label className="flex items-center justify-between text-xs text-slate-300 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 cursor-pointer">
-                    <span>Desierto en el Centro (q:0, r:0, s:0)</span>
+                  <label className="flex items-center justify-between text-xs text-stone-200 bg-[#1a130e] px-3 py-2 rounded-lg border border-stone-800 cursor-pointer">
+                    <span>Desierto en el centro (q:0, r:0, s:0)</span>
                     <input
                       type="checkbox"
                       checked={config.desertInCenter !== false}
@@ -1090,20 +1094,22 @@ export const RoomLobby: React.FC = () => {
                     </span>
                   </button>
 
-                  {config.expansionModule !== 'SEAFARERS' && (
+                  {config.expansionModule !== 'SEAFARERS' &&
+                    config.expansionModule !== 'BARBARIANS' &&
+                    config.expansionModule !== 'EXPLORERS_AND_PIRATES' && (
                     <button
                       type="button"
                       onClick={() =>
                         setEditorTool((prev) => ({ ...prev, active: !prev.active }))
                       }
-                      className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+                      className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
                         editorTool.active
-                          ? 'bg-sky-500/25 border-sky-400 text-sky-200'
-                          : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                          ? 'bg-[#245c7a]/35 border-sky-400 text-sky-200'
+                          : 'bg-[#231912] border-stone-700 text-stone-200 hover:bg-[#312317]'
                       }`}
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>{editorTool.active ? 'Cerrar Editor' : 'Editor Libre'}</span>
+                      <span>{editorTool.active ? 'Cerrar editor' : 'Editor libre'}</span>
                     </button>
                   )}
                 </div>
@@ -1112,11 +1118,11 @@ export const RoomLobby: React.FC = () => {
           </section>
 
           {/* 4. HOUSE RULES SECTION */}
-          <section className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-4">
+          <section className="bg-[#1b140e] border border-[#c89b3c]/20 rounded-xl p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#e5c26b] flex items-center gap-1.5">
                 <Settings2 className="w-4 h-4" />
-                <span>Reglas Opcionales (House Rules)</span>
+                <span>Reglas de la casa</span>
               </h3>
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
@@ -1388,16 +1394,17 @@ export const RoomLobby: React.FC = () => {
               </div>
             )}
 
-            {/* Regla: Desierto en el Centro */}
+            {/* Regla: Desierto en el Centro (solo para Base y Ciudades y Caballeros) */}
+            {config.expansionModule !== 'BARBARIANS' &&
+              config.expansionModule !== 'EXPLORERS_AND_PIRATES' && (
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-200">
-                Desierto en el Centro
+              <label className="block text-xs font-bold text-stone-200">
+                Desierto en el centro
               </label>
               {config.expansionModule === 'SEAFARERS' ? (
-                <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
-                  <span className="text-base">🏝️</span>
+                <div className="p-2.5 rounded-lg bg-[#1a130e] border border-stone-800 text-xs text-stone-300 flex items-center gap-2">
                   <span>
-                    <strong>Geografía de Islas:</strong> En Navegantes, la posición de los desiertos y ríos de oro está determinada por el escenario marítimo.
+                    <strong>Geografía de islas:</strong> En Navegantes, la posición de los terrenos y ríos de oro está determinada por el escenario marítimo.
                   </span>
                 </div>
               ) : (
@@ -1411,14 +1418,14 @@ export const RoomLobby: React.FC = () => {
                         config: { desertInCenter: true },
                       })
                     }
-                    className={`p-2 rounded-xl border text-left text-xs transition ${
+                    className={`p-2 rounded-lg border text-left text-xs transition ${
                       config.desertInCenter !== false
-                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 font-bold'
-                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                        ? 'bg-emerald-950/70 border-emerald-500/70 text-emerald-200 font-bold'
+                        : 'bg-[#1a130e] border-stone-800 text-stone-400'
                     }`}
                   >
-                    <div>Activado (Por defecto)</div>
-                    <div className="text-[10px] opacity-80">Centro (0,0,0) fijo con el Ladrón</div>
+                    <div>Activado (por defecto)</div>
+                    <div className="text-[10px] opacity-80">Centro (0,0,0) fijo con el ladrón</div>
                   </button>
                   <button
                     type="button"
@@ -1429,33 +1436,43 @@ export const RoomLobby: React.FC = () => {
                         config: { desertInCenter: false },
                       })
                     }
-                    className={`p-2 rounded-xl border text-left text-xs transition ${
+                    className={`p-2 rounded-lg border text-left text-xs transition ${
                       config.desertInCenter === false
-                        ? 'bg-amber-500/20 border-amber-400 text-amber-200 font-bold'
-                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                        ? 'bg-[#2a1f14] border-[#c89b3c] text-amber-200 font-bold'
+                        : 'bg-[#1a130e] border-stone-800 text-stone-400'
                     }`}
                   >
-                    <div>Posición Aleatoria</div>
-                    <div className="text-[10px] opacity-80">El Desierto se mezcla en el mapa</div>
+                    <div>Posición aleatoria</div>
+                    <div className="text-[10px] opacity-80">El desierto se mezcla en el mapa</div>
                   </button>
                 </div>
               )}
             </div>
+            )}
 
             {/* 1. Condición de Victoria */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-200">
-                  1. Condición de Victoria (Puntos)
+                <label className="block text-xs font-bold text-stone-200">
+                  1. Condición de victoria (puntos)
                 </label>
                 {config.expansionModule === 'SEAFARERS' && (
-                  <span className="text-[10px] text-sky-400 font-medium">
-                    (Oficial Navegantes: 13 PV)
+                  <span className="text-[10px] text-amber-300 font-medium">
+                    Oficial Navegantes: 13 PV
                   </span>
                 )}
               </div>
               <div className="grid grid-cols-5 gap-1.5">
-                {(config.expansionModule === 'SEAFARERS' ? [10, 12, 13, 14, 15, 16, 17] : hasCitiesKnights(config) ? [13] : [9, 10, 11, 12, 15]).map((pts) => (
+                {(config.expansionModule === 'SEAFARERS'
+                  ? [10, 12, 13, 14, 15, 16, 17]
+                  : config.expansionModule === 'EXPLORERS_AND_PIRATES'
+                  ? [8, 12, 15, 17]
+                  : config.expansionModule === 'BARBARIANS'
+                  ? [10, 11, 12, 13, 14]
+                  : hasCitiesKnights(config)
+                  ? [13]
+                  : [9, 10, 11, 12, 15]
+                ).map((pts) => (
                   <button
                     key={pts}
                     type="button"
@@ -1466,10 +1483,10 @@ export const RoomLobby: React.FC = () => {
                         config: { victoryPointsTarget: pts },
                       })
                     }
-                    className={`py-2 rounded-xl border text-xs font-extrabold transition ${
+                    className={`py-2 min-h-[38px] rounded-lg border text-xs font-bold tabular-nums transition ${
                       config.victoryPointsTarget === pts
-                        ? 'bg-amber-500/25 border-amber-400 text-amber-200'
-                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                        ? 'bg-[#2a1f14] border-[#c89b3c] text-amber-200'
+                        : 'bg-[#1a130e] border-stone-800 text-stone-400'
                     }`}
                   >
                     {pts} PV

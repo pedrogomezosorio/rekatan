@@ -38,7 +38,7 @@ import {
   getRedNumberConflictHexIds,
 } from '../../shared/engine/HexGrid';
 import { Hexagon } from './Hexagon';
-import { BoardCamera, normalizeBoardCamera, zoomBoardCamera } from '../../shared/boardCamera';
+import { BoardCamera, BoardCameraBounds, normalizeBoardCamera, zoomBoardCamera } from '../../shared/boardCamera';
 
 export interface EditorToolState {
   active: boolean;
@@ -70,6 +70,7 @@ export interface HexBoardSVGProps {
   onCustomSetNumber?: (hexId: string, num: number | null) => void;
   onCustomSetPort?: (edgeId: string, port: PortType | null) => void;
   lowEndPcMode?: boolean;
+  lockBoardPan?: boolean;
   lastEvent?: GameState['lastEvent'];
   isCitiesKnights?: boolean;
   validCKVertexIds?: string[];
@@ -105,6 +106,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   onCustomSetNumber,
   onCustomSetPort,
   lowEndPcMode = false,
+  lockBoardPan = false,
   lastEvent,
   isCitiesKnights = false,
   validCKVertexIds = [],
@@ -129,12 +131,57 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const cameraGroupRef = useRef<SVGGElement | null>(null);
   const lowEndRef = useRef<boolean>(lowEndPcMode);
+  const lockPanRef = useRef<boolean>(lockBoardPan);
 
   useEffect(() => {
     lowEndRef.current = lowEndPcMode;
   }, [lowEndPcMode]);
 
-  // Google-Maps-style Smooth Interpolated & Inertial Camera State
+  // Dynamic SVG viewBox computation based on active board bounding box (fits 19 up to 96 hex layouts)
+  const { vbMinX, vbMinY, vbWidth, vbHeight, viewBoxStr, cameraBounds } = useMemo(() => {
+    const hexList = visibleHexes;
+    if (hexList.length === 0) {
+      return {
+        vbMinX: -480,
+        vbMinY: -420,
+        vbWidth: 960,
+        vbHeight: 840,
+        viewBoxStr: '-480 -420 960 840',
+        cameraBounds: { maxX: 680, maxY: 560 } as BoardCameraBounds,
+      };
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const h of hexList) {
+      minX = Math.min(minX, h.center.x - DEFAULT_HEX_SIZE * 1.15);
+      maxX = Math.max(maxX, h.center.x + DEFAULT_HEX_SIZE * 1.15);
+      minY = Math.min(minY, h.center.y - DEFAULT_HEX_SIZE * 1.15);
+      maxY = Math.max(maxY, h.center.y + DEFAULT_HEX_SIZE * 1.15);
+    }
+    const width = Math.max(960, Math.round(maxX - minX + 80));
+    const height = Math.max(840, Math.round(maxY - minY + 80));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const vx = Math.round(cx - width / 2);
+    const vy = Math.round(cy - height / 2);
+    return {
+      vbMinX: vx,
+      vbMinY: vy,
+      vbWidth: width,
+      vbHeight: height,
+      viewBoxStr: `${vx} ${vy} ${width} ${height}`,
+      cameraBounds: {
+        maxX: Math.max(680, Math.round(width * 0.85)),
+        maxY: Math.max(560, Math.round(height * 0.85)),
+      } as BoardCameraBounds,
+    };
+  }, [visibleHexes]);
+
+  const cameraBoundsRef = useRef<BoardCameraBounds>(cameraBounds);
+  useEffect(() => {
+    cameraBoundsRef.current = cameraBounds;
+  }, [cameraBounds]);
+
+  // On-demand Wakeable Smooth Interpolated & Inertial Camera State (0% CPU when idle)
   const targetCamRef = useRef<{ x: number; y: number; zoom: number }>({
     x: 0,
     y: 0,
@@ -145,12 +192,117 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     y: 0,
     zoom: 1,
   });
-  const applyCamera = useCallback((camera: BoardCamera) => {
-    const next = normalizeBoardCamera(camera);
-    targetCamRef.current = { ...next };
-    currentCamRef.current = { ...next };
-    cameraGroupRef.current?.setAttribute('transform', `translate(${next.x}, ${next.y}) scale(${next.zoom})`);
+  const rafIdRef = useRef<number | null>(null);
+  const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
+  const isDraggingRef = useRef<boolean>(false);
+  const lastPointerRef = useRef<{ x: number; y: number; time: number }>({
+    x: 0,
+    y: 0,
+    time: 0,
+  });
+  const dragStartClientRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const didMoveRef = useRef<boolean>(false);
+  const lastTapTimeRef = useRef<number>(0);
+
+  const commitCameraTransform = useCallback((cam: BoardCamera) => {
+    cameraGroupRef.current?.setAttribute(
+      'transform',
+      `translate(${cam.x.toFixed(2)}, ${cam.y.toFixed(2)}) scale(${cam.zoom.toFixed(4)})`
+    );
   }, []);
+
+  const wakeCameraLoop = useCallback(() => {
+    if (rafIdRef.current !== null) return;
+
+    const tick = () => {
+      const bounds = cameraBoundsRef.current;
+      const target = (targetCamRef.current = normalizeBoardCamera(targetCamRef.current, bounds));
+      const cur = (currentCamRef.current = normalizeBoardCamera(currentCamRef.current, bounds));
+      const vel = velocityRef.current;
+      if (!Number.isFinite(vel.vx) || !Number.isFinite(vel.vy)) {
+        vel.vx = 0;
+        vel.vy = 0;
+      }
+
+      if (lockPanRef.current) {
+        target.x = 0;
+        target.y = 0;
+        vel.vx = 0;
+        vel.vy = 0;
+      } else if (!isDraggingRef.current && (Math.abs(vel.vx) > 0.05 || Math.abs(vel.vy) > 0.05)) {
+        target.x += vel.vx;
+        target.y += vel.vy;
+        vel.vx *= 0.91;
+        vel.vy *= 0.91;
+      } else if (!isDraggingRef.current) {
+        vel.vx = 0;
+        vel.vy = 0;
+      }
+
+      target.x = Math.max(-bounds.maxX, Math.min(bounds.maxX, target.x));
+      target.y = Math.max(-bounds.maxY, Math.min(bounds.maxY, target.y));
+
+      const lerpFactor = isDraggingRef.current ? 0.42 : lowEndRef.current ? 0.36 : 0.2;
+      const zoomLerp = lowEndRef.current ? 0.38 : 0.22;
+      cur.x += (target.x - cur.x) * lerpFactor;
+      cur.y += (target.y - cur.y) * lerpFactor;
+      cur.zoom += (target.zoom - cur.zoom) * zoomLerp;
+
+      const settled =
+        !isDraggingRef.current &&
+        Math.abs(vel.vx) <= 0.05 &&
+        Math.abs(vel.vy) <= 0.05 &&
+        Math.abs(target.x - cur.x) < 0.08 &&
+        Math.abs(target.y - cur.y) < 0.08 &&
+        Math.abs(target.zoom - cur.zoom) < 0.0005;
+
+      if (settled) {
+        cur.x = target.x;
+        cur.y = target.y;
+        cur.zoom = target.zoom;
+        commitCameraTransform(cur);
+        rafIdRef.current = null;
+        return;
+      }
+
+      commitCameraTransform(cur);
+      rafIdRef.current = requestAnimationFrame(tick);
+    };
+
+    rafIdRef.current = requestAnimationFrame(tick);
+  }, [commitCameraTransform]);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const applyCamera = useCallback(
+    (camera: BoardCamera) => {
+      const bounds = cameraBoundsRef.current;
+      const clamped = normalizeBoardCamera(
+        lockPanRef.current ? { ...camera, x: 0, y: 0 } : camera,
+        bounds
+      );
+      targetCamRef.current = { ...clamped };
+      currentCamRef.current = { ...clamped };
+      commitCameraTransform(clamped);
+    },
+    [commitCameraTransform]
+  );
+
+  useEffect(() => {
+    lockPanRef.current = lockBoardPan;
+    if (lockBoardPan) {
+      velocityRef.current = { vx: 0, vy: 0 };
+      applyCamera({ x: 0, y: 0, zoom: targetCamRef.current.zoom });
+    }
+  }, [lockBoardPan, applyCamera]);
+
   useEffect(() => {
     applyCamera({ x: 0, y: 0, zoom: 1 });
   }, [
@@ -161,15 +313,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     barbarians?.scenario,
     explorersPirates?.scenario,
   ]);
-  const velocityRef = useRef<{ vx: number; vy: number }>({ vx: 0, vy: 0 });
-  const isDraggingRef = useRef<boolean>(false);
-  const lastPointerRef = useRef<{ x: number; y: number; time: number }>({
-    x: 0,
-    y: 0,
-    time: 0,
-  });
-  const dragStartClientRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const didMoveRef = useRef<boolean>(false);
 
   const prevRobberHexRef = useRef<string>(board.robberHexId);
 
@@ -232,79 +375,6 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     prevRobberHexRef.current = board.robberHexId;
   }, [board.robberHexId, lastEvent?.nonce, lastEvent?.robberTargetHexId]);
 
-  // 60-120fps Physics & Interpolation Loop (Inertia + Smooth Lerp)
-  useEffect(() => {
-    let rafId: number;
-
-    const tick = () => {
-      const target = targetCamRef.current = normalizeBoardCamera(targetCamRef.current);
-      const cur = currentCamRef.current = normalizeBoardCamera(currentCamRef.current);
-      const vel = velocityRef.current;
-      if (!Number.isFinite(vel.vx) || !Number.isFinite(vel.vy)) { vel.vx = 0; vel.vy = 0; }
-
-      // Apply momentum when not actively dragging
-      if (!isDraggingRef.current && (Math.abs(vel.vx) > 0.05 || Math.abs(vel.vy) > 0.05)) {
-        target.x += vel.vx;
-        target.y += vel.vy;
-        vel.vx *= 0.91; // Smooth exponential friction
-        vel.vy *= 0.91;
-      } else if (!isDraggingRef.current) {
-        vel.vx = 0;
-        vel.vy = 0;
-      }
-
-      // Clamp target pan bounds gently
-      target.x = Math.max(-680, Math.min(680, target.x));
-      target.y = Math.max(-560, Math.min(560, target.y));
-
-      // Smooth spring-like interpolation (Lerp)
-      const lerpFactor = isDraggingRef.current ? 0.38 : (lowEndRef.current ? 0.32 : 0.18);
-      cur.x += (target.x - cur.x) * lerpFactor;
-      cur.y += (target.y - cur.y) * lerpFactor;
-      cur.zoom += (target.zoom - cur.zoom) * (lowEndRef.current ? 0.35 : 0.2);
-
-      if (cameraGroupRef.current) {
-        cameraGroupRef.current.setAttribute(
-          'transform',
-          `translate(${cur.x.toFixed(2)}, ${cur.y.toFixed(2)}) scale(${cur.zoom.toFixed(4)})`
-        );
-      }
-
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
-
-  // Dynamic SVG viewBox computation based on active board bounding box (fits 19, 35, 37, 42 and 49 hex layouts)
-  const { vbMinX, vbMinY, vbWidth, vbHeight, viewBoxStr } = useMemo(() => {
-    const hexList = visibleHexes;
-    if (hexList.length === 0) {
-      return { vbMinX: -480, vbMinY: -420, vbWidth: 960, vbHeight: 840, viewBoxStr: '-480 -420 960 840' };
-    }
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const h of hexList) {
-      minX = Math.min(minX, h.center.x - DEFAULT_HEX_SIZE * 1.15);
-      maxX = Math.max(maxX, h.center.x + DEFAULT_HEX_SIZE * 1.15);
-      minY = Math.min(minY, h.center.y - DEFAULT_HEX_SIZE * 1.15);
-      maxY = Math.max(maxY, h.center.y + DEFAULT_HEX_SIZE * 1.15);
-    }
-    const width = Math.max(960, Math.round(maxX - minX + 80));
-    const height = Math.max(840, Math.round(maxY - minY + 80));
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    const vx = Math.round(cx - width / 2);
-    const vy = Math.round(cy - height / 2);
-    return {
-      vbMinX: vx,
-      vbMinY: vy,
-      vbWidth: width,
-      vbHeight: height,
-      viewBoxStr: `${vx} ${vy} ${width} ${height}`,
-    };
-  }, [visibleHexes]);
-
   // Native non-passive wheel listener for smooth focal-point zoom
   useEffect(() => {
     const svgEl = svgRef.current;
@@ -315,12 +385,15 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       const rect = svgEl.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0 || !Number.isFinite(e.deltaY)) return;
 
-      // Convert client cursor position to SVG viewBox coordinates
-      const svgX = ((e.clientX - rect.left) / rect.width) * vbWidth + vbMinX;
-      const svgY = ((e.clientY - rect.top) / rect.height) * vbHeight + vbMinY;
+      const anchor = lockPanRef.current
+        ? { x: 0, y: 0 }
+        : {
+            x: ((e.clientX - rect.left) / rect.width) * vbWidth + vbMinX,
+            y: ((e.clientY - rect.top) / rect.height) * vbHeight + vbMinY,
+          };
 
       const zoomIntensity = Math.exp(-e.deltaY * 0.0016);
-      applyCamera(zoomBoardCamera(targetCamRef.current, zoomIntensity, { x: svgX, y: svgY }));
+      applyCamera(zoomBoardCamera(targetCamRef.current, zoomIntensity, anchor, cameraBoundsRef.current));
     };
 
     svgEl.addEventListener('wheel', onWheelNative, { passive: false });
@@ -376,7 +449,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   );
 
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || lockPanRef.current) return;
     setIsDragging(true);
     isDraggingRef.current = true;
     didMoveRef.current = false;
@@ -387,7 +460,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isDraggingRef.current || !svgRef.current) return;
+    if (!isDraggingRef.current || !svgRef.current || lockPanRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
     const scaleX = vbWidth / rect.width;
@@ -414,6 +487,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     velocityRef.current.vy = velocityRef.current.vy * 0.35 + instantVy * 0.65;
 
     lastPointerRef.current = { x: e.clientX, y: e.clientY, time: now };
+    wakeCameraLoop();
   };
 
   const handleMouseUp = () => {
@@ -424,6 +498,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
     if (performance.now() - lastPointerRef.current.time > 80) {
       velocityRef.current = { vx: 0, vy: 0 };
     }
+    wakeCameraLoop();
   };
 
   const lastTouchDistRef = useRef<number | null>(null);
@@ -431,16 +506,29 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
     if (e.touches.length === 1) {
       const touch = e.touches[0];
+      const now = performance.now();
+      // Double-tap on empty ocean background resets board camera smoothly
+      const targetEl = e.target as Element | null;
+      if (targetEl === svgRef.current && now - lastTapTimeRef.current < 320) {
+        lastTapTimeRef.current = 0;
+        resetView();
+        return;
+      }
+      lastTapTimeRef.current = targetEl === svgRef.current ? now : 0;
+
+      if (lockPanRef.current) return;
       setIsDragging(true);
       isDraggingRef.current = true;
       didMoveRef.current = false;
       velocityRef.current = { vx: 0, vy: 0 };
-      const now = performance.now();
       lastPointerRef.current = { x: touch.clientX, y: touch.clientY, time: now };
       dragStartClientRef.current = { x: touch.clientX, y: touch.clientY };
       lastTouchDistRef.current = null;
     } else if (e.touches.length === 2) {
-      // Two-finger pinch-to-zoom
+      // Two-finger focal pinch-to-zoom
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      velocityRef.current = { vx: 0, vy: 0 };
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -453,7 +541,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
   const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
 
-    if (e.touches.length === 1 && isDraggingRef.current) {
+    if (e.touches.length === 1 && isDraggingRef.current && !lockPanRef.current) {
       const touch = e.touches[0];
       const rect = svgRef.current.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
@@ -480,15 +568,27 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       velocityRef.current.vy = velocityRef.current.vy * 0.35 + instantVy * 0.65;
 
       lastPointerRef.current = { x: touch.clientX, y: touch.clientY, time: now };
+      wakeCameraLoop();
     } else if (e.touches.length === 2 && lastTouchDistRef.current) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
       if (dist > 10 && lastTouchDistRef.current > 10) {
-        const factor = dist / lastTouchDistRef.current;
-        const smoothFactor = 1 + (factor - 1) * 0.65;
-        zoomByStep(smoothFactor);
+        const rect = svgRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          const midClientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const midClientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          const anchor = lockPanRef.current
+            ? { x: 0, y: 0 }
+            : {
+                x: ((midClientX - rect.left) / rect.width) * vbWidth + vbMinX,
+                y: ((midClientY - rect.top) / rect.height) * vbHeight + vbMinY,
+              };
+          const factor = dist / lastTouchDistRef.current;
+          const smoothFactor = 1 + (factor - 1) * 0.72;
+          applyCamera(zoomBoardCamera(targetCamRef.current, smoothFactor, anchor, cameraBoundsRef.current));
+        }
         lastTouchDistRef.current = dist;
       }
       didMoveRef.current = true;
@@ -503,6 +603,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       if (performance.now() - lastPointerRef.current.time > 80) {
         velocityRef.current = { vx: 0, vy: 0 };
       }
+      wakeCameraLoop();
     } else if (e.touches.length === 1) {
       const touch = e.touches[0];
       lastTouchDistRef.current = null;
@@ -512,7 +613,10 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
 
   const zoomByStep = (factor: number) => {
     velocityRef.current = { vx: 0, vy: 0 };
-    applyCamera(zoomBoardCamera(targetCamRef.current, factor, { x: vbMinX + vbWidth / 2, y: vbMinY + vbHeight / 2 }));
+    const anchor = lockPanRef.current
+      ? { x: 0, y: 0 }
+      : { x: vbMinX + vbWidth / 2, y: vbMinY + vbHeight / 2 };
+    applyCamera(zoomBoardCamera(targetCamRef.current, factor, anchor, cameraBoundsRef.current));
   };
 
   const resetView = () => {
@@ -616,12 +720,12 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       {/* Warm Candlelight / Tabletop Vignette */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(212,175,55,0.12)_0%,rgba(0,0,0,0.55)_100%)]" />
 
-      {/* Tabletop Camera Controls (Dark Walnut & Antique Gold) */}
+      {/* Tabletop Camera Controls (Dark Walnut & Antique Brass) */}
       <div
-        className={`tablet-zoom-controls absolute z-20 flex items-center gap-1.5 bg-[#16110d]/90 backdrop-blur-xl border border-[#d4af37]/35 rounded-xl p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
+        className={`tablet-zoom-controls absolute z-20 flex items-center gap-1 bg-[#18110c]/95 border border-[#c89b3c]/40 rounded-lg p-1 shadow-[0_8px_24px_rgba(8,5,3,0.85)] ${
           editorTool
             ? 'bottom-4 left-4'
-            : isCitiesKnights
+            : isCitiesKnights || Boolean(barbarians) || Boolean(explorersPirates)
             ? 'bottom-3 right-[275px] md:right-[290px] xl:right-[325px]'
             : 'bottom-3 left-[210px] sm:left-[236px]'
         }`}
@@ -629,24 +733,27 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
         <button
           type="button"
           onClick={() => zoomByStep(1.18)}
-          className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
-          title="Acercar Zoom (Suave)"
+          className="min-w-[36px] min-h-[36px] sm:min-w-[34px] sm:min-h-[34px] flex items-center justify-center hover:bg-[#292018] rounded-md text-amber-200/85 hover:text-amber-200 transition cursor-pointer"
+          title="Acercar zoom"
+          aria-label="Acercar zoom"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
           type="button"
           onClick={() => zoomByStep(1 / 1.18)}
-          className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
-          title="Alejar Zoom (Suave)"
+          className="min-w-[36px] min-h-[36px] sm:min-w-[34px] sm:min-h-[34px] flex items-center justify-center hover:bg-[#292018] rounded-md text-amber-200/85 hover:text-amber-200 transition cursor-pointer"
+          title="Alejar zoom"
+          aria-label="Alejar zoom"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
           type="button"
           onClick={resetView}
-          className="p-2 hover:bg-[#292018] rounded-lg text-amber-200/80 hover:text-amber-300 transition"
-          title="Centrar Tablero"
+          className="min-w-[36px] min-h-[36px] sm:min-w-[34px] sm:min-h-[34px] flex items-center justify-center hover:bg-[#292018] rounded-md text-amber-200/85 hover:text-amber-200 transition cursor-pointer"
+          title="Centrar tablero"
+          aria-label="Centrar tablero"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -663,7 +770,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
       <svg
         ref={svgRef}
         viewBox={viewBoxStr}
-        className={`w-full h-full select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`w-full h-full select-none touch-none ${
+          lockBoardPan ? 'cursor-default' : isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
         style={{ touchAction: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -1674,7 +1783,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                 {vertex.building && vertex.catanChits && vertex.catanChits > 0 && (
                   <g transform="translate(0, 14)">
                     <image
-                      href="/assets/tokens/catan_chit.png"
+                      href="/assets/tokens/catan_chit.webp"
                       x={-13}
                       y={-13}
                       width={26}
@@ -1711,7 +1820,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     return (
                       <g className="pointer-events-none">
                         <image
-                          href="/assets/tokens/catan_chit.png"
+                          href="/assets/tokens/catan_chit.webp"
                           x={-13}
                           y={-13}
                           width={26}
@@ -1770,7 +1879,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                           strokeWidth={1.8}
                         />
                         <image
-                          href="/assets/tokens/catan_chit.png"
+                          href="/assets/tokens/catan_chit.webp"
                           x={-11}
                           y={-11}
                           width={22}
@@ -1818,7 +1927,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                           strokeWidth={2}
                         />
                         <image
-                          href="/assets/tokens/catan_chit.png"
+                          href="/assets/tokens/catan_chit.webp"
                           x={-9}
                           y={-6}
                           width={18}

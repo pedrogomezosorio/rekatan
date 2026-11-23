@@ -14,8 +14,8 @@ import {
 import type { ImprovementBranch, ProgressCardType } from './citiesKnightsTypes';
 
 // Bump when an extracted image changes so previously cached faces are refreshed.
-const CARD_ART_VERSION = 'print1';
-const cardArtPath = (path: string): string => `/assets/${path}.png?v=${CARD_ART_VERSION}`;
+const CARD_ART_VERSION = 'webp1';
+const cardArtPath = (path: string): string => `/assets/${path}.webp?v=${CARD_ART_VERSION}`;
 
 /**
  * Rutas de cartas de desarrollo originales extraídas del juego físico.
@@ -47,15 +47,15 @@ export function getDevCardImagePath(type: DevCardType, title?: string): string {
  * Rutas de texturas de alta resolución (.jpg / .webp / .png) para cada tipo de terreno.
  */
 export const TILE_TEXTURE_PATHS: Record<TerrainType, string> = {
-  WOOD: '/assets/terrains/forest.png?v=3',
-  BRICK: '/assets/terrains/hills.png?v=3',
-  SHEEP: '/assets/terrains/pasture.png?v=3',
-  WHEAT: '/assets/terrains/fields.png?v=3',
-  ORE: '/assets/terrains/mountains.png?v=3',
-  DESERT: '/assets/terrains/desert.png?v=3',
-  SEA: '/assets/terrains/ocean.jpg?v=3',
-  GOLD: '/assets/terrains/gold_river.png?v=4',
-  FOG: '/assets/terrains/ocean.jpg?v=3',
+  WOOD: '/assets/terrains/forest.webp?v=4',
+  BRICK: '/assets/terrains/hills.webp?v=4',
+  SHEEP: '/assets/terrains/pasture.webp?v=4',
+  WHEAT: '/assets/terrains/fields.webp?v=4',
+  ORE: '/assets/terrains/mountains.webp?v=4',
+  DESERT: '/assets/terrains/desert.webp?v=4',
+  SEA: '/assets/terrains/ocean.webp?v=4',
+  GOLD: '/assets/terrains/gold_river.webp?v=4',
+  FOG: '/assets/terrains/ocean.webp?v=4',
 };
 
 /** PNG recreados: el PDF de cartas no contiene fichas ni terrenos. */
@@ -561,7 +561,7 @@ export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
     description: 'La maravilla del estrecho norte de la ampliación para 5 y 6 jugadores.',
     prerequisiteDescription: 'Un poblado o ciudad en un cuadrado violeta del estrecho del norte.',
     icon: '🌉',
-    cardImage: '/assets/wonders/great_bridge_north.png',
+    cardImage: '/assets/wonders/great_bridge_north.webp',
     stageCost: { WOOD: 3, WHEAT: 1, SHEEP: 1 },
     onlyExtended: true,
   },
@@ -599,13 +599,13 @@ export const WONDERS_CATALOG: Record<WonderId, WonderMeta> = {
     description: 'El mayor archivo de sabiduría y cartografía marítima de Catán (Ampliación 5-6J).',
     prerequisiteDescription: 'Requiere al menos 2 Ciudades construidas.',
     icon: '🏛️',
-    cardImage: '/assets/wonders/great_library.png',
+    cardImage: '/assets/wonders/great_library.webp',
     stageCost: { WOOD: 1, BRICK: 1, SHEEP: 3 },
     onlyExtended: true,
   },
 };
 
-export const CATAN_CHIT_IMAGE_PATH = '/assets/tokens/catan_chit.png';
+export const CATAN_CHIT_IMAGE_PATH = '/assets/tokens/catan_chit.webp';
 
 export const WONDER_STAGE_COST: Record<ResourceType, number> = {
   WOOD: 1,

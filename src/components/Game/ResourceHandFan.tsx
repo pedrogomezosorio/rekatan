@@ -217,12 +217,22 @@ export const ResourceHandFan: React.FC<ResourceHandFanProps> = ({
                 onBlur={() => { setIsFanHovered(false); setHoveredIndex(null); }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const isTabletTouch =
+                  const isTouchDevice =
                     typeof window !== 'undefined' &&
                     window.matchMedia('(pointer: coarse)').matches;
-                  if (isTabletTouch) {
-                    setIsExpandedTouch(true);
-                    setHoveredIndex((prev) => (prev === idx ? null : idx));
+                  if (isTouchDevice) {
+                    if (!isExpandedTouch) {
+                      setIsExpandedTouch(true);
+                      setHoveredIndex(idx);
+                      return;
+                    }
+                    if (hoveredIndex === idx) {
+                      setIsExpandedTouch(false);
+                      setHoveredIndex(null);
+                      onCardClick?.(card.resource);
+                      return;
+                    }
+                    setHoveredIndex(idx);
                     return;
                   }
                   onCardClick?.(card.resource);

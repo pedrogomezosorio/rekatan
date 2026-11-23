@@ -136,16 +136,16 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
       <div className="relative flex items-center w-full">
         <motion.button
           type="button"
-          initial={{ scale: 0.92, opacity: 0 }}
+          initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onClick={() => onSelectKnightMode(null)}
-          className="w-full px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 border border-red-300/80 text-white font-black text-[11px] flex items-center justify-between gap-2 shadow-[0_0_20px_rgba(239,68,68,0.6)] cursor-pointer animate-pulse"
+          className="w-full px-3 py-2 rounded-lg bg-[#9e2b25] hover:bg-[#b5352e] border border-red-300/60 text-white font-bold text-xs flex items-center justify-between gap-2 shadow-md cursor-pointer"
         >
           <span className="flex items-center gap-1.5 truncate">
-            <X className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+            <X className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
             <span className="truncate">Cancelar ({modeNames[activeKnightMode]})</span>
           </span>
-          <span className="px-1.5 py-0.5 rounded bg-black/30 font-mono text-[9px] text-red-100">✕</span>
+          <span className="px-1.5 py-0.5 rounded bg-black/30 font-mono text-[10px] text-red-100">ESC</span>
         </motion.button>
       </div>
     );
@@ -161,29 +161,30 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onToggleOpen}
-              className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] cursor-pointer"
+              className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
             />
             <motion.div
               key="knights-drawer"
-              initial={{ opacity: 0, y: 28, scale: 0.94 }}
+              initial={{ opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.94 }}
-              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="tablet-drawer absolute bottom-[calc(100%+12px)] left-0 z-50 w-[340px] sm:w-[430px] rounded-3xl bg-[#1a120b] bg-gradient-to-b from-[#241911] to-[#120c08] border-2 border-[#d4af37] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.95)] space-y-3 cursor-default opacity-100"
+              exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="tablet-drawer absolute bottom-[calc(100%+10px)] left-0 z-50 w-[340px] sm:w-[420px] rounded-2xl bg-[#18110c] border border-[#c89b3c]/70 p-4 shadow-[0_18px_48px_rgba(8,5,3,0.92)] space-y-3 cursor-default opacity-100"
             >
-              <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5">
+              <div className="flex items-center justify-between border-b border-[#c89b3c]/25 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Swords className="w-4 h-4 text-amber-400" />
-                  <span className="font-display text-xs sm:text-sm font-black uppercase tracking-wider text-amber-100">
-                    Acciones de Caballeros
+                  <Swords className="w-4 h-4 text-[#d4af37]" />
+                  <span className="font-display text-sm font-bold tracking-wide text-amber-100">
+                    Acciones de caballeros
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={onToggleOpen}
-                  className="p-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 cursor-pointer opacity-100"
+                  aria-label="Cerrar menú de caballeros"
+                  className="p-2 rounded-md bg-[#261c14] hover:bg-[#32251a] text-stone-300 cursor-pointer opacity-100"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -196,48 +197,46 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
                       type="button"
                       disabled={!opt.canExecute}
                       onClick={opt.onTrigger}
-                      className={`tablet-drawer-item w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center justify-between gap-3 opacity-100 ${
+                      className={`tablet-drawer-item w-full p-2.5 rounded-lg border text-left transition-colors flex items-center justify-between gap-3 opacity-100 ${
                         opt.canExecute
-                          ? 'bg-gradient-to-r from-[#2c1f14] via-[#22170f] to-[#1a120b] hover:from-[#382719] hover:to-[#281b11] border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.28)] cursor-pointer scale-[1.01]'
-                          : 'bg-[#150f0b] border-stone-800 text-stone-300 cursor-not-allowed'
+                          ? 'bg-[#231912] hover:bg-[#2d2017] border-[#c89b3c]/70 cursor-pointer'
+                          : 'bg-[#140e0a] border-stone-800/80 text-stone-400 cursor-not-allowed'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`p-2 rounded-xl shrink-0 border opacity-100 ${
-                            opt.canExecute
-                              ? 'bg-amber-950/80 border-amber-500/50'
-                              : 'bg-stone-900 border-stone-700'
+                          className={`p-2 rounded-md shrink-0 opacity-100 ${
+                            opt.canExecute ? 'bg-[#312317]' : 'bg-[#1a130e]'
                           }`}
                         >
                           {opt.icon}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-display text-xs sm:text-sm font-extrabold text-amber-100">
+                            <span className="text-xs sm:text-sm font-bold text-amber-100">
                               {opt.title}
                             </span>
-                            <span className="text-[10px] font-semibold text-stone-400">
+                            <span className="text-[10px] font-medium text-stone-400 tabular-nums">
                               ({opt.remainingLabel})
                             </span>
                           </div>
-                          <p className="text-[10px] sm:text-[11px] text-stone-400 truncate mt-0.5">
+                          <p className="text-[11px] text-stone-400 truncate mt-0.5">
                             {opt.subtitle}
                           </p>
                         </div>
                       </div>
 
                       {costEntries.length > 0 ? (
-                        <div className="flex items-center gap-1.5 shrink-0 bg-black/60 px-2 py-1 rounded-xl border border-white/10 opacity-100">
+                        <div className="flex items-center gap-1.5 shrink-0 bg-black/55 px-2 py-1 rounded-md border border-white/10 opacity-100">
                           {costEntries.map(([res, count]) => (
-                            <div key={res} className="flex items-center gap-0.5" title={`${count}x ${RESOURCE_META[res].name}`}>
-                              <span className="text-[10px] font-black text-amber-200">{count}</span>
+                            <div key={res} className="flex items-center gap-0.5 tabular-nums" title={`${count}x ${RESOURCE_META[res].name}`}>
+                              <span className="text-[10px] font-bold text-amber-200">{count}</span>
                               <ResourceIcon resource={res} size={13} />
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950 border border-emerald-500/50 px-2 py-0.5 rounded-lg opacity-100">
+                        <span className="text-[10px] font-bold text-emerald-300 bg-[#11261a] border border-emerald-500/45 px-2 py-0.5 rounded-md opacity-100">
                           Gratis
                         </span>
                       )}
@@ -253,16 +252,16 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full px-3 py-2 rounded-xl border text-xs font-black flex items-center justify-between gap-2 transition cursor-pointer active:scale-98 opacity-100 ${
+        className={`tablet-action-btn w-full px-3 py-2 rounded-lg border text-xs font-bold flex items-center justify-between gap-2 transition-colors cursor-pointer active:scale-98 opacity-100 ${
           isOpen
-            ? 'bg-amber-950 border-amber-400 text-amber-200 shadow-[0_0_20px_rgba(251,191,36,0.5)]'
-            : 'bg-[#2a1d13] bg-gradient-to-r from-[#2a1d13] via-[#332317] to-[#20150d] hover:from-[#3a281a] hover:to-[#2d1e13] border-[#d4af37]/60 text-amber-200 shadow'
+            ? 'bg-[#362618] border-[#d4af37] text-amber-100'
+            : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/50 text-amber-200 shadow'
         }`}
         title="Acciones de Caballeros: Colocar, Ascender, Activar, Expulsar Ladrón y Mover"
       >
         <span className="flex items-center gap-1.5 truncate">
-          <Swords className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-          <span className="truncate">Caballeros ({myDefense} Def.)</span>
+          <Swords className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+          <span className="truncate tabular-nums">Caballeros ({myDefense} Def.)</span>
         </span>
         <span className="px-1.5 py-0.5 rounded bg-black/35 font-mono text-[9px] text-amber-300/80">
           K

@@ -22,6 +22,7 @@ import {
   ownKnights,
   freeRank,
 } from '../../shared/engine/CitiesAndKnights';
+import { canSpendOrBuildThisTurn } from '../../shared/engine/RulesEngine';
 import type {
   CardBundle,
   GameAction,
@@ -272,7 +273,9 @@ export function CitiesKnightsPanel({
     } else {
       setChoiceVertex('');
     }
-  }, [myChoice?.kind, myChoice?.playerId, s.turn.turnNumber, playerId, s.board.vertices]);
+  }, [myChoice?.kind, myChoice?.playerId, s.turn.turnNumber, playerId]);
+
+  const [metropolisCityByBranch, setMetropolisCityByBranch] = useState<Partial<Record<ImprovementBranch, string>>>({});
 
   useEffect(() => () => onHighlightVertex?.(null), [onHighlightVertex]);
 
@@ -297,10 +300,12 @@ export function CitiesKnightsPanel({
   const vs = Object.values(s.board.vertices);
   const ownKnightVertices = vs.filter((v) => v.knight?.playerId === me.id);
   const ownCities = vs.filter((v) => v.playerId === me.id && v.building === 'CITY');
+  const freeMetropolisCities = ownCities.filter((v) => !v.metropolis);
   const buildAllowed =
     !s.turn.isPausedByHost &&
     s.turn.activePlayerId === me.id &&
     ['MAIN_PHASE', 'SPECIAL_BUILD_PHASE'].includes(s.phase);
+  const infraAllowed = buildAllowed && canSpendOrBuildThisTurn(s, me.id, true).allowed;
   const actionAllowed = buildAllowed && s.phase === 'MAIN_PHASE';
   const card = mine.progressCards.find((c) => c.id === selectedCard);
   const target = s.players.find((p) => p.id === payload.targetPlayerId);
@@ -527,17 +532,31 @@ export function CitiesKnightsPanel({
                 const meta = BRANCH_META[b];
                 const level = mine.improvements[b];
                 const nextCost = Math.max(0, level + 1 - (ck.turnEffects?.crane ? 1 : 0));
+                const ownerId = ck.metropolisOwners[b];
+                const ownerLevel = ownerId
+                  ? s.players.find((pl) => pl.id === ownerId)?.citiesKnights?.improvements[b] || 0
+                  : 0;
+                const willGetMetropolis =
+                  level + 1 >= 4 && (!ownerId || (ownerId !== me.id && level + 1 > ownerLevel));
+                const needsCityPick = willGetMetropolis && freeMetropolisCities.length >= 2;
+                const chosenMetropolisCityId =
+                  metropolisCityByBranch[b] &&
+                  freeMetropolisCities.some((c) => c.id === metropolisCityByBranch[b])
+                    ? metropolisCityByBranch[b]
+                    : freeMetropolisCities[0]?.id;
+                const lacksFreeCity = willGetMetropolis && freeMetropolisCities.length === 0;
+
                 return (
                   <div
                     key={b}
-                    className="rounded-2xl border p-3.5 space-y-2.5 bg-black/40"
+                    className="rounded-lg border p-3.5 space-y-2.5 bg-[#120d09]"
                     style={{ borderColor: meta.color }}
                   >
                     <div className="flex justify-between items-center">
                       <strong style={{ color: meta.color }} className="text-sm font-extrabold">
                         {meta.name} · Nivel {level}/5
                       </strong>
-                      <span className="text-xs font-semibold text-stone-300 flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-stone-300 flex items-center gap-1.5 tabular-nums">
                         <ResourceIcon resource={meta.commodity} size={16} />
                         <span>{RESOURCE_META[meta.commodity]?.name || meta.commodity}:</span>
                         <strong className="text-amber-300">{me.resources[meta.commodity] || 0}</strong>
@@ -549,9 +568,9 @@ export function CitiesKnightsPanel({
                         <div
                           key={name}
                           title={name}
-                          className={`flex-1 py-1.5 px-1 text-center rounded-xl text-[11px] font-black border transition ${
+                          className={`flex-1 py-1.5 px-1 text-center rounded-md text-[11px] font-bold border transition ${
                             i < level
-                              ? 'bg-amber-500/25 border-amber-400 text-amber-100'
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-100'
                               : 'bg-stone-900 border-stone-800 text-stone-500'
                           }`}
                         >
@@ -567,6 +586,43 @@ export function CitiesKnightsPanel({
                         ? 'Nivel 3: Fortaleza (permite ascender tus caballeros fuertes a caballeros poderosos de nivel 3).'
                         : 'Nivel 3: Gremio comercial (puedes cambiar cualquier mercancía a razón 2:1 con la banca).'}
                     </p>
+
+                    {needsCityPick && (
+                      <div className="p-2.5 rounded-md bg-[#1d150e] border border-amber-400/45 space-y-1.5">
+                        <div className="text-[11px] font-bold text-amber-200">
+                          Elige en qué ciudad fundar la Metrópolis de {meta.name}:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {freeMetropolisCities.map((cityV, idx) => {
+                            const selected = chosenMetropolisCityId === cityV.id;
+                            return (
+                              <button
+                                key={cityV.id}
+                                type="button"
+                                onMouseEnter={() => onHighlightVertex?.(cityV.id)}
+                                onMouseLeave={() => onHighlightVertex?.(null)}
+                                onClick={() => {
+                                  setMetropolisCityByBranch((prev) => ({ ...prev, [b]: cityV.id }));
+                                  onHighlightVertex?.(cityV.id);
+                                }}
+                                className={`px-2.5 py-1.5 min-h-[36px] rounded-md border text-xs font-bold cursor-pointer transition ${
+                                  selected
+                                    ? 'bg-[#c89b3c] border-[#f1d98c] text-stone-950'
+                                    : 'bg-[#140e0a] border-stone-700 text-stone-200 hover:border-amber-400/60'
+                                }`}
+                              >
+                                Ciudad #{idx + 1} (
+                                {cityV.hexIds
+                                  .map((hid) => s.board.hexes[hid]?.numberToken)
+                                  .filter(Boolean)
+                                  .join('·') || 'costa'}
+                                )
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between pt-1 gap-2 flex-wrap">
                       <p className="text-[11px] text-stone-400">
@@ -586,19 +642,24 @@ export function CitiesKnightsPanel({
                         type="button"
                         className={button}
                         disabled={
-                          !buildAllowed ||
+                          !infraAllowed ||
                           level === 5 ||
                           (me.resources[meta.commodity] || 0) < nextCost ||
-                          ownCities.length === 0
+                          ownCities.length === 0 ||
+                          lacksFreeCity
                         }
-                        onClick={() =>
+                        onClick={() => {
                           dispatchAction({
                             type: 'IMPROVE_CITY',
                             branch: b,
-                          })
-                        }
+                            vertexId: willGetMetropolis ? chosenMetropolisCityId : undefined,
+                          });
+                          onHighlightVertex?.(null);
+                        }}
                       >
-                        {level < 5
+                        {lacksFreeCity
+                          ? 'Requiere ciudad sin metrópolis'
+                          : level < 5
                           ? `Mejorar a Nivel ${level + 1} (${nextCost} ${RESOURCE_META[meta.commodity]?.name})`
                           : 'Rama completada'}
                       </button>

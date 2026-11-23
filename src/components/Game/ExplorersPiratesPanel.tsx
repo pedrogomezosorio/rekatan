@@ -10,6 +10,7 @@ import {
   EP_SPICE_PERK_META,
   EP_TOKEN_ASSETS,
   EXPLORERS_PIRATES_SCENARIOS,
+  canFitCargoItem,
   getEPCargoToken,
   getEPHarborCityToken,
   getEPMissionGuideCardImage,
@@ -53,6 +54,7 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
   gameState: s,
   playerId,
   dispatchAction,
+  onStartBoardMode,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showTurnSummary, setShowTurnSummary] = useState(false);
@@ -319,6 +321,20 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                     />
                     {pep.unitsLeft} Unidades
                   </span>
+                  {(ep.activeMissions.includes('PIRATE_LAIRS') ||
+                    ep.scenario === 'EXPLORERS_AND_PIRATES_FULL') && (
+                    <button
+                      type="button"
+                      disabled={!isMyMainTurn}
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        onStartBoardMode('PLACE_PIRATE_SHIP');
+                      }}
+                      className="px-2.5 py-1 rounded-md bg-[#9e2b25] hover:bg-[#b5352e] disabled:opacity-40 text-white font-bold text-[11px] cursor-pointer"
+                    >
+                      Mover Barco Pirata
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -336,6 +352,16 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                     const adjLairHexId = shipEdge?.hexIds.find(
                       (hid) => ep.pirateLairs[hid] && !ep.pirateLairs[hid].conquered
                     );
+                    const adjConqueredPickupLairId = shipEdge?.hexIds.find(
+                      (hid) =>
+                        ep.pirateLairs[hid]?.conquered &&
+                        (ep.pirateLairs[hid].waitingPickupByPlayer[me.id] || 0) > 0
+                    );
+                    const canDriveOffPirate =
+                      Boolean(ep.activePirateShip) &&
+                      ep.activePirateShip!.playerId !== me.id &&
+                      !ship.hasMovedThisTurn &&
+                      Boolean(shipEdge?.hexIds.includes(ep.activePirateShip!.hexId));
                     const adjFishHexId = shipEdge?.hexIds.find(
                       (hid) => ep.fishGrounds[hid]?.hasFishShoal
                     );
@@ -437,9 +463,42 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                                   hexId: adjLairHexId,
                                 })
                               }
-                              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-[10px] cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-md bg-[#9e2b25] hover:bg-[#b5352e] text-white font-bold text-[11px] cursor-pointer"
                             >
-                              🏴‍☠️ Asaltar Guarida
+                              Asaltar guarida
+                            </button>
+                          )}
+
+                          {adjConqueredPickupLairId && canFitCargoItem(ship.cargo, 'CREW') && (
+                            <button
+                              type="button"
+                              disabled={!isMyMainTurn}
+                              onClick={() =>
+                                dispatchAction({
+                                  type: 'EP_PICKUP_LAIR_UNIT',
+                                  shipId: ship.id,
+                                  hexId: adjConqueredPickupLairId,
+                                })
+                              }
+                              className="px-2.5 py-1.5 rounded-md bg-[#245c7a] hover:bg-[#2d6f94] text-white font-bold text-[11px] cursor-pointer"
+                            >
+                              Embarcar tripulación
+                            </button>
+                          )}
+
+                          {canDriveOffPirate && (
+                            <button
+                              type="button"
+                              disabled={!isMyMainTurn}
+                              onClick={() =>
+                                dispatchAction({
+                                  type: 'EP_DRIVE_OFF_PIRATE',
+                                  shipId: ship.id,
+                                })
+                              }
+                              className="px-2.5 py-1.5 rounded-md bg-[#b84a27] hover:bg-[#cb5630] text-white font-bold text-[11px] cursor-pointer"
+                            >
+                              Combatir barco pirata
                             </button>
                           )}
 
@@ -538,22 +597,31 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                     isMyMainTurn &&
                     ep.turnSubPhase === 'TRADE_AND_BUILD' &&
                     (me.resources[res] || 0) >= 3;
+                  const maxSpiceGoldTrades =
+                    (pep.unlockedSpicePerks.includes('GOLD_TRADE_1') ? 1 : 0) +
+                    (pep.unlockedSpicePerks.includes('GOLD_TRADE_2') ? 1 : 0);
+                  const canSpiceGoldTrade =
+                    maxSpiceGoldTrades > 0 &&
+                    isMyMainTurn &&
+                    ep.turnSubPhase === 'TRADE_AND_BUILD' &&
+                    pep.spiceGoldTradesThisTurn < maxSpiceGoldTrades &&
+                    (me.resources[res] || 0) >= 1;
                   return (
                     <div
                       key={res}
-                      className="p-2.5 rounded-2xl bg-[#140e0a] border border-stone-800 flex flex-col items-center gap-1.5"
+                      className="p-2.5 rounded-lg bg-[#140e0a] border border-stone-800 flex flex-col items-center gap-1.5"
                     >
                       <ResourceIcon resource={res} size={22} />
-                      <span className="text-xs font-black">{RESOURCE_META[res].name}</span>
+                      <span className="text-xs font-bold">{RESOURCE_META[res].name}</span>
                       <button
                         type="button"
                         disabled={!canBuy}
                         onClick={() =>
                           dispatchAction({ type: 'EP_BUY_RESOURCE_WITH_GOLD', resource: res })
                         }
-                        className="w-full py-1 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-stone-900 disabled:text-stone-600 text-stone-950 font-black text-[10px] cursor-pointer"
+                        className="w-full py-1.5 rounded-md bg-[#c89b3c] hover:bg-[#d6aa4c] disabled:bg-stone-900 disabled:text-stone-600 text-stone-950 font-bold text-[10px] cursor-pointer tabular-nums"
                       >
-                        Comprar (2 🪙)
+                        Comprar (2 oros)
                       </button>
                       <button
                         type="button"
@@ -561,10 +629,22 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
                         onClick={() =>
                           dispatchAction({ type: 'EP_TRADE_3_FOR_GOLD', giveResource: res })
                         }
-                        className="w-full py-1 rounded-lg bg-stone-800 hover:bg-stone-700 disabled:opacity-40 text-amber-200 font-bold text-[10px] cursor-pointer"
+                        className="w-full py-1.5 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-40 text-amber-200 font-bold text-[10px] cursor-pointer tabular-nums"
                       >
-                        Dar 3 → +1 🪙
+                        Dar 3 → +1 oro
                       </button>
+                      {maxSpiceGoldTrades > 0 && (
+                        <button
+                          type="button"
+                          disabled={!canSpiceGoldTrade}
+                          onClick={() =>
+                            dispatchAction({ type: 'EP_SPICE_GOLD_TRADE', giveResource: res })
+                          }
+                          className="w-full py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-700 disabled:opacity-35 text-emerald-100 font-bold text-[10px] cursor-pointer tabular-nums"
+                        >
+                          Especias: 1 → +1 oro
+                        </button>
+                      )}
                     </div>
                   );
                 })}
