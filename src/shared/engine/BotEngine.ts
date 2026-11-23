@@ -965,12 +965,16 @@ export function evaluateBotTradeOffer(
   }
 
   // Check if simulated resources enable any build
-  const simulatedResources: Record<ResourceType, number> = { ...bot.resources };
-  for (const [res, count] of Object.entries(offer.request) as Array<[ResourceType, number]>) {
-    simulatedResources[res] -= count;
+  const simulatedResources = { ...bot.resources };
+  for (const [res, count] of Object.entries(offer.request)) {
+    if (!count) continue;
+    const key = res as keyof typeof simulatedResources;
+    simulatedResources[key] = (simulatedResources[key] || 0) - count;
   }
-  for (const [res, count] of Object.entries(offer.offer) as Array<[ResourceType, number]>) {
-    simulatedResources[res] = (simulatedResources[res] || 0) + count;
+  for (const [res, count] of Object.entries(offer.offer)) {
+    if (!count) continue;
+    const key = res as keyof typeof simulatedResources;
+    simulatedResources[key] = (simulatedResources[key] || 0) + count;
   }
 
   const enablesSettlement =

@@ -3974,9 +3974,16 @@ export function applyGameAction(
         }
       }
 
+      const offerSummaryText = ALL_TRADE_CARDS.filter((r) => (newOffer.offer[r] || 0) > 0)
+        .map((r) => `${newOffer.offer[r]} ${RESOURCE_META[r].name}`)
+        .join(', ');
+      const requestSummaryText = ALL_TRADE_CARDS.filter((r) => (newOffer.request[r] || 0) > 0)
+        .map((r) => `${newOffer.request[r]} ${RESOURCE_META[r].name}`)
+        .join(', ');
+
       addLog(
         state,
-        `${actor.name} propuso una ${isCounterOffer ? 'contraoferta' : 'oferta comercial'}.`,
+        `${actor.name} propuso una ${isCounterOffer ? 'contraoferta' : 'oferta comercial'} (${offerSummaryText} ↔ ${requestSummaryText}).`,
         'TRADE',
         actor.id
       );
@@ -4450,9 +4457,16 @@ function executeTradeBetweenPlayers(
     completedTrade: completedTradeSummary,
   };
 
+  const completedOfferText = ALL_TRADE_CARDS.filter((r) => (completedTradeSummary.offered[r] || 0) > 0)
+    .map((r) => `${completedTradeSummary.offered[r]} ${RESOURCE_META[r].name}`)
+    .join(', ');
+  const completedRequestText = ALL_TRADE_CARDS.filter((r) => (completedTradeSummary.requested[r] || 0) > 0)
+    .map((r) => `${completedTradeSummary.requested[r]} ${RESOURCE_META[r].name}`)
+    .join(', ');
+
   addLog(
     state,
-    `Comercio completado entre ${proposer.name} y ${partner.name}.`,
+    `Comercio completado entre ${proposer.name} y ${partner.name} (${completedOfferText} ↔ ${completedRequestText}).`,
     'TRADE',
     proposer.id
   );

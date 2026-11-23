@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Anchor, Castle, Hammer, Home, Route, ShieldAlert, Ship, Sparkles, X } from 'lucide-react';
 import { BUILDING_COSTS, RESOURCE_META } from '../../shared/constants';
 import { PlayerState, ResourceType } from '../../shared/types';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { ResourceIcon } from '../UI/ResourceIcon';
 
 export type ActiveBuildMode = 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CITY' | 'CITY_WALL' | null;
@@ -10,6 +11,7 @@ export type ActiveBuildMode = 'ROAD' | 'SHIP' | 'MOVE_SHIP' | 'SETTLEMENT' | 'CI
 interface BuildDrawerMenuProps {
   isOpen: boolean;
   onToggleOpen: () => void;
+  onCloseParentMenu?: () => void;
   buildMode: ActiveBuildMode;
   onSelectBuildMode: (mode: ActiveBuildMode) => void;
   onBuyDevCard: () => void;
@@ -47,6 +49,7 @@ interface BuildOptionSpec {
 export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   isOpen,
   onToggleOpen,
+  onCloseParentMenu,
   buildMode,
   onSelectBuildMode,
   onBuyDevCard,
@@ -69,6 +72,11 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
   onBuildWall,
   hasMedicineDiscount = false,
 }) => {
+  const isMobile = useIsMobileViewport();
+  const closeMenus = () => {
+    onToggleOpen();
+    onCloseParentMenu?.();
+  };
   const options: BuildOptionSpec[] = [
     {
       id: 'ROAD' as const,
@@ -80,7 +88,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       canExecute: canBuildRoadNow,
       onTrigger: () => {
         onSelectBuildMode('ROAD');
-        onToggleOpen();
+        closeMenus();
       },
     },
     ...(isSeafarers
@@ -95,7 +103,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             canExecute: canBuildShipNow,
             onTrigger: () => {
               onSelectBuildMode('SHIP');
-              onToggleOpen();
+              closeMenus();
             },
           },
           ...(canMoveShipNow
@@ -110,7 +118,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                   canExecute: !me.hasMovedShipThisTurn,
                   onTrigger: () => {
                     onSelectBuildMode('MOVE_SHIP');
-                    onToggleOpen();
+                    closeMenus();
                   },
                 },
               ]
@@ -127,7 +135,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       canExecute: canBuildSettlementNow,
       onTrigger: () => {
         onSelectBuildMode('SETTLEMENT');
-        onToggleOpen();
+        closeMenus();
       },
     },
     {
@@ -144,7 +152,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       canExecute: canBuildCityNow,
       onTrigger: () => {
         onSelectBuildMode('CITY');
-        onToggleOpen();
+        closeMenus();
       },
     },
     ...(isCitiesKnights
@@ -159,7 +167,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             canExecute: canBuildWallNow && !disabledBeforeDice,
             onTrigger: () => {
               onSelectBuildMode('CITY_WALL');
-              onToggleOpen();
+              closeMenus();
             },
           },
         ]
@@ -176,7 +184,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             canExecute: canBuyDevCardNow,
             onTrigger: () => {
               onBuyDevCard();
-              onToggleOpen();
+              closeMenus();
             },
           },
         ]),
@@ -253,40 +261,51 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onToggleOpen}
-              className="fixed inset-0 z-40 bg-black/45 cursor-pointer"
+              className={`fixed inset-0 z-40 cursor-pointer ${isMobile ? 'bg-transparent' : 'bg-black/45'}`}
             />
             <motion.div
               key="smart-build-drawer"
-              initial={{ opacity: 0, y: 18, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.97 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="tablet-drawer absolute bottom-[calc(100%+10px)] left-0 z-50 w-[340px] sm:w-[420px] rounded-2xl bg-[#18110c] border border-[#c89b3c]/70 p-4 shadow-[0_18px_48px_rgba(8,5,3,0.92)] space-y-3 cursor-default opacity-100"
+              initial={isMobile ? { opacity: 0, x: -10, scale: 0.96 } : { opacity: 0, y: 18, scale: 0.97 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={isMobile ? { opacity: 0, x: -8, scale: 0.96 } : { opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              className={
+                isMobile
+                  ? 'mobile-right-drawer absolute bottom-0 left-[calc(100%+8px)] z-50 rounded-xl bg-[#18110c] border border-[#c89b3c]/80 p-2 shadow-[0_14px_36px_rgba(8,5,3,0.95)] space-y-1.5 cursor-default opacity-100'
+                  : 'tablet-drawer absolute bottom-[calc(100%+10px)] left-0 z-50 w-[340px] sm:w-[420px] rounded-2xl bg-[#18110c] border border-[#c89b3c]/70 p-4 shadow-[0_18px_48px_rgba(8,5,3,0.92)] space-y-3 cursor-default opacity-100'
+              }
+              style={
+                isMobile
+                  ? {
+                      width: 'min(235px, calc(100vw - 148px - env(safe-area-inset-left) - env(safe-area-inset-right)))',
+                    }
+                  : undefined
+              }
             >
-            <div className="flex items-center justify-between border-b border-[#c89b3c]/25 pb-2.5">
-              <div className="flex items-center gap-2">
-                <Hammer className="w-4 h-4 text-[#d4af37]" />
-                <span className="font-display text-sm font-bold tracking-wide text-amber-100">
-                  Construcción
+            <div className={`flex items-center justify-between border-b border-[#c89b3c]/25 ${isMobile ? 'pb-1.5' : 'pb-2.5'}`}>
+              <div className="flex items-center gap-1.5">
+                <Hammer className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#d4af37]" />
+                <span className="font-display text-xs md:text-sm font-bold tracking-wide text-amber-100">
+                  Construir
                 </span>
               </div>
               <button
                 type="button"
                 onClick={onToggleOpen}
                 aria-label="Cerrar menú de construcción"
-                className="p-2 rounded-md bg-[#261c14] hover:bg-[#32251a] text-stone-300 cursor-pointer opacity-100"
+                className="p-1 md:p-2 rounded-md bg-[#261c14] hover:bg-[#32251a] text-stone-300 cursor-pointer opacity-100"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
               </button>
             </div>
 
             {restrictionReason && (
-              <div className="px-3 py-2 rounded-lg bg-[#2c1210] border border-red-500/50 text-xs font-medium text-red-200 opacity-100">
+              <div className="px-2.5 py-1.5 rounded-lg bg-[#2c1210] border border-red-500/50 text-[10.5px] md:text-xs font-medium text-red-200 opacity-100">
                 {restrictionReason}
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className={isMobile ? 'space-y-1' : 'space-y-2'}>
               {options.map((opt) => {
                 const costEntries = Object.entries(opt.cost) as [ResourceType, number][];
                 return (
@@ -295,54 +314,58 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
                     type="button"
                     disabled={!opt.canExecute}
                     onClick={opt.onTrigger}
-                    className={`tablet-drawer-item w-full p-2.5 rounded-lg border text-left transition-colors flex items-center justify-between gap-3 opacity-100 ${
+                    className={`tablet-drawer-item w-full ${isMobile ? 'p-1.5 gap-1.5' : 'p-2.5 gap-3'} rounded-lg border text-left transition-colors flex items-center justify-between opacity-100 ${
                       opt.canExecute
                         ? 'bg-[#231912] hover:bg-[#2d2017] border-[#c89b3c]/70 cursor-pointer'
                         : 'bg-[#140e0a] border-stone-800/80 text-stone-400 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className={`flex items-center ${isMobile ? 'gap-1.5' : 'gap-2.5'} min-w-0 flex-1`}>
                       <div
-                        className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 opacity-100 ${
+                        className={`${isMobile ? 'w-7 h-7' : 'w-9 h-9'} rounded-md flex items-center justify-center shrink-0 opacity-100 ${
                           opt.canExecute ? 'bg-[#312317]' : 'bg-[#1a130e]'
                         }`}
                       >
                         {opt.icon}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-nowrap">
+                        <div className="flex items-center gap-1 flex-nowrap">
                           <span
-                            className={`text-xs sm:text-sm font-bold whitespace-nowrap ${
+                            className={`${isMobile ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold truncate ${
                               opt.canExecute ? 'text-amber-100' : 'text-stone-400'
                             }`}
                           >
                             {opt.title}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-amber-300 font-mono font-semibold whitespace-nowrap shrink-0 tabular-nums opacity-100">
-                            {opt.remainingLabel}
-                          </span>
+                          {!isMobile && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-amber-300 font-mono font-semibold whitespace-nowrap shrink-0 tabular-nums opacity-100">
+                              {opt.remainingLabel}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-[11px] text-stone-400 truncate mt-0.5">{opt.subtitle}</p>
+                        {!isMobile && (
+                          <p className="text-[11px] text-stone-400 truncate mt-0.5">{opt.subtitle}</p>
+                        )}
                       </div>
                     </div>
 
                     {/* Official SVG Cost Recipe */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className={`flex items-center ${isMobile ? 'gap-0.5' : 'gap-1.5'} shrink-0`}>
                       {costEntries.map(([res, needed]) => {
                         const owned = me.resources[res] || 0;
                         const hasEnough = owned >= (needed || 0);
                         return (
                           <div
                             key={res}
-                            className={`tablet-cost-badge px-2 py-1 rounded-md border flex flex-col items-center min-w-[36px] opacity-100 ${
+                            className={`tablet-cost-badge ${isMobile ? 'px-1 py-0.5 min-w-[22px]' : 'px-2 py-1 min-w-[36px]'} rounded-md border flex flex-col items-center opacity-100 ${
                               hasEnough
                                 ? 'bg-[#11261a] border-emerald-500/60 text-emerald-200'
                                 : 'bg-[#2a1210] border-red-500/55 text-red-200'
                             }`}
                             title={`${RESOURCE_META[res].name}: necesitas ${needed}, tienes ${owned}`}
                           >
-                            <ResourceIcon resource={res} size={17} />
-                            <span className="text-[10px] font-mono font-bold mt-0.5 tabular-nums">
+                            <ResourceIcon resource={res} size={isMobile ? 12 : 17} />
+                            <span className={`${isMobile ? 'text-[9px]' : 'text-[10px] mt-0.5'} font-mono font-bold tabular-nums`}>
                               {needed}
                             </span>
                           </div>
@@ -362,7 +385,7 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full px-3 py-2 rounded-lg border font-bold text-xs flex items-center justify-between gap-2 transition-colors opacity-100 ${
+        className={`tablet-action-btn w-full ${isMobile ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors opacity-100 ${
           isOpen
             ? 'bg-[#d4af37] text-stone-950 border-[#f1d98c] cursor-pointer'
             : anyOptionAvailable && !disabledBeforeDice
@@ -370,14 +393,16 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/40 text-amber-100 cursor-pointer'
         }`}
       >
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 truncate">
           <Hammer className="w-3.5 h-3.5 shrink-0" />
           <span>Construir</span>
           {anyOptionAvailable && !disabledBeforeDice && (
-            <span className="w-2 h-2 rounded-full bg-emerald-700 ring-1 ring-stone-950/60" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 ring-1 ring-stone-950/60 shrink-0" />
           )}
         </span>
-        <span className="px-1.5 py-0.5 rounded bg-black/45 text-[9px] font-mono text-amber-100 opacity-100">C</span>
+        {!isMobile && (
+          <span className="px-1.5 py-0.5 rounded bg-black/45 text-[9px] font-mono text-amber-100 opacity-100">C</span>
+        )}
       </button>
     </div>
   );

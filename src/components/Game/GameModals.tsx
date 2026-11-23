@@ -47,6 +47,8 @@ import {
   getPlayerBankTradeRatios,
   hasResources,
 } from '../../shared/engine/RulesEngine';
+import { hasCitiesKnights } from '../../shared/citiesKnightsConfig';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 
 const modalBackdropVariants = {
@@ -99,19 +101,19 @@ export const TurnOrderModal: React.FC<{
         className="w-full max-w-2xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/65 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.95)] space-y-5 max-h-[92vh] overflow-y-auto"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-[#d4af37]/50 flex items-center justify-center text-amber-300 shadow-inner">
-              <Dices className="w-7 h-7" />
+        <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2.5 md:pb-4">
+          <div className="flex items-center gap-2.5 md:gap-3">
+            <div className="w-9 h-9 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-amber-500/20 border border-[#d4af37]/50 flex items-center justify-center text-amber-300 shadow-inner shrink-0">
+              <Dices className="w-5 h-5 md:w-7 md:h-7" />
             </div>
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
+              <span className="hidden md:inline text-[10px] font-extrabold uppercase tracking-widest text-amber-400">
                 Fase Preliminar de Partida
               </span>
-              <h2 className="font-display text-xl font-black text-amber-100">
-                Decidir el Orden de Turno
+              <h2 className="font-display text-base md:text-xl font-black text-amber-100">
+                Orden de Turno
               </h2>
-              <p className="text-xs text-stone-400">
+              <p className="hidden md:block text-xs text-stone-400">
                 Lanzad los dados de iniciativa o ajusta manualmente el orden antes de colocar los
                 primeros poblados.
               </p>
@@ -330,6 +332,7 @@ export const ActiveTradeFloatingBanner: React.FC<{
   dispatchAction: (action: GameAction) => void;
   onOpenCounterOffer: () => void;
 }> = ({ gameState, me, dispatchAction, onOpenCounterOffer }) => {
+  const isMobile = useIsMobileViewport();
   const [completedTrade, setCompletedTrade] = useState<
     NonNullable<GameState['lastCompletedTrade']> | null
   >(null);
@@ -354,6 +357,246 @@ export const ActiveTradeFloatingBanner: React.FC<{
   }, [completedTrade?.nonce]);
 
   if (gameState.activeTradeOffers.length === 0 && !completedTrade) return null;
+
+  if (isMobile) {
+    return (
+      <div
+        className="mobile-trade-banner fixed z-30 space-y-1.5 pointer-events-none"
+        style={{
+          top: 'calc(max(6px, env(safe-area-inset-top)) + 44px)',
+          left: 'max(8px, env(safe-area-inset-left))',
+          maxWidth: 'min(260px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)))',
+        }}
+      >
+        <AnimatePresence>
+          {completedTrade && (
+            <motion.div
+              key={`m-completed-trade-${completedTrade.nonce}`}
+              initial={{ opacity: 0, y: -10, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.96 }}
+              className="p-2 rounded-xl bg-[#0e1f14]/96 border border-emerald-400/80 shadow-xl space-y-1.5 pointer-events-auto"
+            >
+              <div className="flex items-center justify-between gap-1.5 text-[10px] font-black text-emerald-300">
+                <span className="flex items-center gap-1 truncate">
+                  <Check className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{completedTrade.proposerName} ↔ {completedTrade.accepterName}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCompletedTrade(null)}
+                  className="p-0.5 rounded text-stone-400 hover:text-white cursor-pointer"
+                  aria-label="Cerrar"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-1.5 bg-black/50 px-2 py-1 rounded-lg border border-emerald-500/30">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {ALL_TRADE_CARDS.map(
+                    (r) =>
+                      (completedTrade.offered[r] || 0) > 0 && (
+                        <span
+                          key={r}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-200 tabular-nums"
+                        >
+                          <span>{completedTrade.offered[r]}</span>
+                          <ResourceIcon resource={r} size={13} />
+                        </span>
+                      )
+                  )}
+                </div>
+                <ArrowLeftRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  {ALL_TRADE_CARDS.map(
+                    (r) =>
+                      (completedTrade.requested[r] || 0) > 0 && (
+                        <span
+                          key={r}
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-sky-200 tabular-nums"
+                        >
+                          <span>{completedTrade.requested[r]}</span>
+                          <ResourceIcon resource={r} size={13} />
+                        </span>
+                      )
+                  )}
+                </div>
+              </div>
+              <div className="w-full h-0.5 bg-black/50 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: '100%' }}
+                  animate={{ width: '0%' }}
+                  transition={{ duration: 7.5, ease: 'linear' }}
+                  className="h-full bg-emerald-400"
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {gameState.activeTradeOffers.map((tOffer) => {
+            const sender = gameState.players.find((p) => p.id === tOffer.fromPlayerId);
+            const isMine = tOffer.fromPlayerId === me.id;
+            const canAfford = hasResources(me.resources, tOffer.request);
+            const myStatus = tOffer.responses[me.id];
+
+            return (
+              <motion.div
+                key={tOffer.id}
+                initial={{ opacity: 0, y: -10, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                className="p-2 rounded-xl bg-[#18110b]/96 border border-[#d4af37]/85 shadow-xl space-y-1.5 pointer-events-auto"
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <AvatarIcon avatar={sender?.avatar} className="w-4 h-4 shrink-0" />
+                    <span className="text-[10px] font-extrabold text-amber-100 truncate">
+                      {isMine ? 'Tu oferta' : sender?.name}
+                    </span>
+                  </div>
+                  {isMine && (
+                    <button
+                      type="button"
+                      onClick={() => dispatchAction({ type: 'CANCEL_TRADE_OFFER', offerId: tOffer.id })}
+                      className="px-1.5 py-0.5 rounded bg-red-950/90 border border-red-500/40 text-red-200 text-[9px] font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {sender?.isBot && (
+                  <div className="w-full h-1 bg-black/60 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: '100%' }}
+                      animate={{ width: '0%' }}
+                      transition={{ duration: 7.5, ease: 'linear' }}
+                      className="h-full bg-amber-400"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-1.5 bg-[#0e0a06] px-2 py-1 rounded-lg border border-[#d4af37]/30">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {ALL_TRADE_CARDS.map(
+                      (r) =>
+                        (tOffer.offer[r] || 0) > 0 && (
+                          <span
+                            key={r}
+                            className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-emerald-950/90 border border-emerald-500/40 text-emerald-100 text-[10px] font-bold tabular-nums"
+                          >
+                            <span>{tOffer.offer[r]}</span>
+                            <ResourceIcon resource={r} size={13} />
+                          </span>
+                        )
+                    )}
+                  </div>
+                  <ArrowLeftRight className="w-3 h-3 text-amber-400 shrink-0" />
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
+                    {ALL_TRADE_CARDS.map(
+                      (r) =>
+                        (tOffer.request[r] || 0) > 0 && (
+                          <span
+                            key={r}
+                            className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-950/90 border border-amber-500/40 text-amber-100 text-[10px] font-bold tabular-nums"
+                          >
+                            <span>{tOffer.request[r]}</span>
+                            <ResourceIcon resource={r} size={13} />
+                          </span>
+                        )
+                    )}
+                  </div>
+                </div>
+
+                {!isMine ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={!canAfford || myStatus === 'ACCEPTED'}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'RESPOND_TRADE_OFFER',
+                          offerId: tOffer.id,
+                          response: 'ACCEPT',
+                        })
+                      }
+                      className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-black transition ${
+                        myStatus === 'ACCEPTED'
+                          ? 'bg-emerald-800 text-emerald-200'
+                          : canAfford
+                          ? 'bg-emerald-500 text-stone-950 cursor-pointer'
+                          : 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {myStatus === 'ACCEPTED' ? 'Aceptada' : canAfford ? 'Aceptar' : 'Faltan'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onOpenCounterOffer}
+                      className="px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[10px] font-bold cursor-pointer"
+                      title="Contraofertar"
+                    >
+                      ⇄
+                    </button>
+                    {myStatus !== 'REJECTED' && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          dispatchAction({
+                            type: 'RESPOND_TRADE_OFFER',
+                            offerId: tOffer.id,
+                            response: 'REJECT',
+                          })
+                        }
+                        className="px-2 py-1 rounded-lg bg-red-950/80 border border-red-500/40 text-red-200 text-[10px] font-bold cursor-pointer"
+                        title="Rechazar"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {Object.entries(tOffer.responses).map(([pId, status]) => {
+                      const partner = gameState.players.find((pl) => pl.id === pId);
+                      if (!partner) return null;
+                      return (
+                        <div
+                          key={pId}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0e0a06] border border-stone-800 text-[9.5px]"
+                        >
+                          <span className="truncate max-w-[54px]">{partner.name}</span>
+                          {status === 'ACCEPTED' ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                dispatchAction({
+                                  type: 'EXECUTE_TRADE_OFFER',
+                                  offerId: tOffer.id,
+                                  partnerPlayerId: pId,
+                                })
+                              }
+                              className="px-1.5 py-0.2 rounded bg-emerald-500 text-stone-950 font-black cursor-pointer"
+                            >
+                              ✓
+                            </button>
+                          ) : status === 'REJECTED' ? (
+                            <span className="text-red-400 font-bold">✕</span>
+                          ) : (
+                            <span className="text-stone-400">…</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute top-3 left-3 z-25 max-w-xl w-full space-y-2 pointer-events-none">
@@ -662,22 +905,22 @@ export const RobberDiscardModal: React.FC<{
     >
       <motion.div
         variants={modalCardVariants}
-        className="w-full max-w-lg bg-gradient-to-b from-[#1f1610] to-[#120d0a] border-2 border-red-500/70 rounded-3xl p-6 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-5"
+        className="w-full max-w-lg bg-gradient-to-b from-[#1f1610] to-[#120d0a] border-2 border-red-500/70 rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-3 md:space-y-5"
       >
-        <div className="flex items-center gap-3 text-red-400">
-          <ShieldAlert className="w-7 h-7 shrink-0" />
+        <div className="flex items-center gap-2.5 md:gap-3 text-red-400">
+          <ShieldAlert className="w-6 h-6 md:w-7 md:h-7 shrink-0" />
           <div>
-            <h3 className="font-display text-lg font-extrabold text-amber-100">
-              Descarte obligatorio
+            <h3 className="font-display text-base md:text-lg font-extrabold text-amber-100">
+              Descarta {target} carta{target === 1 ? '' : 's'}
             </h3>
-            <p className="text-xs text-stone-300">
+            <p className="hidden md:block text-xs text-stone-300">
               Tu mano supera el límite permitido por tus murallas. Haz clic en tus cartas para seleccionar{' '}
               <strong className="text-red-400">{target} cartas</strong> a descartar.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 max-h-[55dvh] overflow-y-auto pr-0.5">
+        <div className={`grid ${me.citiesKnights ? 'grid-cols-4 gap-1.5 md:gap-2.5' : 'grid-cols-5 gap-1.5 md:gap-2.5'}`}>
           {(me.citiesKnights ? ALL_TRADE_CARDS : ALL_RESOURCES).map((res) => {
             const owned = (me.resources[res] || 0);
             const picked = selected[res] || 0;
@@ -685,26 +928,26 @@ export const RobberDiscardModal: React.FC<{
             return (
               <div
                 key={res}
-                className={`p-3 rounded-lg border text-center flex flex-col items-center justify-between gap-2 ${
+                className={`p-1.5 md:p-3 rounded-lg border text-center flex flex-col items-center justify-between gap-1 md:gap-2 ${
                   picked > 0
                     ? 'bg-red-950/60 border-red-400/80 text-amber-100'
                     : 'bg-[#1a130d] border-stone-800 text-stone-300'
                 }`}
               >
-                <ResourceIcon resource={res} size={28} />
-                <div className="text-xs font-bold">{meta.name}</div>
-                <div className="text-[11px] text-stone-400 tabular-nums">Tienes: {owned}</div>
-                <div className="flex items-center gap-1.5 mt-1">
+                <ResourceIcon resource={res} size={22} />
+                <div className="text-[10px] md:text-xs font-bold truncate max-w-full">{meta.name}</div>
+                <div className="text-[10px] md:text-[11px] text-stone-400 tabular-nums">{owned}</div>
+                <div className="flex items-center gap-1 mt-0.5">
                   <button
                     type="button"
                     onClick={() => adjust(res, -1)}
                     disabled={picked <= 0}
                     aria-label={`Quitar 1 ${meta.name}`}
-                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-sm cursor-pointer flex items-center justify-center"
+                    className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-xs md:text-sm cursor-pointer flex items-center justify-center"
                   >
                     −
                   </button>
-                  <span className="w-6 text-center font-mono text-sm font-bold text-red-300 tabular-nums">
+                  <span className="w-4 md:w-6 text-center font-mono text-xs md:text-sm font-bold text-red-300 tabular-nums">
                     {picked}
                   </span>
                   <button
@@ -712,7 +955,7 @@ export const RobberDiscardModal: React.FC<{
                     onClick={() => adjust(res, 1)}
                     disabled={picked >= owned || currentSum >= target}
                     aria-label={`Añadir 1 ${meta.name}`}
-                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-sm cursor-pointer flex items-center justify-center"
+                    className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-stone-800 hover:bg-stone-700 disabled:opacity-30 font-bold text-xs md:text-sm cursor-pointer flex items-center justify-center"
                   >
                     +
                   </button>
@@ -762,7 +1005,7 @@ export const RobberStealModal: React.FC<{
             <h3 className="font-display text-base font-extrabold text-amber-100">
               Saqueo del Ladrón
             </h3>
-            <p className="text-xs text-stone-400">
+            <p className="hidden md:block text-xs text-stone-400">
               Elige a qué jugador con asentamientos en este terreno deseas robarle 1 recurso al azar:
             </p>
           </div>
@@ -874,7 +1117,10 @@ export const TradeModal: React.FC<{
   onClose: () => void;
   dispatchAction: (action: GameAction) => void;
 }> = ({ gameState, me, initialTab = 'BANK', onClose, dispatchAction }) => {
-  const tradeCards = me.citiesKnights ? ALL_TRADE_CARDS : ALL_RESOURCES;
+  const isMobile = useIsMobileViewport();
+  const isCitiesKnightsGame = hasCitiesKnights(gameState.config) || Boolean(me.citiesKnights);
+  const tradeCards = isCitiesKnightsGame ? ALL_TRADE_CARDS : ALL_RESOURCES;
+  const cardGridClass = isCitiesKnightsGame ? 'grid-cols-4 gap-1.5' : 'grid-cols-5 gap-1.5';
   const [tab, setTab] = useState<'PLAYERS' | 'BANK'>(initialTab);
   const [offer, setOffer] = useState<CardBundle>(createEmptyResources);
   const [request, setRequest] = useState<CardBundle>(createEmptyResources);
@@ -988,19 +1234,19 @@ export const TradeModal: React.FC<{
       <motion.div
         variants={modalCardVariants}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-3xl p-6 shadow-[0_25px_90px_rgba(0,0,0,0.94)] space-y-5 max-h-[92vh] overflow-y-auto cursor-default"
+        className="w-full max-w-3xl bg-gradient-to-b from-[#231911] to-[#120d09] border-2 border-[#d4af37]/55 rounded-2xl md:rounded-3xl p-3.5 md:p-6 shadow-[0_25px_90px_rgba(0,0,0,0.94)] space-y-3 md:space-y-5 max-h-[90dvh] overflow-y-auto cursor-default"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-[#d4af37]/50 flex items-center justify-center text-amber-300">
-              <Flame className="w-6 h-6 text-orange-400" />
+        <div className="flex items-center justify-between border-b border-[#d4af37]/25 pb-2 md:pb-3">
+          <div className="flex items-center gap-2.5 md:gap-3">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-amber-500/20 border border-[#d4af37]/50 flex items-center justify-center text-amber-300 shrink-0">
+              <Flame className="w-4 h-4 md:w-6 md:h-6 text-orange-400" />
             </div>
             <div>
-              <h3 className="font-display text-lg font-extrabold text-amber-100">
-                Quemar Cartas (Banca/Puertos) y Comercio entre Jugadores
+              <h3 className="font-display text-sm md:text-lg font-extrabold text-amber-100">
+                {isMobile ? 'Comercio' : 'Quemar Cartas (Banca/Puertos) y Comercio entre Jugadores'}
               </h3>
-              <p className="text-xs text-stone-400">
+              <p className="hidden md:block text-xs text-stone-400">
                 Quema recursos con la Banca (4:1 o Puertos 3:1 / 2:1) o negocia directamente con otros jugadores.
               </p>
             </div>
@@ -1015,48 +1261,48 @@ export const TradeModal: React.FC<{
 
         {/* House Rule Restriction Warning */}
         {isMyTurn && !tradePermission.allowed && (
-          <div className="p-3 rounded-2xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs font-semibold flex items-center gap-2">
+          <div className="p-2.5 md:p-3 rounded-xl md:rounded-2xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs font-semibold flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
             <span>{tradePermission.reason}</span>
           </div>
         )}
 
         {/* Mode Switcher Tabs */}
-        <div className="grid grid-cols-2 gap-2 bg-[#120c08] p-1.5 rounded-2xl border border-[#d4af37]/25">
+        <div className="grid grid-cols-2 gap-1.5 md:gap-2 bg-[#120c08] p-1 md:p-1.5 rounded-xl md:rounded-2xl border border-[#d4af37]/25">
           <button
             type="button"
             onClick={() => setTab('BANK')}
-            className={`py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+            className={`py-2 md:py-2.5 rounded-lg md:rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 md:gap-2 transition cursor-pointer ${
               tab === 'BANK'
                 ? 'bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-600 text-stone-950 shadow'
                 : 'text-stone-400 hover:text-amber-200'
             }`}
           >
-            <Flame className="w-4 h-4" />
-            <span>Banca (4:1) y Puertos (3:1 / 2:1)</span>
+            <Flame className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span>{isMobile ? 'Banca / Puertos' : 'Banca (4:1) y Puertos (3:1 / 2:1)'}</span>
           </button>
           <button
             type="button"
             onClick={() => setTab('PLAYERS')}
-            className={`py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+            className={`py-2 md:py-2.5 rounded-lg md:rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 md:gap-2 transition cursor-pointer ${
               tab === 'PLAYERS'
                 ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-stone-950 shadow'
                 : 'text-stone-400 hover:text-amber-200'
             }`}
           >
-            <Users className="w-4 h-4" />
-            <span>Comerciar con Jugadores ({gameState.activeTradeOffers.length})</span>
+            <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            <span>{isMobile ? `Jugadores (${gameState.activeTradeOffers.length})` : `Comerciar con Jugadores (${gameState.activeTradeOffers.length})`}</span>
           </button>
         </div>
 
         {tab === 'PLAYERS' ? (
           /* TAB 1: VISUAL PLAYER-TO-PLAYER TRADE */
-          <div className="space-y-5">
+          <div className="space-y-3 md:space-y-5">
             {/* Active Offers on Table */}
             {gameState.activeTradeOffers.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                  Ofertas Activas ahora mismo:
+                <h4 className="text-[11px] md:text-xs font-extrabold uppercase tracking-wider text-amber-400">
+                  Ofertas activas
                 </h4>
                 {gameState.activeTradeOffers.map((tOffer) => {
                   const sender = gameState.players.find((p) => p.id === tOffer.fromPlayerId);
@@ -1066,7 +1312,7 @@ export const TradeModal: React.FC<{
                   return (
                     <div
                       key={tOffer.id}
-                      className="p-3.5 rounded-2xl bg-[#140e0a] border border-[#d4af37]/40 flex flex-wrap items-center justify-between gap-3"
+                      className="p-2.5 md:p-3.5 rounded-xl md:rounded-2xl bg-[#140e0a] border border-[#d4af37]/40 flex flex-wrap items-center justify-between gap-2 md:gap-3"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-display font-black text-amber-300 flex items-center justify-center">
@@ -1074,16 +1320,16 @@ export const TradeModal: React.FC<{
                         </span>
                         <div>
                           <div className="text-xs font-bold text-amber-100">{sender?.name}</div>
-                          <div className="text-[10px] text-stone-400">
+                          <div className="hidden md:block text-[10px] text-stone-400">
                             {tOffer.parentOfferId ? 'Contraoferta' : 'Oferta abierta'}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-bold text-emerald-200">
+                      <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs font-bold text-emerald-200">
                           <span>Da:</span>
-                          {tradeCards.map(
+                          {ALL_TRADE_CARDS.map(
                             (r) =>
                               (tOffer.offer[r] || 0) > 0 && (
                                 <span key={r} className="inline-flex items-center gap-0.5">
@@ -1093,10 +1339,10 @@ export const TradeModal: React.FC<{
                               )
                           )}
                         </div>
-                        <ArrowLeftRight className="w-4 h-4 text-amber-400" />
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-950/60 border border-amber-500/40 text-xs font-bold text-amber-200">
+                        <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-amber-950/60 border border-amber-500/40 text-xs font-bold text-amber-200">
                           <span>Pide:</span>
-                          {tradeCards.map(
+                          {ALL_TRADE_CARDS.map(
                             (r) =>
                               (tOffer.request[r] || 0) > 0 && (
                                 <span key={r} className="inline-flex items-center gap-0.5">
@@ -1176,20 +1422,20 @@ export const TradeModal: React.FC<{
                 </div>
 
                 {/* Selected Cards on the Offer Tray */}
-                <div className="min-h-[68px] p-2.5 rounded-xl bg-[#0c0806] border border-emerald-500/25 flex items-center justify-center flex-wrap gap-2">
+                <div className="min-h-[52px] md:min-h-[68px] p-2 md:p-2.5 rounded-xl bg-[#0c0806] border border-emerald-500/25 flex items-center justify-center flex-wrap gap-1.5 md:gap-2">
                   {countTotalResources(offer) === 0 ? (
-                    <span className="text-xs text-stone-500">
-                      Toca las cartas de abajo para añadir lo que entregas...
+                    <span className="text-[11px] md:text-xs text-stone-500">
+                      {isMobile ? 'Toca abajo para dar' : 'Toca las cartas de abajo para añadir lo que entregas...'}
                     </span>
                   ) : (
-                    tradeCards.map(
+                    ALL_TRADE_CARDS.map(
                       (r) =>
                         (offer[r] || 0) > 0 && (
                           <button
                             key={r}
                             type="button"
                             onClick={() => removeOfferCard(r)}
-                            className="px-3 py-1.5 rounded-xl bg-emerald-900/70 hover:bg-red-900/70 border border-emerald-400 text-emerald-100 text-xs font-black flex items-center gap-1.5 shadow cursor-pointer transition"
+                            className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl bg-emerald-900/70 hover:bg-red-900/70 border border-emerald-400 text-emerald-100 text-xs font-black flex items-center gap-1.5 shadow cursor-pointer transition"
                             title="Haz clic para quitar 1"
                           >
                             <ResourceIcon resource={r} size={15} />
@@ -1203,7 +1449,7 @@ export const TradeModal: React.FC<{
                 </div>
 
                 {/* Clickable Hand Resource Cards */}
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className={`grid ${cardGridClass}`}>
                   {tradeCards.map((r) => {
                     const remainingInHand = (me.resources[r] || 0) - (offer[r] || 0);
                     return (
@@ -1247,20 +1493,20 @@ export const TradeModal: React.FC<{
                 </div>
 
                 {/* Selected Cards on the Request Tray */}
-                <div className="min-h-[68px] p-2.5 rounded-xl bg-[#0c0806] border border-amber-500/25 flex items-center justify-center flex-wrap gap-2">
+                <div className="min-h-[52px] md:min-h-[68px] p-2 md:p-2.5 rounded-xl bg-[#0c0806] border border-amber-500/25 flex items-center justify-center flex-wrap gap-1.5 md:gap-2">
                   {countTotalResources(request) === 0 ? (
-                    <span className="text-xs text-stone-500">
-                      Toca los recursos de abajo para pedir a cambio...
+                    <span className="text-[11px] md:text-xs text-stone-500">
+                      {isMobile ? 'Toca abajo para pedir' : 'Toca los recursos de abajo para pedir a cambio...'}
                     </span>
                   ) : (
-                    tradeCards.map(
+                    ALL_TRADE_CARDS.map(
                       (r) =>
                         (request[r] || 0) > 0 && (
                           <button
                             key={r}
                             type="button"
                             onClick={() => removeRequestCard(r)}
-                            className="px-3 py-1.5 rounded-xl bg-amber-900/70 hover:bg-red-900/70 border border-amber-400 text-amber-100 text-xs font-black flex items-center gap-1.5 shadow cursor-pointer transition"
+                            className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-xl bg-amber-900/70 hover:bg-red-900/70 border border-amber-400 text-amber-100 text-xs font-black flex items-center gap-1.5 shadow cursor-pointer transition"
                             title="Haz clic para quitar 1"
                           >
                             <ResourceIcon resource={r} size={15} />
@@ -1274,7 +1520,7 @@ export const TradeModal: React.FC<{
                 </div>
 
                 {/* Clickable Desired Resource Cards */}
-                <div className="grid grid-cols-5 gap-1.5">
+                <div className={`grid ${cardGridClass}`}>
                   {tradeCards.map((r) => (
                     <button
                       key={r}
@@ -1374,11 +1620,11 @@ export const TradeModal: React.FC<{
             </div>
 
             {/* Step 1: Click Resource Card to Burn */}
-            <div className="space-y-2">
-              <label className="block text-xs font-black uppercase tracking-wider text-orange-400">
-                1. Elige qué recurso de tu mano quieres QUEMAR:
+            <div className="space-y-1.5 md:space-y-2">
+              <label className="block text-[11px] md:text-xs font-black uppercase tracking-wider text-orange-400">
+                {isMobile ? '1. Entregas:' : '1. Elige qué recurso de tu mano quieres QUEMAR:'}
               </label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className={`grid ${cardGridClass}`}>
                 {tradeCards.map((r) => {
                   const needed = ratios[r] * receiveMultiple;
                   const canAfford = (me.resources[r] || 0) >= needed;
@@ -1437,7 +1683,7 @@ export const TradeModal: React.FC<{
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-2">
+              <div className={`grid ${cardGridClass}`}>
                 {tradeCards.map((r) => {
                   const isSelected = receiveRes === r;
                   return (

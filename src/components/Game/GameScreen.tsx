@@ -62,10 +62,12 @@ import {
   BUILDING_COSTS,
   CARD_BACK_PATHS,
   countTotalResources,
+  PLAYER_COLORS,
   PROGRESS_BACK_IMAGE_PATHS,
   RESOURCE_CARD_PATHS,
   RESOURCE_META,
 } from '../../shared/constants';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import {
   canBuyDevCard,
   canSpendOrBuildThisTurn,
@@ -140,6 +142,8 @@ export const GameScreen: React.FC = () => {
   const [buildMode, setBuildMode] = useState<ActiveBuildMode>(null);
   const [selectedMovableShipId, setSelectedMovableShipId] = useState<string | null>(null);
   const [isBuildDrawerOpen, setIsBuildDrawerOpen] = useState(false);
+  const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
+  const isMobile = useIsMobileViewport();
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [tradeModalInitialTab, setTradeModalInitialTab] = useState<'PLAYERS' | 'BANK'>('BANK');
   const [showDevModal, setShowDevModal] = useState(false);
@@ -203,11 +207,8 @@ export const GameScreen: React.FC = () => {
             ratio: b.ratio,
           },
         ]);
-        return;
-      }
-
-      // 2. Completed Player-to-Player Trade by Human or Bot
-      if (ev.completedTrade) {
+      } else if (ev.completedTrade) {
+        // 2. Completed Player-to-Player Trade by Human or Bot
         const ct = ev.completedTrade;
         const giveItems = ALL_TRADE_CARDS.filter((r) => (ct.offered[r] || 0) > 0).map((r) => ({
           resource: r,
@@ -228,11 +229,8 @@ export const GameScreen: React.FC = () => {
             receiveItems,
           },
         ]);
-        return;
-      }
-
-      // 3. Building Placed (Road, Settlement, City) by Human or Bot
-      if (ev.builtItem) {
+      } else if (ev.builtItem) {
+        // 3. Building Placed (Road, Settlement, City) by Human or Bot
         const builder = gameState.players.find((p) => p.id === ev.builtItem?.playerId);
         const builderName = builder?.name || 'Un jugador';
         const isSetupPhase =
@@ -254,10 +252,7 @@ export const GameScreen: React.FC = () => {
               isBotActor: builder?.isBot,
             },
           ]);
-          return;
-        }
-
-        if (ev.builtItem.type === 'SETTLEMENT') {
+        } else if (ev.builtItem.type === 'SETTLEMENT') {
           if (isSetupPhase) {
             const gained = (ev.flights || []).map((f) => ({
               resource: f.resource,
@@ -292,10 +287,7 @@ export const GameScreen: React.FC = () => {
               },
             ]);
           }
-          return;
-        }
-
-        if (ev.builtItem.type === 'ROAD') {
+        } else if (ev.builtItem.type === 'ROAD') {
           const isFreeRoad =
             gameState.phase === 'ROAD_BUILDING_DEV' ||
             (ev.botActionNotice && ev.botActionNotice.includes('gratuita'));
@@ -324,12 +316,9 @@ export const GameScreen: React.FC = () => {
               isBotActor: builder?.isBot,
             },
           ]);
-          return;
         }
-      }
-
-      // 4. Development Card Bought / Progress Card Received by Human or Bot
-      if (ev.type === 'DEV_CARD_BOUGHT') {
+      } else if (ev.type === 'DEV_CARD_BOUGHT') {
+        // 4. Development Card Bought / Progress Card Received by Human or Bot
         const buyer = gameState.players.find((p) => p.id === ev.buyerPlayerId);
         const buyerName = ev.buyerPlayerName || buyer?.name || 'Un jugador';
         const isCK = hasCitiesKnights(gameState.config) || Boolean(ev.progressFlight) || Boolean(ev.eventDie);
@@ -357,11 +346,8 @@ export const GameScreen: React.FC = () => {
             isBotActor: buyer?.isBot,
           },
         ]);
-        return;
-      }
-
-      // 4b. Progress Card Played (Ciudades y Caballeros)
-      if (ev.type === ('PROGRESS_CARD_PLAYED' as never)) {
+      } else if (ev.type === ('PROGRESS_CARD_PLAYED' as never)) {
+        // 4b. Progress Card Played (Ciudades y Caballeros)
         const anyEv = ev as unknown as { actorPlayerName?: string; actorPlayerId?: string; progressCardType?: keyof typeof PROGRESS_CARDS; nonce: number };
         const actorName = anyEv.actorPlayerName || gameState.players.find((p) => p.id === anyEv.actorPlayerId)?.name || 'Un jugador';
         const cardTitle = anyEv.progressCardType ? PROGRESS_CARDS[anyEv.progressCardType]?.name || anyEv.progressCardType : 'Progreso';
@@ -374,11 +360,8 @@ export const GameScreen: React.FC = () => {
             durationMs: 3800,
           },
         ]);
-        return;
-      }
-
-      // 5. Development Card Played by Human or Bot
-      if (ev.type === 'DEV_CARD_PLAYED' && ev.devCardType) {
+      } else if (ev.type === 'DEV_CARD_PLAYED' && ev.devCardType) {
+        // 5. Development Card Played by Human or Bot
         const actor = gameState.players.find((p) => p.id === ev.devCardPlayerId);
         const actorName = ev.devCardPlayerName || actor?.name || 'Un jugador';
         let msg = `${actorName} usó una Carta de Desarrollo`;
@@ -417,7 +400,6 @@ export const GameScreen: React.FC = () => {
             isBotActor: actor?.isBot,
           },
         ]);
-        return;
       }
     }
 
@@ -496,6 +478,7 @@ export const GameScreen: React.FC = () => {
     setActiveExplorersMode(null);
     setSelectedEPShipId(null);
     setIsExplorersDrawerOpen(false);
+    setIsMobileActionsOpen(false);
   }, [
     gameState?.phase,
     gameState?.turn.activePlayerId,
@@ -1704,7 +1687,8 @@ export const GameScreen: React.FC = () => {
         dispatchAction={dispatchAction}
       />
 
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Desktop & Tablet ONLY; Mobile uses clean floating corner controls) */}
+      {!isMobile && (
       <header className="tablet-header h-14 px-4 bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-b border-[#d4af37]/35 flex items-center justify-between gap-3 shrink-0 z-30 shadow-xl">
         <div className="flex items-center gap-3">
           <span className="tablet-header-title font-display text-lg font-extrabold text-amber-400 tracking-wider drop-shadow">
@@ -1871,6 +1855,148 @@ export const GameScreen: React.FC = () => {
           </button>
         </div>
       </header>
+      )}
+
+      {/* Mobile Floating Corner Controls: Visual Turn Timer (top-left) + Compact Pause/Abandon/Players (top-right) */}
+      {isMobile && (() => {
+        const ringRadius = 10;
+        const ringCirc = 2 * Math.PI * ringRadius;
+        const ringDashOffset = ringCirc * (1 - Math.max(0, Math.min(100, timerPercent)) / 100);
+        const activeColorHex = activePlayer ? PLAYER_COLORS[activePlayer.color].primary : '#f59e0b';
+        return (
+          <>
+            {/* Top-Left Visual Timer */}
+            <div
+              className="fixed z-30 pointer-events-auto flex items-center gap-1.5 px-2 py-1 rounded-full bg-[#160f0a]/92 border border-[#d4af37]/60 shadow-xl"
+              style={{
+                top: 'max(6px, env(safe-area-inset-top))',
+                left: 'max(8px, env(safe-area-inset-left))',
+              }}
+            >
+              <div className="relative w-6 h-6 flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 -rotate-90" viewBox="0 0 26 26">
+                  <circle
+                    cx="13"
+                    cy="13"
+                    r={ringRadius}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.14)"
+                    strokeWidth="2.5"
+                  />
+                  {remainingSec !== null && (
+                    <circle
+                      cx="13"
+                      cy="13"
+                      r={ringRadius}
+                      fill="none"
+                      stroke={isPausedByHost ? '#f59e0b' : isLowTime ? '#ef4444' : '#34d399'}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeDasharray={ringCirc}
+                      strokeDashoffset={ringDashOffset}
+                      style={{ transition: 'stroke-dashoffset 0.35s linear' }}
+                    />
+                  )}
+                </svg>
+                <span
+                  className="absolute w-2.5 h-2.5 rounded-full border border-white/80 shadow"
+                  style={{ backgroundColor: activeColorHex }}
+                />
+              </div>
+
+              {remainingSec !== null ? (
+                <div className="flex flex-col leading-none pr-0.5">
+                  <span
+                    className={`font-mono text-xs font-black tabular-nums ${
+                      isPausedByHost
+                        ? 'text-amber-300'
+                        : isLowTime
+                        ? 'text-red-400 animate-pulse'
+                        : 'text-amber-100'
+                    }`}
+                  >
+                    {remainingSec}s
+                  </span>
+                  {isPausedByHost && (
+                    <span className="text-[8px] font-bold text-amber-300 uppercase">Pausa</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] font-bold text-amber-100 max-w-[78px] truncate pr-1">
+                  {isMyTurn ? 'Tu turno' : activePlayer?.name || 'Turno'}
+                </span>
+              )}
+            </div>
+
+            {/* Top-Right Compact Controls: Pause + Abandon + Players Dropdown */}
+            <div
+              className="fixed z-30 pointer-events-auto flex items-center gap-1.5"
+              style={{
+                top: 'max(6px, env(safe-area-inset-top))',
+                right: 'max(8px, env(safe-area-inset-right))',
+              }}
+            >
+              {me.isHost && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (phase === 'PAUSED_DISCONNECT') {
+                      dispatchAction({ type: 'RESUME_GAME' });
+                    } else {
+                      dispatchAction({ type: 'TOGGLE_HOST_PAUSE' });
+                    }
+                  }}
+                  aria-label={isPausedByHost ? 'Reanudar partida' : 'Pausar partida'}
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center shadow-lg cursor-pointer active:scale-95 ${
+                    isPausedByHost || phase === 'PAUSED_DISCONNECT'
+                      ? 'bg-emerald-600 border-emerald-300 text-stone-950'
+                      : 'bg-[#160f0a]/92 border-[#d4af37]/55 text-amber-200'
+                  }`}
+                >
+                  {isPausedByHost || phase === 'PAUSED_DISCONNECT' ? (
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                  ) : (
+                    <Pause className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              )}
+
+              {!me.isHost && phase === 'PAUSED_DISCONNECT' && (
+                <button
+                  type="button"
+                  onClick={() => dispatchAction({ type: 'RESUME_GAME' })}
+                  aria-label="Reanudar partida"
+                  className="w-8 h-8 rounded-xl border border-emerald-300 bg-emerald-600 text-stone-950 flex items-center justify-center shadow-lg cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowAbandonModal(true)}
+                aria-label="Abandonar partida"
+                className="w-8 h-8 rounded-xl bg-red-950/90 border border-red-500/45 text-red-200 flex items-center justify-center shadow-lg cursor-pointer active:scale-95"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsTabletRightPanelVisible((v) => !v)}
+                className={`h-8 px-2.5 rounded-xl border text-[11px] font-black shadow-lg flex items-center gap-1 cursor-pointer active:scale-95 ${
+                  isTabletRightPanelVisible
+                    ? 'bg-[#c89b3c] border-amber-200 text-stone-950'
+                    : 'bg-[#160f0a]/92 border-[#d4af37]/60 text-amber-200'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{isTabletRightPanelVisible ? 'Cerrar' : 'Jugadores'}</span>
+              </button>
+            </div>
+          </>
+        );
+      })()}
 
       {/* Main Middle Area: Full-Width Board + Right Floating Player Profiles & Bordered Bank/Chronicles Box */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -1962,8 +2088,8 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
-          {/* Seafarers: Pirate & Robber selection prompt */}
-          {isMovingRobber && isSeafarers && isMyTurn && !isPausedByHost && (
+          {/* Seafarers: Pirate & Robber selection prompt (Desktop/Tablet) */}
+          {!isMobile && isMovingRobber && isSeafarers && isMyTurn && !isPausedByHost && (
             <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-2 bg-[#120904]/95 border-2 border-amber-500/80 text-amber-200 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto">
                 <span className="text-base">🏴‍☠️</span>
@@ -1974,8 +2100,8 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Seafarers: Move Ship helper prompt */}
-          {buildMode === 'MOVE_SHIP' && isMyTurn && !isPausedByHost && (
+          {/* Seafarers: Move Ship helper prompt (Desktop/Tablet) */}
+          {!isMobile && buildMode === 'MOVE_SHIP' && isMyTurn && !isPausedByHost && (
             <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-3 bg-[#0a192f]/95 border-2 border-sky-400 text-sky-200 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto">
                 <Anchor className="w-4 h-4 text-sky-400 animate-spin" />
@@ -1997,8 +2123,8 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Bishop / Intrigue / Engineer / Inventor / Smith / Wall Helper floating banner */}
-          {isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || activeProgressCard?.type === 'BISHOP' || activeProgressCard?.type === 'INTRIGUE' || activeProgressCard?.type === 'ENGINEER' || activeProgressCard?.type === 'INVENTOR' || activeProgressCard?.type === 'SMITH' || buildMode === 'CITY_WALL') && (
+          {/* Ciudades y Caballeros: Knight / Merchant / Diplomat / Bishop / Intrigue / Engineer / Inventor / Smith / Wall Helper floating banner (Desktop/Tablet) */}
+          {!isMobile && isCitiesKnights && isMyTurn && !isPausedByHost && (activeKnightMode || isPlacingMerchant || activeProgressCard?.type === 'DIPLOMAT' || activeProgressCard?.type === 'BISHOP' || activeProgressCard?.type === 'INTRIGUE' || activeProgressCard?.type === 'ENGINEER' || activeProgressCard?.type === 'INVENTOR' || activeProgressCard?.type === 'SMITH' || buildMode === 'CITY_WALL') && (
             <div className="absolute top-16 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-3 bg-[#1e140d]/95 border-2 border-amber-400 text-amber-100 px-4 py-2 rounded-2xl text-xs font-black shadow-2xl backdrop-blur-md pointer-events-auto animate-pulse">
                 <Swords className="w-4 h-4 text-amber-400 shrink-0" />
@@ -2071,7 +2197,8 @@ export const GameScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Centered Non-Overlapping FIFO Notification Queue (3.8s for Human & Bot Transactions/Actions) */}
+          {/* Centered Non-Overlapping FIFO Notification Queue (Desktop/Tablet only so mobile map stays completely clear) */}
+          {!isMobile && (
           <div className="absolute top-3 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
             <AnimatePresence mode="wait">
               {currentQueuedNotice && !isPausedByHost && (
@@ -2160,6 +2287,7 @@ export const GameScreen: React.FC = () => {
               )}
             </AnimatePresence>
           </div>
+          )}
 
           {/* CENTRAL PAUSE OVERLAY (isPausedByHost || phase === 'PAUSED_DISCONNECT') */}
           <AnimatePresence>
@@ -2231,8 +2359,47 @@ export const GameScreen: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 backdrop-blur-[3px] p-4"
+                className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
               >
+                {isMobile ? (
+                  <motion.div
+                    initial={{ scale: 0.85, y: 14, opacity: 0 }}
+                    animate={{ scale: 1, y: 0, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 340, damping: 24 }}
+                    className="w-full max-w-[225px] rounded-2xl bg-[#18110b]/96 border-2 border-[#d4af37] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.92)] space-y-3"
+                  >
+                    <div className="flex items-center justify-center gap-2.5">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-50 to-amber-300 border border-amber-500 flex items-center justify-center text-stone-950 shadow">
+                        <Dices className="w-6 h-6 stroke-[2.2]" />
+                      </div>
+                      <h2 className="font-display text-base font-black text-amber-100">
+                        Tu turno
+                      </h2>
+                    </div>
+
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => dispatchAction({ type: 'ROLL_DICE' })}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 border border-amber-200 text-stone-950 font-display font-black text-sm tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                    >
+                      <Dices className="w-4 h-4 stroke-[2.5]" />
+                      <span>Lanzar dados</span>
+                    </motion.button>
+
+                    {isCitiesKnights && me.citiesKnights?.progressCards.some((c) => c.type === 'ALCHEMIST') && (
+                      <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new Event('open-cities-knights'))}
+                        className="w-full py-2 px-3 rounded-xl bg-emerald-600 border border-emerald-300 text-stone-950 font-black text-[11px] uppercase flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Alquimista</span>
+                      </button>
+                    )}
+                  </motion.div>
+                ) : (
                 <motion.div
                   initial={{ scale: 0.82, y: 24, opacity: 0 }}
                   animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -2286,6 +2453,7 @@ export const GameScreen: React.FC = () => {
                     </motion.button>
                   )}
                 </motion.div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2301,8 +2469,8 @@ export const GameScreen: React.FC = () => {
             }}
           />
 
-          {/* Mercaderes y Bárbaros / Piratas y Exploradores: Floating Helper Banner for active map modes */}
-          {((isBarbarians && activeBarbariansMode) || (isExplorersPirates && activeExplorersMode)) && isMyTurn && !isPausedByHost && (
+          {/* Mercaderes y Bárbaros / Piratas y Exploradores: Floating Helper Banner for active map modes (Desktop/Tablet) */}
+          {!isMobile && ((isBarbarians && activeBarbariansMode) || (isExplorersPirates && activeExplorersMode)) && isMyTurn && !isPausedByHost && (
             <div className="absolute top-14 inset-x-0 z-30 flex justify-center pointer-events-none px-4">
               <div className="flex items-center gap-3 bg-[#1a120c] border border-[#c89b3c] text-amber-100 px-4 py-2 rounded-xl text-xs font-bold shadow-2xl pointer-events-auto">
                 <Swords className="w-4 h-4 text-[#d4af37] shrink-0" />
@@ -2415,7 +2583,8 @@ export const GameScreen: React.FC = () => {
             />
           )}
 
-          {/* Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck (positioned left of the right profiles & card fans) */}
+          {/* Tabletop HUD: Floating Dice Roll Result + Physical Dev Card Deck (Desktop & Tablet only; hidden on mobile) */}
+          {!isMobile && (
           <div
             className={`game-dice-hud tablet-dev-deck-container absolute top-3 z-20 flex flex-col items-end gap-2.5 pointer-events-none ${
               isTabletRightPanelVisible ? 'right-[338px] xl:right-[374px]' : 'right-4'
@@ -2538,9 +2707,354 @@ export const GameScreen: React.FC = () => {
               </div>
             )}
           </div>
+          )}
 
-          {/* Bottom-Left Stacked Action Buttons (Construir [C], Intercambiar [I], Desarrollo [D])
-              placed immediately above the bottom cards rectangle, right where the Zoom controls were (Zoom controls are now immediately to their right) */}
+          {/* Bottom-Left Action Controls: Collapsible "Acciones" on Mobile, Stacked Box on Desktop/Tablet */}
+          {isMobile ? (() => {
+            const hasActiveMapSelection = Boolean(
+              buildMode ||
+                activeKnightMode ||
+                activeBarbariansMode ||
+                activeExplorersMode ||
+                isPlacingMerchant ||
+                activeProgressCard
+            );
+            const clearAllMapSelections = () => {
+              setBuildMode(null);
+              setSelectedMovableShipId(null);
+              setActiveKnightMode(null);
+              setSelectedKnightMoveFrom(null);
+              setActiveBarbariansMode(null);
+              setSelectedEdgeKnightEdgeId(null);
+              setSelectedEdgeBarbarianId(null);
+              setActiveExplorersMode(null);
+              setSelectedEPShipId(null);
+              setIsPlacingMerchant(false);
+              setActiveProgressCard(null);
+              setSelectedDiplomatEdgeId(null);
+              setSelectedInventorHexIds([]);
+              setSelectedSmithVertexIds([]);
+            };
+            const closeMobileSubmenus = () => {
+              setIsBuildDrawerOpen(false);
+              setIsKnightsDrawerOpen(false);
+              setIsBarbariansDrawerOpen(false);
+              setIsExplorersDrawerOpen(false);
+            };
+            const closeAllMobileActions = () => {
+              closeMobileSubmenus();
+              setIsMobileActionsOpen(false);
+            };
+
+            return (
+              <div
+                className={`mobile-actions-anchor ${
+                  hasBottomExpansionHud ? 'with-expansion-pill' : ''
+                } fixed z-30 pointer-events-auto flex flex-col items-start gap-1.5`}
+              >
+                {isMobileActionsOpen && (
+                  <div
+                    onClick={closeAllMobileActions}
+                    className="fixed inset-0 z-25 bg-black/25"
+                  />
+                )}
+
+                {hasActiveMapSelection ? (
+                  <div className="relative z-35 flex items-center gap-1.5">
+                    {activeProgressCard?.type === 'DIPLOMAT' && selectedDiplomatEdgeId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dispatchAction({
+                            type: 'PLAY_PROGRESS_CARD',
+                            cardId: activeProgressCard.id,
+                            payload: { edgeId: selectedDiplomatEdgeId },
+                          });
+                          clearAllMapSelections();
+                        }}
+                        className="h-8 px-2.5 rounded-xl bg-emerald-600 border border-emerald-300 text-stone-950 text-[11px] font-black shadow-xl cursor-pointer"
+                      >
+                        Retirar
+                      </button>
+                    )}
+                    {activeProgressCard?.type === 'SMITH' && selectedSmithVertexIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dispatchAction({
+                            type: 'PLAY_PROGRESS_CARD',
+                            cardId: activeProgressCard.id,
+                            payload: { vertexIds: selectedSmithVertexIds },
+                          });
+                          clearAllMapSelections();
+                        }}
+                        className="h-8 px-2.5 rounded-xl bg-emerald-600 border border-emerald-300 text-stone-950 text-[11px] font-black shadow-xl cursor-pointer"
+                      >
+                        Ascender ({selectedSmithVertexIds.length})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={clearAllMapSelections}
+                      className="h-8 px-2.5 rounded-xl bg-[#9e2b25] border border-red-300/70 text-white text-[11px] font-black flex items-center gap-1 shadow-xl cursor-pointer active:scale-95"
+                    >
+                      <X className="w-3.5 h-3.5 stroke-[2.6]" />
+                      <span>Cancelar</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative z-35">
+                    <AnimatePresence>
+                      {isMobileActionsOpen && (
+                        <motion.div
+                          key="mobile-actions-popover"
+                          initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                          transition={{ duration: 0.14 }}
+                          className="absolute bottom-[calc(100%+6px)] left-0 w-[124px] p-1.5 rounded-xl bg-[#160f0a] border border-[#d4af37]/75 shadow-[0_14px_36px_rgba(0,0,0,0.95)] flex flex-col gap-1 opacity-100"
+                        >
+                          <BuildDrawerMenu
+                            isOpen={isBuildDrawerOpen}
+                            onToggleOpen={() => {
+                              setIsKnightsDrawerOpen(false);
+                              setIsBarbariansDrawerOpen(false);
+                              setIsExplorersDrawerOpen(false);
+                              setIsBuildDrawerOpen((o) => !o);
+                            }}
+                            onCloseParentMenu={() => setIsMobileActionsOpen(false)}
+                            buildMode={buildMode}
+                            onSelectBuildMode={(mode) => setBuildMode(mode)}
+                            onBuyDevCard={() => {
+                              dispatchAction({ type: 'BUY_DEV_CARD' });
+                            }}
+                            me={me}
+                            canBuildRoadNow={canBuildRoadNow}
+                            canBuildShipNow={canBuildShipNow}
+                            canMoveShipNow={canMoveShipNow}
+                            canBuildSettlementNow={canBuildSettlementNow}
+                            canBuildCityNow={canBuildCityNow}
+                            canBuyDevCardNow={devBuyPermission.allowed && !isPausedByHost}
+                            restrictionReason={!infraPermission.allowed ? infraPermission.reason : undefined}
+                            devDeckRemaining={gameState.devDeck.length}
+                            disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                            isRoadBuildingDev={isMyTurn && phase === 'ROAD_BUILDING_DEV'}
+                            onFinishRoadBuilding={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
+                            isSeafarers={isSeafarers}
+                            isCitiesKnights={isCitiesKnights}
+                            hideDevCardOption={isExplorersPirates || usesScenarioDevDeck}
+                            canBuildWallNow={canBuildWallNow}
+                            hasMedicineDiscount={Boolean(gameState.citiesKnights?.turnEffects?.medicine)}
+                          />
+
+                          <button
+                            type="button"
+                            disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                            onClick={() => {
+                              closeAllMobileActions();
+                              setTradeModalInitialTab('BANK');
+                              setShowTradeModal(true);
+                            }}
+                            className={`w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-between gap-1 transition-colors opacity-100 ${
+                              isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
+                                ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
+                                : 'bg-[#b85a27] border-[#e2a46f]/70 text-amber-50 cursor-pointer'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5 truncate">
+                              {hasAnyPort ? (
+                                <Anchor className="w-3.5 h-3.5 shrink-0" />
+                              ) : (
+                                <Flame className="w-3.5 h-3.5 shrink-0" />
+                              )}
+                              <span className="truncate">Comercio</span>
+                            </span>
+                            {gameState.activeTradeOffers.length > 0 && (
+                              <span className="px-1 rounded-full bg-red-600 text-white text-[9px] font-bold">
+                                {gameState.activeTradeOffers.length}
+                              </span>
+                            )}
+                          </button>
+
+                          {gameState.config.seafarersScenario === 'WONDERS_OF_CATAN' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                closeAllMobileActions();
+                                setShowWonders(true);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#c89b3c]/50 bg-[#2a1d11] text-amber-100 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Award className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+                              <span className="truncate">Maravillas</span>
+                            </button>
+                          )}
+
+                          {!isExplorersPirates && (
+                            <button
+                              type="button"
+                              disabled={isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)}
+                              onClick={() => {
+                                closeAllMobileActions();
+                                if (isCitiesKnights) {
+                                  window.dispatchEvent(new Event('open-cities-knights'));
+                                } else if (usesScenarioDevDeck) {
+                                  window.dispatchEvent(new Event('open-barbarians-panel'));
+                                } else {
+                                  setShowDevModal(true);
+                                }
+                              }}
+                              className={`w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 transition-colors opacity-100 ${
+                                isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)
+                                  ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
+                                  : 'bg-[#241a12] border-[#c89b3c]/45 text-amber-200 cursor-pointer'
+                              }`}
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
+                              <span className="truncate tabular-nums">
+                                {isCitiesKnights
+                                  ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
+                                  : usesScenarioDevDeck
+                                  ? `Cartas (${me.barbarians?.scenarioDevCards.filter((c) => !c.played).length ?? 0})`
+                                  : `Des. (${unplayedDevCount})`}
+                              </span>
+                            </button>
+                          )}
+
+                          {isCitiesKnights && (
+                            <KnightsDrawerMenu
+                              isOpen={isKnightsDrawerOpen}
+                              onToggleOpen={() => {
+                                setIsBuildDrawerOpen(false);
+                                setIsKnightsDrawerOpen((o) => !o);
+                              }}
+                              onCloseParentMenu={() => setIsMobileActionsOpen(false)}
+                              activeKnightMode={activeKnightMode}
+                              onSelectKnightMode={(mode) => {
+                                setActiveKnightMode(mode);
+                                setSelectedKnightMoveFrom(null);
+                              }}
+                              canRecruitNow={canRecruitKnightNow}
+                              canPromoteNow={canPromoteKnightNow}
+                              canActivateNow={canActivateKnightNow}
+                              canExpelNow={canExpelRobberNow}
+                              canMoveNow={canMoveKnightNow}
+                              myDefense={myDefense}
+                              freeRank1Count={freeRank1Count}
+                              disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                            />
+                          )}
+
+                          {isBarbarians && (
+                            <BarbariansDrawerMenu
+                              isOpen={isBarbariansDrawerOpen}
+                              onToggleOpen={() => {
+                                setIsBuildDrawerOpen(false);
+                                setIsBarbariansDrawerOpen((o) => !o);
+                              }}
+                              onCloseParentMenu={() => setIsMobileActionsOpen(false)}
+                              gameState={gameState}
+                              me={me}
+                              isMyTurn={isMyTurn}
+                              activeMode={activeBarbariansMode}
+                              onSelectMode={(mode) => {
+                                setActiveBarbariansMode(mode);
+                                setSelectedEdgeKnightEdgeId(null);
+                              }}
+                              onOpenPanelModal={() => window.dispatchEvent(new Event('open-barbarians-panel'))}
+                              onBuyScenarioDevCard={() => dispatchAction({ type: 'MB_BUY_SCENARIO_DEV_CARD' })}
+                              onUpgradeWagon={() => dispatchAction({ type: 'MB_UPGRADE_WAGON' })}
+                              onBoostWagon={() => dispatchAction({ type: 'MB_BOOST_WAGON' })}
+                              onFishRemoveRobber={() => {
+                                const fishTokens = [...(me.barbarians?.fishTokens || [])].sort(
+                                  (a, b) => a.fishCount - b.fishCount
+                                );
+                                let sum = 0;
+                                const pickedIds: string[] = [];
+                                for (const t of fishTokens) {
+                                  pickedIds.push(t.id);
+                                  sum += t.fishCount;
+                                  if (sum >= 2) break;
+                                }
+                                dispatchAction({ type: 'MB_FISH_REMOVE_ROBBER', tokenIds: pickedIds });
+                              }}
+                              onFishFreeDevCard={() => {
+                                const fishTokens = [...(me.barbarians?.fishTokens || [])].sort(
+                                  (a, b) => a.fishCount - b.fishCount
+                                );
+                                let sum = 0;
+                                const pickedIds: string[] = [];
+                                for (const t of fishTokens) {
+                                  pickedIds.push(t.id);
+                                  sum += t.fishCount;
+                                  if (sum >= 7) break;
+                                }
+                                dispatchAction({ type: 'MB_FISH_FREE_DEV_CARD', tokenIds: pickedIds });
+                              }}
+                              disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                            />
+                          )}
+
+                          {isExplorersPirates && (
+                            <ExplorersPiratesDrawerMenu
+                              isOpen={isExplorersDrawerOpen}
+                              onToggleOpen={() => {
+                                setIsBuildDrawerOpen(false);
+                                setIsExplorersDrawerOpen((o) => !o);
+                              }}
+                              onCloseParentMenu={() => setIsMobileActionsOpen(false)}
+                              gameState={gameState}
+                              me={me}
+                              isMyTurn={isMyTurn}
+                              activeMode={activeExplorersMode}
+                              onSelectMode={(mode) => {
+                                setActiveExplorersMode(mode);
+                                setSelectedEPShipId(null);
+                              }}
+                              onOpenPanelModal={() => window.dispatchEvent(new Event('open-explorers-pirates-panel'))}
+                              onBuildSettler={() => dispatchAction({ type: 'EP_BUILD_SETTLER' })}
+                              onBuildUnit={() => dispatchAction({ type: 'EP_BUILD_UNIT' })}
+                              onRollFishShoal={() => dispatchAction({ type: 'EP_ROLL_FISH_SHOAL' })}
+                              disabledBeforeDice={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                            />
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMobileActionsOpen) {
+                          closeAllMobileActions();
+                        } else {
+                          setIsMobileActionsOpen(true);
+                        }
+                      }}
+                      className={`h-8 px-2.5 rounded-xl border text-[11px] font-black flex items-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition ${
+                        isMobileActionsOpen
+                          ? 'bg-[#d4af37] border-amber-200 text-stone-950'
+                          : 'bg-[#18110c]/96 border-[#d4af37]/75 text-amber-100'
+                      }`}
+                    >
+                      <Hammer className="w-3.5 h-3.5 shrink-0" />
+                      <span>Acciones</span>
+                      {gameState.activeTradeOffers.length > 0 && !isMobileActionsOpen && (
+                        <span className="px-1 rounded-full bg-red-600 text-white text-[9px] font-bold">
+                          {gameState.activeTradeOffers.length}
+                        </span>
+                      )}
+                      {isMobileActionsOpen ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })() : (
           <div className="game-build-controls absolute bottom-3 left-3 z-30 flex items-center pointer-events-auto">
             <div className="tablet-action-box flex flex-col gap-1.5 w-[200px] sm:w-[225px] p-2 rounded-2xl bg-[#160f0a] border border-[#d4af37]/60 shadow-[0_10px_30px_rgba(0,0,0,0.95)] opacity-100">
               {/* 1. Construir (C) */}
@@ -2787,8 +3301,10 @@ export const GameScreen: React.FC = () => {
               )}
             </div>
           </div>
+          )}
 
-          {/* Tablet-Only Toggle Button to Collapse/Expand Right Side Panel (hidden on desktop: lg:hidden) */}
+          {/* Tablet-Only Toggle Button to Collapse/Expand Right Side Panel (hidden on desktop and mobile) */}
+          {!isMobile && (
           <button
             type="button"
             onClick={() => setIsTabletRightPanelVisible((v) => !v)}
@@ -2798,18 +3314,21 @@ export const GameScreen: React.FC = () => {
             <Users className="w-4 h-4" />
             <span>{isTabletRightPanelVisible ? 'Ocultar' : 'Jugadores'}</span>
           </button>
+          )}
 
           {/* Right Area: NO outer rectangle/border line for the column!
               Only individual rounded player profile rectangles + the single bordered rectangle for Bank Resources & Island Chronicles */}
           <aside
-            className={`tablet-sidebar absolute top-2.5 bottom-2.5 right-2.5 w-[260px] md:w-[274px] xl:w-[308px] flex flex-col justify-between z-20 pointer-events-none transition-transform duration-300 ease-in-out ${
+            className={`tablet-sidebar ${isMobile ? 'mobile-players-dropdown' : ''} absolute top-2.5 bottom-2.5 right-2.5 w-[260px] md:w-[274px] xl:w-[308px] flex flex-col justify-between z-25 pointer-events-none transition-transform duration-300 ease-in-out ${
               isTabletRightPanelVisible ? 'translate-x-0' : 'translate-x-[115%] lg:translate-x-0'
             }`}
           >
             {/* 1. Floating Rounded Player Profile Rectangles (with left horizontal card fan) */}
             <div
-              className={`tablet-player-list flex-1 min-h-0 space-y-2 overflow-visible pr-0.5 pointer-events-none ${
-                gameState.players.length > 4 ? 'tablet-player-list-compact' : ''
+              className={`tablet-player-list flex-1 min-h-0 space-y-2 ${
+                isMobile ? 'overflow-y-auto overscroll-contain touch-pan-y pointer-events-auto space-y-1.5 pr-0' : 'overflow-visible pr-0.5 pointer-events-none'
+              } ${
+                isMobile || gameState.players.length > 4 ? 'tablet-player-list-compact' : ''
               }`}
             >
               {gameState.players.map((p) => {
@@ -2827,8 +3346,8 @@ export const GameScreen: React.FC = () => {
                     isActiveTurn={turn.activePlayerId === p.id}
                     hasLongestRoad={gameState.longestRoadPlayerId === p.id}
                     hasLargestArmy={gameState.largestArmyPlayerId === p.id}
-                    showCardFan={showProfileCardFans}
-                    useCompactLayout={gameState.players.length > 4}
+                    showCardFan={!isMobile && showProfileCardFans}
+                    useCompactLayout={isMobile || gameState.players.length > 4}
                     isCitiesKnights={isCitiesKnights}
                     playerDefense={pDefense}
                   />
@@ -2836,7 +3355,8 @@ export const GameScreen: React.FC = () => {
               })}
             </div>
 
-            {/* 2. Single Delimited Rectangle ONLY for Bank Resources + Island Chronicles */}
+            {/* 2. Single Delimited Rectangle ONLY for Bank Resources + Island Chronicles (Hidden on Mobile) */}
+            {!isMobile && (
             <motion.div
               layout
               transition={{ type: 'spring', stiffness: 280, damping: 28 }}
@@ -2917,11 +3437,93 @@ export const GameScreen: React.FC = () => {
                 )}
               </AnimatePresence>
             </motion.div>
+            )}
           </aside>
         </div>
       </div>
 
-      {/* Slim Bottom Tabletop HUD: Cards Protrude Above */}
+      {/* Slim Bottom Tabletop HUD (Desktop/Tablet) vs Clean Floating Cards & End Turn (Mobile) */}
+      {isMobile ? (
+        <>
+          {/* Floating Resource Cards directly over the bottom of the map (NO bar or border line) */}
+          <div
+            className="mobile-floating-hand fixed z-25 pointer-events-none flex items-end justify-center"
+            aria-label="Tus recursos y mercancías"
+          >
+            <div className="flex items-end justify-center gap-1 pointer-events-auto">
+              {(hasCitiesKnights(config) ? ALL_TRADE_CARDS : ALL_RESOURCES).map((resource) => {
+                const count = me.resources[resource] || 0;
+                const isCKSet = hasCitiesKnights(config);
+                return (
+                  <button
+                    key={resource}
+                    type="button"
+                    disabled={isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)}
+                    title={`${RESOURCE_META[resource].name}: ${count}`}
+                    aria-label={`${RESOURCE_META[resource].name}: ${count}`}
+                    onClick={() => {
+                      if (isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)) return;
+                      setTradeModalInitialTab('BANK');
+                      setShowTradeModal(true);
+                    }}
+                    className={`relative flex items-center justify-center transition-transform active:-translate-y-1 cursor-pointer ${
+                      count === 0 ? 'opacity-50' : 'opacity-100'
+                    }`}
+                  >
+                    <img
+                      src={RESOURCE_CARD_PATHS[resource]}
+                      alt=""
+                      draggable={false}
+                      className={`${
+                        isCKSet ? 'w-[28px] sm:w-[32px]' : 'w-[34px] sm:w-[38px]'
+                      } aspect-[2/3] object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.95)]`}
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 rounded-md px-1 py-0.2 bg-[#110c08]/95 border border-[#d4af37]/70 text-amber-100 text-[10px] leading-tight font-mono font-black shadow">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Floating Compact End Turn Button (Bottom-Right, safe-area aware) */}
+          {isMyTurn && !isPausedByHost && (phase === 'MAIN_PHASE' || phase === 'ROAD_BUILDING_DEV' || phase === 'SPECIAL_BUILD_PHASE') && (
+            <div className="mobile-floating-endturn fixed z-30 pointer-events-auto">
+              {phase === 'SPECIAL_BUILD_PHASE' && (
+                <button
+                  type="button"
+                  onClick={() => dispatchAction({ type: 'END_SPECIAL_BUILD' })}
+                  className="h-8 px-3 rounded-xl bg-emerald-500 border border-emerald-200 text-stone-950 font-black text-[11px] flex items-center gap-1 shadow-xl cursor-pointer active:scale-95"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.6]" />
+                  <span>Fin</span>
+                </button>
+              )}
+              {phase === 'ROAD_BUILDING_DEV' && (
+                <button
+                  type="button"
+                  onClick={() => dispatchAction({ type: 'FINISH_ROAD_BUILDING' })}
+                  className="h-8 px-3 rounded-xl bg-amber-400 border border-amber-200 text-stone-950 font-black text-[11px] flex items-center gap-1 shadow-xl cursor-pointer active:scale-95"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.6]" />
+                  <span>Listo</span>
+                </button>
+              )}
+              {phase === 'MAIN_PHASE' && (
+                <button
+                  type="button"
+                  onClick={() => dispatchAction({ type: 'END_TURN' })}
+                  className="h-8 px-3 rounded-xl bg-emerald-500 border border-emerald-200 text-stone-950 font-black text-[11px] flex items-center gap-1 shadow-xl cursor-pointer active:scale-95"
+                >
+                  <SkipForward className="w-3.5 h-3.5" />
+                  <span>Pasar</span>
+                </button>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
       <footer className="tablet-footer h-[70px] sm:h-[76px] bg-gradient-to-r from-[#1c130d] via-[#140e09] to-[#1c130d] border-t border-[#d4af37]/35 px-2 sm:px-4 py-1 flex items-center justify-between gap-2 sm:gap-4 shrink-0 z-30 shadow-[0_-10px_30px_rgba(0,0,0,0.85)] overflow-visible relative pb-[max(4px,env(safe-area-inset-bottom))]">
         {/* LEFT SPACER FOR SYMMETRY */}
         <div className="hidden sm:block min-w-[140px]" />
@@ -2995,6 +3597,7 @@ export const GameScreen: React.FC = () => {
           )}
         </div>
       </footer>
+      )}
 
       {/* SETTINGS MODAL (Low-End PC Mode Toggle) */}
       {showWonders && <WondersModal gameState={gameState} playerId={playerId} dispatchAction={dispatchAction} onClose={() => setShowWonders(false)} />}

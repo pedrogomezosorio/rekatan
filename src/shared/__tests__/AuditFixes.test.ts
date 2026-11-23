@@ -200,4 +200,67 @@ describe('Verificación de correcciones QA (motor, expansiones, cámara y privac
     expect(secrets.every((sec) => sec.numberToken === null && sec.terrain === 'SEA')).toBe(true);
     expect(secrets.some((sec) => sec.region === 'NORTH_GREEN')).toBe(true);
   });
+
+  it('conserva las 3 mercancías de Ciudades y Caballeros en tratos propuestos, completados y crónicas', () => {
+    let ck = createInitialGameState('CKTRD1', {
+      id: 'P1',
+      name: 'Ana',
+      color: 'RED',
+      avatar: '👑',
+    });
+    ck = mustAct(ck, 'P1', {
+      type: 'UPDATE_CONFIG',
+      config: {
+        expansionModule: 'CITIES_AND_KNIGHTS',
+        enabledExpansions: ['BASE', 'CITIES_AND_KNIGHTS'],
+      },
+    });
+    ck.players.push({
+      ...ck.players[0],
+      id: 'P2',
+      name: 'Beto',
+      color: 'BLUE',
+      isHost: false,
+      isBot: true,
+      botDifficulty: 'EASY',
+      resources: { ...createEmptyResources(), PAPER: 1, CLOTH: 2, COIN: 1 },
+    });
+    ck.players[0].resources = { ...createEmptyResources(), PAPER: 2, CLOTH: 1, COIN: 2 };
+    ck.phase = 'MAIN_PHASE';
+    ck.turn.activePlayerId = 'P1';
+    ck.turn.diceRoll = [3, 4];
+    ck.turn.hasRolledDice = true;
+
+    const proposed = applyGameAction(ck, 'P1', {
+      type: 'CREATE_TRADE_OFFER',
+      targetPlayerId: 'P2',
+      offer: { ...createEmptyResources(), PAPER: 1, COIN: 1 },
+      request: { ...createEmptyResources(), CLOTH: 2 },
+    });
+    expect(proposed.error).toBeUndefined();
+    expect(proposed.state.activeTradeOffers).toHaveLength(1);
+    const offer = proposed.state.activeTradeOffers[0];
+    expect(offer.offer.PAPER).toBe(1);
+    expect(offer.offer.COIN).toBe(1);
+    expect(offer.request.CLOTH).toBe(2);
+    expect(proposed.state.logs[0].message).toContain('Papel');
+    expect(proposed.state.logs[0].message).toContain('Moneda');
+    expect(proposed.state.logs[0].message).toContain('Tela');
+
+    const executed = applyGameAction(proposed.state, 'P1', {
+      type: 'EXECUTE_TRADE_OFFER',
+      offerId: offer.id,
+      partnerPlayerId: 'P2',
+    });
+    expect(executed.error).toBeUndefined();
+    expect(executed.state.lastCompletedTrade?.offered.PAPER).toBe(1);
+    expect(executed.state.lastCompletedTrade?.offered.COIN).toBe(1);
+    expect(executed.state.lastCompletedTrade?.requested.CLOTH).toBe(2);
+    expect(executed.state.lastEvent?.completedTrade?.offered.PAPER).toBe(1);
+    expect(executed.state.lastEvent?.completedTrade?.offered.COIN).toBe(1);
+    expect(executed.state.lastEvent?.completedTrade?.requested.CLOTH).toBe(2);
+    expect(executed.state.logs[0].message).toContain('Papel');
+    expect(executed.state.logs[0].message).toContain('Moneda');
+    expect(executed.state.logs[0].message).toContain('Tela');
+  });
 });

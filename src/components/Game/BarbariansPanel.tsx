@@ -27,6 +27,7 @@ import type {
 } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 import type { ActiveBarbariansBoardMode } from './BarbariansDrawerMenu';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import {
   Award,
   Coins,
@@ -57,6 +58,7 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
   dispatchAction,
   onStartBoardMode,
 }) => {
+  const isMobile = useIsMobileViewport();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showEventRulesCard, setShowEventRulesCard] = useState(false);
   const [showFishCostsCard, setShowFishCostsCard] = useState(false);
@@ -102,9 +104,32 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
     return chosen;
   };
 
+  const mobileMbSummary =
+    mb.scenario === 'FISHERMEN_OF_CATAN'
+      ? `🐟${totalFish}`
+      : mb.scenario === 'RIVERS_OF_CATAN'
+      ? `🪙${pb.goldCoins}`
+      : mb.scenario === 'THE_CARAVANS'
+      ? `🐪${mb.camelsRemaining}`
+      : mb.scenario === 'BARBARIAN_ATTACK'
+      ? `⚔${pb.prisonersCount} · 🪙${pb.goldCoins}`
+      : `Nv.${pb.wagonLevel} · 🪙${pb.goldCoins}`;
+
   return (
     <>
-      {/* Bottom-Left HUD Box (Exact same slot and visual style as CitiesKnightsPanel) */}
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="mobile-expansion-hud fixed z-30 h-8 px-2.5 rounded-xl border border-[#d4af37]/75 bg-[#160f0a]/96 text-amber-100 shadow-xl pointer-events-auto flex items-center gap-1.5 text-[10.5px] font-black cursor-pointer active:scale-95"
+          title="Abrir Mercaderes y Bárbaros"
+        >
+          <Swords className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>M&amp;B</span>
+          <span className="font-mono text-amber-300">{mobileMbSummary}</span>
+        </button>
+      ) : (
+      /* Bottom-Left HUD Box (Exact same slot and visual style as CitiesKnightsPanel) */
       <div
         role="button"
         tabIndex={0}
@@ -308,6 +333,7 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* Main Mercaderes y Bárbaros Modal (Visually identical style to CitiesKnightsPanel Modal, ZERO select dropdowns) */}
       {isModalOpen && (
@@ -1117,11 +1143,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                               key={`from-${hid}`}
                               type="button"
                               onClick={() => setTreasonFromHex(hid)}
-                              className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${
-                                active
-                                  ? 'bg-[#c89b3c] border-[#f1d98c] text-stone-950'
-                                  : 'bg-[#140e0a] border-stone-700 text-stone-300'
-                              }`}
+                              className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${active
+                                ? 'bg-[#c89b3c] border-[#f1d98c] text-stone-950'
+                                : 'bg-[#140e0a] border-stone-700 text-stone-300'
+                                }`}
                             >
                               Origen {h?.numberToken ?? hid} ({mb.hexBarbarians[hid]} bárb.)
                             </button>
@@ -1139,11 +1164,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                                 key={`to-${hid}`}
                                 type="button"
                                 onClick={() => setTreasonToHex(hid)}
-                                className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${
-                                  active
-                                    ? 'bg-emerald-600 border-emerald-300 text-white'
-                                    : 'bg-[#140e0a] border-stone-700 text-stone-300'
-                                }`}
+                                className={`px-2 py-1 rounded-md border text-[11px] font-semibold cursor-pointer ${active
+                                  ? 'bg-emerald-600 border-emerald-300 text-white'
+                                  : 'bg-[#140e0a] border-stone-700 text-stone-300'
+                                  }`}
                               >
                                 → Destino {h?.numberToken ?? hid}
                               </button>
@@ -1333,11 +1357,10 @@ export const BarbariansPanel: React.FC<BarbariansPanelProps> = ({
                                     type="button"
                                     disabled={(me.resources[res] || 0) < 1}
                                     onClick={() => setSwapResource(res)}
-                                    className={`p-1 rounded-md border cursor-pointer disabled:opacity-30 ${
-                                      swapResource === res
-                                        ? 'border-[#c89b3c] bg-[#2a1f16]'
-                                        : 'border-stone-800 bg-[#140e0a]'
-                                    }`}
+                                    className={`p-1 rounded-md border cursor-pointer disabled:opacity-30 ${swapResource === res
+                                      ? 'border-[#c89b3c] bg-[#2a1f16]'
+                                      : 'border-stone-800 bg-[#140e0a]'
+                                      }`}
                                     title={`Ofrecer ${RESOURCE_META[res].name}`}
                                   >
                                     <ResourceIcon resource={res} size={15} />

@@ -16,9 +16,11 @@ import {
 import { useGame } from '../../context/GameContext';
 import { AVATAR_LIST, PLAYER_COLORS } from '../../shared/constants';
 import { PlayerColor } from '../../shared/types';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { AvatarIcon } from '../UI/ResourceIcon';
 
 export const MainMenu: React.FC = () => {
+  const isMobile = useIsMobileViewport();
   const {
     playerName,
     setPlayerName,
@@ -60,6 +62,196 @@ export const MainMenu: React.FC = () => {
     e.preventDefault();
     joinRoom(joinCodeInput);
   };
+
+  if (isMobile) {
+    return (
+      <div
+        className="mobile-main-menu relative h-[100dvh] w-full overflow-hidden bg-[#06111e] text-slate-100 flex flex-col justify-between"
+        style={{
+          paddingTop: 'max(10px, env(safe-area-inset-top))',
+          paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+          paddingLeft: 'max(12px, env(safe-area-inset-left))',
+          paddingRight: 'max(12px, env(safe-area-inset-right))',
+        }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#1a183b] via-[#5c2512]/45 to-[#051829]" />
+
+        {/* Compact Top Bar: Small Logo + Connection Dot */}
+        <div className="relative z-10 flex items-center justify-between gap-2 shrink-0 pb-1">
+          <h1 className="font-display text-xl font-extrabold tracking-widest text-amber-300">
+            CATAN
+          </h1>
+          <button
+            type="button"
+            onClick={() => setShowServerConfig((v) => !v)}
+            className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer ${
+              connected
+                ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                : 'bg-amber-950/80 border-amber-400/60 text-amber-200 animate-pulse'
+            }`}
+          >
+            {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            <span>{connected ? 'En línea' : 'Servidor'}</span>
+          </button>
+        </div>
+
+        {/* Main Compact Zero-Scroll Content (adapts to Portrait 1-col & Landscape 2-col) */}
+        <div className="mobile-main-grid relative z-10 flex-1 min-h-0 flex flex-col justify-center gap-2.5 max-w-md w-full mx-auto">
+          {/* Profile Card: Name + Emblem + Color */}
+          <div className="p-3 rounded-2xl bg-slate-900/92 border border-amber-500/35 shadow-xl space-y-2.5">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                Nombre
+              </label>
+              <input
+                type="text"
+                maxLength={33}
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Tu nombre..."
+                className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 focus:outline-none text-slate-100 font-semibold text-base"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                Emblema
+              </label>
+              <div className="grid grid-cols-8 gap-1">
+                {AVATAR_LIST.map((av) => (
+                  <button
+                    key={av}
+                    type="button"
+                    onClick={() => setPlayerAvatar(av)}
+                    className={`h-8 rounded-lg flex items-center justify-center text-sm transition cursor-pointer overflow-hidden p-0.5 ${
+                      playerAvatar === av
+                        ? 'bg-amber-500/30 border-2 border-amber-400 scale-105'
+                        : 'bg-slate-800/80 border border-slate-700/80'
+                    }`}
+                  >
+                    <AvatarIcon avatar={av} className="w-5 h-5" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-amber-200/80 mb-1">
+                Color
+              </label>
+              <div className="grid grid-cols-6 gap-1.5">
+                {(Object.keys(PLAYER_COLORS) as PlayerColor[]).map((colorKey) => {
+                  const cfg = PLAYER_COLORS[colorKey];
+                  const selected = playerColor === colorKey;
+                  return (
+                    <button
+                      key={colorKey}
+                      type="button"
+                      onClick={() => setPlayerColor(colorKey)}
+                      aria-label={cfg.name}
+                      className={`h-9 rounded-xl border flex items-center justify-center transition cursor-pointer ${
+                        selected
+                          ? 'bg-slate-800 border-amber-400 ring-2 ring-amber-400/40'
+                          : 'bg-slate-950/70 border-slate-800'
+                      }`}
+                    >
+                      <span
+                        className="w-5 h-5 rounded-full border-2 flex items-center justify-center shadow-sm"
+                        style={{
+                          backgroundColor: cfg.primary,
+                          borderColor: cfg.stroke,
+                        }}
+                      >
+                        {selected && <Check className="w-3 h-3 text-white drop-shadow" />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Room Actions Card: Create Room + Join Code */}
+          <div className="p-3 rounded-2xl bg-slate-900/92 border border-amber-500/35 shadow-xl space-y-2">
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 active:scale-98 text-slate-950 font-black text-sm shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Crear sala</span>
+            </button>
+
+            <form onSubmit={handleJoin} className="flex items-center gap-2">
+              <input
+                type="text"
+                maxLength={6}
+                value={joinCodeInput}
+                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                placeholder="CÓDIGO"
+                className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 focus:border-sky-400 focus:outline-none text-center font-mono text-base font-extrabold tracking-widest uppercase text-sky-200"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-sky-600 active:scale-98 text-white font-bold text-sm shadow-lg flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Unirse</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="shrink-0 h-1" />
+
+        {/* Optional Server Config Popover (only when user taps status pill) */}
+        {showServerConfig && (
+          <div
+            onClick={() => setShowServerConfig(false)}
+            className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm p-4 rounded-2xl bg-slate-950 border border-amber-500/50 space-y-2.5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Globe className="w-4 h-4" />
+                  Servidor Host
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowServerConfig(false)}
+                  className="text-xs text-slate-400 px-2 py-0.5 rounded bg-slate-900"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customUrlInput}
+                  onChange={(e) => setCustomUrlInput(e.target.value)}
+                  placeholder="https://...ngrok-free.dev"
+                  className="flex-1 min-w-0 px-2.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm font-mono text-amber-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateServerUrl(customUrlInput);
+                    setShowServerConfig(false);
+                  }}
+                  className="px-3 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shrink-0"
+                >
+                  Conectar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen min-h-[100dvh] w-full flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-[#040d1a]">

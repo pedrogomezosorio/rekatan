@@ -21,6 +21,7 @@ import {
   TERRAIN_META,
 } from '../../shared/constants';
 import { ResourceIcon } from '../UI/ResourceIcon';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 
 interface OverlayAnimationsProps {
   gameState: GameState;
@@ -165,6 +166,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   currentPlayerId,
   lowEndPcMode = false,
 }) => {
+  const isMobile = useIsMobileViewport();
   const [activeDiceStage, setActiveDiceStage] = useState<DiceRollStage | null>(null);
   const [activeFlightItems, setActiveFlightItems] = useState<PositionedResourceFlight[]>([]);
   const [activeDevCardFlights, setActiveDevCardFlights] = useState<DevCardFlight[]>([]);
@@ -610,22 +612,28 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
             className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
           >
             <div
-              className={`relative flex flex-col items-center justify-center px-10 sm:px-14 py-7 rounded-3xl border-4 shadow-[0_25px_80px_rgba(0,0,0,0.92)] backdrop-blur-xl ${
+              className={`relative flex flex-col items-center justify-center ${
+                isMobile
+                  ? 'px-5 py-3.5 rounded-2xl border-2 max-w-[82vw]'
+                  : 'px-10 sm:px-14 py-7 rounded-3xl border-4'
+              } shadow-[0_25px_80px_rgba(0,0,0,0.92)] backdrop-blur-xl ${
                 activeDiceStage.isSeven
-                  ? 'bg-[#2b0808]/90 border-red-500'
-                  : 'bg-[#1a110a]/92 border-[#d4af37]'
+                  ? 'bg-[#2b0808]/92 border-red-500'
+                  : 'bg-[#1a110a]/94 border-[#d4af37]'
               }`}
             >
-              <span className="text-xs sm:text-sm font-black uppercase tracking-[0.32em] text-amber-300/90 mb-3">
-                {activeDiceStage.stage === 'SPINNING'
-                  ? 'Lanzando Dados...'
-                  : activeDiceStage.isSeven
-                  ? 'Activación del Ladrón'
-                  : 'Resultado de los Dados'}
-              </span>
+              {!isMobile && (
+                <span className="text-xs sm:text-sm font-black uppercase tracking-[0.32em] text-amber-300/90 mb-3">
+                  {activeDiceStage.stage === 'SPINNING'
+                    ? 'Lanzando Dados...'
+                    : activeDiceStage.isSeven
+                    ? 'Activación del Ladrón'
+                    : 'Resultado de los Dados'}
+                </span>
+              )}
 
               {activeDiceStage.stage === 'SPINNING' ? (
-                <div className="flex flex-col items-center justify-center my-6">
+                <div className={`flex flex-col items-center justify-center ${isMobile ? 'my-1.5 scale-[0.76]' : 'my-6'}`}>
                   {/* Rolling Dice Animation during the 1.0s spinning phase */}
                   <div className="flex items-center gap-4 sm:gap-6">
                     <div className="flex items-center gap-3 sm:gap-4">
@@ -640,20 +648,24 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                       </>
                     )}
                   </div>
-                  <div className="mt-6 text-xs sm:text-sm font-bold text-amber-200/90 animate-pulse">
-                    {Boolean(activeDiceStage.displayEventDie || activeDiceStage.finalEventDie)
-                      ? 'Rodando los 3 dados sobre la mesa...'
-                      : 'Rodando los dados sobre la mesa...'}
-                  </div>
+                  {!isMobile && (
+                    <div className="mt-6 text-xs sm:text-sm font-bold text-amber-200/90 animate-pulse">
+                      {Boolean(activeDiceStage.displayEventDie || activeDiceStage.finalEventDie)
+                        ? 'Rodando los 3 dados sobre la mesa...'
+                        : 'Rodando los dados sobre la mesa...'}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
-                  {/* Extra Large Numeric Result in Absolute Center (stays for 2.5s) */}
+                  {/* Large Numeric Result in Absolute Center */}
                   <motion.div
                     initial={{ scale: 0.35, opacity: 0 }}
                     animate={{ scale: [0.35, 1.15, 1], opacity: 1 }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className={`text-7xl sm:text-8xl font-black font-serif leading-none tracking-tight drop-shadow-[0_12px_32px_rgba(0,0,0,0.98)] ${
+                    className={`${
+                      isMobile ? 'text-5xl' : 'text-7xl sm:text-8xl'
+                    } font-black font-serif leading-none tracking-tight drop-shadow-[0_12px_32px_rgba(0,0,0,0.98)] ${
                       activeDiceStage.isSeven
                         ? 'text-red-400'
                         : activeDiceStage.totalSum === 6 || activeDiceStage.totalSum === 8
@@ -665,7 +677,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                   </motion.div>
 
                   {/* Individual Die Faces Beneath */}
-                  <div className="flex items-center gap-4 sm:gap-6 mt-4">
+                  <div className={`flex items-center gap-3 sm:gap-6 ${isMobile ? 'mt-1.5 scale-[0.74] origin-center -my-1.5' : 'mt-4'}`}>
                     <div className="flex items-center gap-3 sm:gap-4">
                       <DieFace value={activeDiceStage.finalDice[0]} isRolling={false} isRedDie={Boolean(activeDiceStage.finalEventDie)} />
                       <span className="text-2xl font-black text-amber-400/80">+</span>
@@ -684,21 +696,31 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
                     )}
                   </div>
 
-                  <div
-                    className={`mt-5 text-xs sm:text-sm font-extrabold uppercase tracking-wider px-5 py-1.5 rounded-full ${
-                      activeDiceStage.isSeven
-                        ? 'bg-red-700/90 text-red-50 border border-red-400/50'
-                        : 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
-                    }`}
-                  >
-                    {activeDiceStage.isSeven
-                      ? 'Salió un 7 — El Ladrón entra en acción'
-                      : activeDiceStage.finalEventDie === 'BARBARIAN'
-                      ? 'Avance bárbaro hacia las costas de Catán'
-                      : activeDiceStage.finalEventDie
-                      ? `Acontecimiento: Ciudad de ${BRANCH_META[activeDiceStage.finalEventDie].name}`
-                      : 'Recolección de recursos...'}
-                  </div>
+                  {(!isMobile || activeDiceStage.isSeven || activeDiceStage.finalEventDie) && (
+                    <div
+                      className={`${
+                        isMobile ? 'mt-2 text-[10px] px-3 py-0.5' : 'mt-5 text-xs sm:text-sm px-5 py-1.5'
+                      } font-extrabold uppercase tracking-wider rounded-full ${
+                        activeDiceStage.isSeven
+                          ? 'bg-red-700/90 text-red-50 border border-red-400/50'
+                          : 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
+                      }`}
+                    >
+                      {activeDiceStage.isSeven
+                        ? isMobile
+                          ? '¡Ladrón!'
+                          : 'Salió un 7 — El Ladrón entra en acción'
+                        : activeDiceStage.finalEventDie === 'BARBARIAN'
+                        ? isMobile
+                          ? 'Bárbaros'
+                          : 'Avance bárbaro hacia las costas de Catán'
+                        : activeDiceStage.finalEventDie
+                        ? isMobile
+                          ? BRANCH_META[activeDiceStage.finalEventDie].name
+                          : `Acontecimiento: Ciudad de ${BRANCH_META[activeDiceStage.finalEventDie].name}`
+                        : 'Recolección de recursos...'}
+                    </div>
+                  )}
                 </>
               )}
             </div>

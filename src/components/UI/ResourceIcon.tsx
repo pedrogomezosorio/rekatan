@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { isImageAvatar, RESOURCE_ICON_PATHS, RESOURCE_META } from '../../shared/constants';
 import { TradeCardType } from '../../shared/types';
 
@@ -45,6 +45,10 @@ export const ResourceIcon: React.FC<ResourceIconProps> = ({
   const [imgError, setImgError] = useState(false);
   const meta = RESOURCE_META[resource];
   const src = RESOURCE_ICON_PATHS[resource] || meta.iconPath;
+
+  useEffect(() => {
+    setImgError(false);
+  }, [src]);
 
   const isNumericSize = typeof size === 'number';
   const sizeClass = isNumericSize ? '' : SIZE_CLASSES[size];

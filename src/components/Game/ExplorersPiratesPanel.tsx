@@ -27,6 +27,7 @@ import type {
 } from '../../shared/types';
 import { ResourceIcon } from '../UI/ResourceIcon';
 import type { ActiveExplorersBoardMode } from './ExplorersPiratesDrawerMenu';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import {
   Anchor,
   BookOpen,
@@ -56,6 +57,7 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
   dispatchAction,
   onStartBoardMode,
 }) => {
+  const isMobile = useIsMobileViewport();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showTurnSummary, setShowTurnSummary] = useState(false);
   const [showMissionGuides, setShowMissionGuides] = useState(false);
@@ -84,7 +86,20 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
 
   return (
     <>
-      {/* Bottom-Left HUD Box (Exact same slot & style as CitiesKnightsPanel) */}
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="mobile-expansion-hud fixed z-30 h-8 px-2.5 rounded-xl border border-[#d4af37]/75 bg-[#160f0a]/96 text-amber-100 shadow-xl pointer-events-auto flex items-center gap-1.5 text-[10.5px] font-black cursor-pointer active:scale-95"
+          title="Abrir Misiones, Flota y Oro (Piratas y Exploradores)"
+        >
+          <Anchor className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>P&amp;E</span>
+          <span className="font-mono text-amber-300">🪙{pep.goldCoins}</span>
+          <span className="font-mono text-cyan-300">{myShips.length}/3</span>
+        </button>
+      ) : (
+      /* Bottom-Left HUD Box (Exact same slot & style as CitiesKnightsPanel) */
       <div
         role="button"
         tabIndex={0}
@@ -167,6 +182,7 @@ export const ExplorersPiratesPanel: React.FC<ExplorersPiratesPanelProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* Full Piratas y Exploradores Modal (Visually identical style to CitiesKnightsPanel Modal, ZERO select dropdowns) */}
       {isModalOpen && (

@@ -35,6 +35,7 @@ import type {
 import type { ProgressPayload } from '../../shared/citiesKnightsTypes';
 import { ResourceIcon } from '../UI/ResourceIcon';
 import type { ActiveKnightMode } from './KnightsDrawerMenu';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { Castle, Flame, Minus, Plus, ShieldAlert, Sparkles, Swords, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -199,6 +200,7 @@ export function CitiesKnightsPanel({
   onStartSmithMode,
   isDiceAnimating = false,
 }: Props) {
+  const isMobile = useIsMobileViewport();
   // Two separate modals:
   // - 'CITIES': opened by clicking the C&K HUD box -> exclusively City Improvements (levels 1-5 of the 3 branches, walls, metropolises)
   // - 'PROGRESS': opened by clicking the bottom Progreso (D) button -> Progress decks count + player's Progress Cards in hand
@@ -359,127 +361,141 @@ export function CitiesKnightsPanel({
 
   return (
     <>
-      {/* Entire C&K HUD Box is clickable and opens the C&K City Improvements Menu */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setModalMode('CITIES')}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setModalMode('CITIES');
-          }
-        }}
-        className="cities-knights-hud absolute bottom-3 left-[215px] sm:left-[240px] z-30 w-[240px] sm:w-[265px] rounded-2xl border border-[#d4af37]/45 hover:border-amber-400/90 bg-[#160f0a]/95 hover:bg-[#1d140d]/98 backdrop-blur-xl p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.9)] text-stone-100 pointer-events-auto cursor-pointer transition-all group"
-        title="Haz clic para abrir el menú de Ciudades y Caballeros (Mejoras de Ciudad)"
-      >
-        <div className="flex justify-between items-center w-full text-xs font-black text-amber-200 group-hover:text-amber-100 transition">
-          <span className="flex items-center gap-1.5">
-            <Castle className="w-3.5 h-3.5 text-amber-400" />
-            <span>Ciudades y Caballeros</span>
-          </span>
-          <span className="px-1.5 py-0.2 rounded bg-amber-500/20 group-hover:bg-amber-500/35 text-amber-300 font-mono text-[10px]">
-            ＋
-          </span>
-        </div>
-
-        <div className="ck-hud-details mt-2">
-          {/* Barbarian Advance Track 0..7 */}
-          <div
-            className="flex items-center justify-between gap-1"
-            aria-label={`Bárbaros: ${ck.barbarianPosition} de 7`}
-          >
-            {Array.from({ length: 8 }, (_, i) => {
-              const isCurrent = i === ck.barbarianPosition;
-              return (
-                <span
-                  key={i}
-                  className={`flex h-5 w-5 items-center justify-center rounded-lg text-[10px] font-black transition ${
-                    isCurrent
-                      ? 'bg-red-700 border-2 border-red-300 text-white shadow-[0_0_10px_rgba(239,68,68,0.8)] scale-110'
-                      : i < ck.barbarianPosition
-                      ? 'bg-red-950/80 text-red-300/80 border border-red-800/40'
-                      : 'bg-stone-900 text-stone-500 border border-stone-800'
-                  }`}
-                  title={isCurrent ? 'Posición actual de la flota bárbara' : `Avance ${i}`}
-                >
-                  {isCurrent ? '⛵' : i}
-                </span>
-              );
-            })}
-          </div>
-
-          <div className="mt-1.5 flex items-center justify-between text-[10px] text-stone-300">
-            <span className="font-semibold flex items-center gap-1">
-              <ShieldAlert className="w-3 h-3 text-emerald-400" />
-              <span>Def. {defense}</span>
-              <span className="text-stone-500">/</span>
-              <span className="text-red-300">{totalCities} Bárbaros</span>
+      {isMobile ? (
+        <button
+          type="button"
+          onClick={() => setModalMode('CITIES')}
+          className="mobile-expansion-hud fixed z-30 h-8 px-2.5 rounded-xl border border-[#d4af37]/75 bg-[#160f0a]/96 text-amber-100 shadow-xl pointer-events-auto flex items-center gap-1.5 text-[10.5px] font-black cursor-pointer active:scale-95"
+          title="Abrir Mejoras de Ciudad (Ciudades y Caballeros)"
+        >
+          <Castle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>C&amp;C</span>
+          <span className="text-[10px] font-mono text-red-300">{ck.barbarianPosition}/7</span>
+          <span className="text-[10px] font-mono text-emerald-300">🛡{defense}</span>
+        </button>
+      ) : (
+        /* Entire C&K HUD Box is clickable and opens the C&K City Improvements Menu */
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setModalMode('CITIES')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setModalMode('CITIES');
+            }
+          }}
+          className="cities-knights-hud absolute bottom-3 left-[215px] sm:left-[240px] z-30 w-[240px] sm:w-[265px] rounded-2xl border border-[#d4af37]/45 hover:border-amber-400/90 bg-[#160f0a]/95 hover:bg-[#1d140d]/98 backdrop-blur-xl p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.9)] text-stone-100 pointer-events-auto cursor-pointer transition-all group"
+          title="Haz clic para abrir el menú de Ciudades y Caballeros (Mejoras de Ciudad)"
+        >
+          <div className="flex justify-between items-center w-full text-xs font-black text-amber-200 group-hover:text-amber-100 transition">
+            <span className="flex items-center gap-1.5">
+              <Castle className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ciudades y Caballeros</span>
             </span>
-            <span className="text-stone-400">
-              Mano segura: <strong className="text-amber-200">{safeHandLimit(s, me.id)}</strong>
+            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 group-hover:bg-amber-500/35 text-amber-300 font-mono text-[10px]">
+              ＋
             </span>
           </div>
 
-          <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-white/10">
-            {CK_BRANCHES.map((b) => (
-              <span
-                key={b}
-                style={{ color: BRANCH_META[b].color }}
-                className="text-[10px] font-black flex items-center gap-0.5"
-                title={`${BRANCH_META[b].name}: nivel ${mine.improvements[b]}`}
-              >
-                <span>{BRANCH_META[b].name[0]}</span>
-                <span className="font-mono text-amber-100">Nv.{mine.improvements[b]}</span>
+          <div className="ck-hud-details mt-2">
+            {/* Barbarian Advance Track 0..7 */}
+            <div
+              className="flex items-center justify-between gap-1"
+              aria-label={`Bárbaros: ${ck.barbarianPosition} de 7`}
+            >
+              {Array.from({ length: 8 }, (_, i) => {
+                const isCurrent = i === ck.barbarianPosition;
+                return (
+                  <span
+                    key={i}
+                    className={`flex h-5 w-5 items-center justify-center rounded-lg text-[10px] font-black transition ${
+                      isCurrent
+                        ? 'bg-red-700 border-2 border-red-300 text-white shadow-[0_0_10px_rgba(239,68,68,0.8)] scale-110'
+                        : i < ck.barbarianPosition
+                        ? 'bg-red-950/80 text-red-300/80 border border-red-800/40'
+                        : 'bg-stone-900 text-stone-500 border border-stone-800'
+                    }`}
+                    title={isCurrent ? 'Posición actual de la flota bárbara' : `Avance ${i}`}
+                  >
+                    {isCurrent ? '⛵' : i}
+                  </span>
+                );
+              })}
+            </div>
+
+            <div className="mt-1.5 flex items-center justify-between text-[10px] text-stone-300">
+              <span className="font-semibold flex items-center gap-1">
+                <ShieldAlert className="w-3 h-3 text-emerald-400" />
+                <span>Def. {defense}</span>
+                <span className="text-stone-500">/</span>
+                <span className="text-red-300">{totalCities} Bárbaros</span>
               </span>
-            ))}
-          </div>
-
-          {ck.eventDie && (
-            <div className="flex items-center gap-2 mt-1.5 pt-1 border-t border-white/10 text-[10px]">
-              <img
-                alt="Dado de evento"
-                className="h-5 w-5 object-contain"
-                src={`/assets/cities-knights/events/${
-                  ck.eventDie === 'BARBARIAN' ? 'barbarian' : ck.eventDie.toLowerCase()
-                }.svg`}
-              />
-              <span className="truncate text-stone-200">
-                {s.turn.diceRoll && (
-                  <>
-                    <strong className="text-red-400">{s.turn.diceRoll[0]}</strong> +{' '}
-                    <strong>{s.turn.diceRoll[1]}</strong> ·{' '}
-                  </>
-                )}
-                {ck.eventDie === 'BARBARIAN' ? 'Avance bárbaro' : BRANCH_META[ck.eventDie].name}
+              <span className="text-stone-400">
+                Mano segura: <strong className="text-amber-200">{safeHandLimit(s, me.id)}</strong>
               </span>
             </div>
-          )}
 
-          {ck.choices.length > 0 && (
-            <p className="text-[10px] text-amber-300 font-bold mt-1.5 animate-pulse truncate">
-              Decisión pendiente:{' '}
-              {ck.choices
-                .map((c) => s.players.find((p) => p.id === c.playerId)?.name)
-                .filter(Boolean)
-                .join(', ')}
-            </p>
+            <div className="flex justify-between items-center mt-1.5 pt-1.5 border-t border-white/10">
+              {CK_BRANCHES.map((b) => (
+                <span
+                  key={b}
+                  style={{ color: BRANCH_META[b].color }}
+                  className="text-[10px] font-black flex items-center gap-0.5"
+                  title={`${BRANCH_META[b].name}: nivel ${mine.improvements[b]}`}
+                >
+                  <span>{BRANCH_META[b].name[0]}</span>
+                  <span className="font-mono text-amber-100">Nv.{mine.improvements[b]}</span>
+                </span>
+              ))}
+            </div>
+
+            {ck.eventDie && (
+              <div className="flex items-center gap-2 mt-1.5 pt-1 border-t border-white/10 text-[10px]">
+                <img
+                  alt="Dado de evento"
+                  className="h-5 w-5 object-contain"
+                  src={`/assets/cities-knights/events/${
+                    ck.eventDie === 'BARBARIAN' ? 'barbarian' : ck.eventDie.toLowerCase()
+                  }.svg`}
+                />
+                <span className="truncate text-stone-200">
+                  {s.turn.diceRoll && (
+                    <>
+                      <strong className="text-red-400">{s.turn.diceRoll[0]}</strong> +{' '}
+                      <strong>{s.turn.diceRoll[1]}</strong> ·{' '}
+                    </>
+                  )}
+                  {ck.eventDie === 'BARBARIAN' ? 'Avance bárbaro' : BRANCH_META[ck.eventDie].name}
+                </span>
+              </div>
+            )}
+
+            {ck.choices.length > 0 && (
+              <p className="text-[10px] text-amber-300 font-bold mt-1.5 animate-pulse truncate">
+                Decisión pendiente:{' '}
+                {ck.choices
+                  .map((c) => s.players.find((p) => p.id === c.playerId)?.name)
+                  .filter(Boolean)
+                  .join(', ')}
+              </p>
+            )}
+          </div>
+
+          {s.phase === 'SPECIAL_BUILD_PHASE' && s.turn.activePlayerId === me.id && (
+            <button
+              type="button"
+              className={`ck-special-build ${button} w-full mt-2 bg-gradient-to-r from-emerald-700 to-teal-800 text-white`}
+              onClick={(e) => {
+                e.stopPropagation();
+                dispatchAction({ type: 'END_SPECIAL_BUILD' });
+              }}
+            >
+              Terminar construcción especial
+            </button>
           )}
         </div>
-
-        {s.phase === 'SPECIAL_BUILD_PHASE' && s.turn.activePlayerId === me.id && (
-          <button
-            type="button"
-            className={`ck-special-build ${button} w-full mt-2 bg-gradient-to-r from-emerald-700 to-teal-800 text-white`}
-            onClick={(e) => {
-              e.stopPropagation();
-              dispatchAction({ type: 'END_SPECIAL_BUILD' });
-            }}
-          >
-            Terminar construcción especial
-          </button>
-        )}
-      </div>
+      )}
 
       {/* MODAL 1: CIUDADES Y CABALLEROS (Exclusively the 3 City Improvement Sectors) */}
       {modalMode === 'CITIES' && (
@@ -501,10 +517,10 @@ export function CitiesKnightsPanel({
               <div className="flex items-center gap-2.5">
                 <Castle className="w-6 h-6 text-amber-400" />
                 <div>
-                  <h2 className="font-display font-black text-xl text-amber-100 uppercase tracking-wide">
-                    Ciudades y Caballeros · Mejoras de Ciudad
+                  <h2 className="font-display font-black text-base md:text-xl text-amber-100 uppercase tracking-wide">
+                    {isMobile ? 'Mejoras de Ciudad' : 'Ciudades y Caballeros · Mejoras de Ciudad'}
                   </h2>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="hidden md:block text-[11px] text-stone-400">
                     Desarrolla los 3 sectores de tus ciudades con mercancías para obtener habilidades y Metrópolis (+2 PV).
                   </p>
                 </div>

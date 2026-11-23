@@ -42,13 +42,16 @@ import { AvatarIcon, ResourceIcon } from '../UI/ResourceIcon';
 import { SEAFARERS_PLAYER_LIMITS } from '../../shared/seafarersConfig';
 import { getVariableSetupDescription } from '../../shared/engine/seafarersSetup';
 import { OriginalWonderCards } from '../Game/WondersPanel';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 
 export const RoomLobby: React.FC = () => {
+  const isMobile = useIsMobileViewport();
   const { gameState, playerId, dispatchAction, leaveRoomClient, lowEndPcMode, setLowEndPcMode } =
     useGame();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<BotDifficulty>('MEDIUM');
+  const [mobileTab, setMobileTab] = useState<'EXPANSION' | 'MAP' | 'PLAYERS' | 'RULES'>('EXPANSION');
 
   const [editorTool, setEditorTool] = useState<EditorToolState>({
     active: false,
@@ -152,6 +155,937 @@ export const RoomLobby: React.FC = () => {
       dispatchAction({ type: 'UPDATE_CONFIG', config: { boardMode: mode } });
     }
   };
+
+  if (isMobile) {
+    const canStartNow = players.length >= (hasCitiesKnights(config) ? 3 : 2);
+    const effectiveSeafarersSize: SeafarersBoardSize =
+      config.seafarersBoardSize ||
+      (players.length <= 3 ? '3P' : players.length >= 5 ? '5_6P' : '4P');
+    const vpOptions =
+      config.expansionModule === 'SEAFARERS'
+        ? [10, 12, 13, 14, 15, 17]
+        : config.expansionModule === 'EXPLORERS_AND_PIRATES'
+        ? [8, 12, 15, 17]
+        : config.expansionModule === 'BARBARIANS'
+        ? [10, 11, 12, 13, 14]
+        : hasCitiesKnights(config)
+        ? [13]
+        : [9, 10, 11, 12, 15];
+
+    const shortExpLabels: Record<ExpansionModule, string> = {
+      BASE: 'Base',
+      SEAFARERS: 'Naveg.',
+      CITIES_AND_KNIGHTS: 'C y C',
+      BARBARIANS: 'Merc.',
+      EXPLORERS_AND_PIRATES: 'Piratas',
+    };
+
+    return (
+      <div
+        className="mobile-room-lobby h-[100dvh] w-screen overflow-hidden flex flex-col bg-[#110c08] text-stone-100"
+        style={{
+          paddingTop: 'max(6px, env(safe-area-inset-top))',
+          paddingBottom: 'max(6px, env(safe-area-inset-bottom))',
+          paddingLeft: 'max(10px, env(safe-area-inset-left))',
+          paddingRight: 'max(10px, env(safe-area-inset-right))',
+        }}
+      >
+        {/* Compact Top Bar + 4 Visual Tabs */}
+        <div className="mobile-lobby-top shrink-0 flex flex-col gap-1.5 pb-1.5 border-b border-[#c89b3c]/25">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <button
+                type="button"
+                onClick={copyRoomCode}
+                className="flex items-center gap-1.5 bg-[#1a130e] border border-[#c89b3c]/45 px-2.5 py-1 rounded-lg cursor-pointer"
+                title="Copiar código"
+              >
+                <span className="font-mono text-xs font-black tracking-widest text-amber-200 tabular-nums">
+                  {gameState.roomCode}
+                </span>
+                {copiedCode ? (
+                  <Check className="w-3 h-3 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3 h-3 text-amber-300/80" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={copyShareLink}
+                className="p-1.5 rounded-lg bg-[#245c7a]/30 border border-[#4c90b5]/40 text-sky-200 cursor-pointer"
+                aria-label="Copiar enlace"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
+              </button>
+              <span className="text-[10px] font-bold text-amber-300/90 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 tabular-nums">
+                {config.victoryPointsTarget} PV
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={leaveRoomClient}
+              className="px-2 py-1 rounded-lg bg-[#2a1210] border border-red-500/40 text-red-200 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Salir</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1 bg-[#18110c] p-0.5 rounded-xl border border-[#c89b3c]/25">
+            {(
+              [
+                { id: 'EXPANSION', label: 'Expansión', icon: Layers },
+                { id: 'MAP', label: 'Mapa', icon: Dices },
+                { id: 'PLAYERS', label: `Sala ${players.length}/${config.maxPlayers}`, icon: Users },
+                { id: 'RULES', label: 'Reglas', icon: Settings2 },
+              ] as const
+            ).map((t) => {
+              const Icon = t.icon;
+              const active = mobileTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setMobileTab(t.id)}
+                  className={`py-1.5 px-1 rounded-lg text-[10.5px] font-extrabold flex items-center justify-center gap-1 transition cursor-pointer ${
+                    active
+                      ? 'bg-[#c89b3c] text-stone-950 shadow'
+                      : 'text-stone-400 hover:text-amber-100'
+                  }`}
+                >
+                  <Icon className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Center Stage: Zero-Scroll Tab Views */}
+        <div className="flex-1 min-h-0 py-1.5 flex flex-col overflow-hidden">
+          {mobileTab === 'EXPANSION' && (
+            <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+              {/* 5 Visual Expansion Chips */}
+              <div className="grid grid-cols-5 gap-1 shrink-0">
+                {EXPANSION_CATALOG.map((exp) => {
+                  const checked =
+                    exp.id === 'BASE'
+                      ? enabledExpansions.every((e) => e === 'BASE')
+                      : enabledExpansions.includes(exp.id);
+                  return (
+                    <button
+                      key={exp.id}
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() => handleSelectExpansion(exp.id)}
+                      className={`py-1.5 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition cursor-pointer ${
+                        checked
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-100 shadow-sm'
+                          : 'bg-[#1a130e] border-stone-800 text-stone-400'
+                      }`}
+                    >
+                      <span className="text-[10px] font-black tracking-tight text-amber-300">
+                        {exp.icon}
+                      </span>
+                      <span className="text-[10px] font-bold truncate max-w-full">
+                        {shortExpLabels[exp.id]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Dynamic Compact Scenario / Size Area */}
+              <div className="flex-1 min-h-0 flex flex-col gap-2 justify-start overflow-hidden">
+                {config.expansionModule === 'SEAFARERS' ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-1 shrink-0">
+                      {(
+                        [
+                          { size: '3P' as const, label: '2-3 J' },
+                          { size: '4P' as const, label: '4 J' },
+                          { size: '5_6P' as const, label: '5-6 J' },
+                        ] as const
+                      ).map((item) => (
+                        <button
+                          key={item.size}
+                          type="button"
+                          disabled={!isHost || players.length > SEAFARERS_PLAYER_LIMITS[item.size]}
+                          onClick={() =>
+                            dispatchAction({
+                              type: 'UPDATE_CONFIG',
+                              config: {
+                                seafarersBoardSize: item.size,
+                                maxPlayers: SEAFARERS_PLAYER_LIMITS[item.size],
+                              },
+                            })
+                          }
+                          className={`py-1.5 rounded-lg border text-[11px] font-black transition cursor-pointer disabled:opacity-40 ${
+                            effectiveSeafarersSize === item.size
+                              ? 'bg-sky-500/25 border-sky-400 text-sky-100'
+                              : 'bg-[#1a130e] border-stone-800 text-stone-400'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 flex-1 min-h-0 content-start">
+                      {SEAFARERS_SCENARIOS.map((scen) => {
+                        const conflictsWithCK =
+                          hasCitiesKnights(config) &&
+                          CK_CONFLICTING_SCENARIOS.includes(
+                            scen.id as (typeof CK_CONFLICTING_SCENARIOS)[number]
+                          );
+                        const active =
+                          (config.seafarersScenario || 'HEADING_FOR_NEW_SHORES') === scen.id;
+                        return (
+                          <button
+                            key={scen.id}
+                            type="button"
+                            disabled={!isHost || conflictsWithCK}
+                            onClick={() => handleSelectScenario(scen.id, scen.recommendedVP)}
+                            className={`px-2 py-1.5 rounded-xl border text-left flex items-center justify-between gap-1 transition cursor-pointer disabled:opacity-35 ${
+                              active
+                                ? 'bg-sky-500/25 border-sky-400 text-sky-100'
+                                : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                            }`}
+                          >
+                            <span className="text-[10.5px] font-bold leading-tight line-clamp-1">
+                              {scen.number > 0 ? `${scen.number}. ` : ''}
+                              {scen.title}
+                            </span>
+                            <span className="text-[9.5px] font-mono font-black text-amber-300 shrink-0">
+                              {scen.recommendedVP + (hasCitiesKnights(config) ? 2 : 0)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : hasBarbarians(config) ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                      {(
+                        [
+                          { mode: 'STANDARD_3_4', name: '2–4 Jugadores' },
+                          { mode: 'EXPANSION_5_6', name: '5–6 Jugadores' },
+                        ] as const
+                      ).map(({ mode, name }) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          disabled={!isHost}
+                          onClick={() => handleBoardModeSelect(mode)}
+                          className={`py-1.5 rounded-lg border text-xs font-bold cursor-pointer ${
+                            config.boardMode === mode
+                              ? 'border-amber-400 bg-amber-500/20 text-amber-100'
+                              : 'border-stone-800 bg-[#1a130e] text-stone-400'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 shrink-0">
+                      {BARBARIANS_SCENARIOS.map((scen) => {
+                        const active =
+                          (config.barbariansScenario || 'FISHERMEN_OF_CATAN') === scen.id;
+                        return (
+                          <button
+                            key={scen.id}
+                            type="button"
+                            disabled={!isHost}
+                            onClick={() =>
+                              dispatchAction({
+                                type: 'UPDATE_CONFIG',
+                                config: {
+                                  expansionModule: 'BARBARIANS',
+                                  enabledExpansions: ['BASE', 'BARBARIANS'],
+                                  barbariansScenario: scen.id,
+                                  victoryPointsTarget:
+                                    scen.recommendedVP +
+                                    (config.barbariansVariants?.harborMaster ? 1 : 0),
+                                },
+                              })
+                            }
+                            className={`px-2 py-1.5 rounded-xl border text-left flex items-center justify-between gap-1 cursor-pointer ${
+                              active
+                                ? 'bg-amber-500/25 border-amber-400 text-amber-100'
+                                : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                            }`}
+                          >
+                            <span className="text-[10.5px] font-bold truncate">{scen.title}</span>
+                            <span className="text-[9.5px] font-mono font-black text-amber-300 shrink-0">
+                              {scen.recommendedVP}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 pt-1 border-t border-stone-800/80 shrink-0">
+                      {BARBARIANS_VARIANTS_CATALOG.map((vItem) => {
+                        const isVarOn = Boolean(config.barbariansVariants?.[vItem.key]);
+                        return (
+                          <button
+                            key={vItem.key}
+                            type="button"
+                            disabled={!isHost}
+                            onClick={() => {
+                              const nextVars = {
+                                ...(config.barbariansVariants || {}),
+                                [vItem.key]: !isVarOn,
+                              };
+                              const curScen =
+                                BARBARIANS_SCENARIOS.find(
+                                  (s) =>
+                                    s.id === (config.barbariansScenario || 'FISHERMEN_OF_CATAN')
+                                ) || BARBARIANS_SCENARIOS[0];
+                              dispatchAction({
+                                type: 'UPDATE_CONFIG',
+                                config: {
+                                  barbariansVariants: nextVars,
+                                  victoryPointsTarget:
+                                    curScen.recommendedVP + (nextVars.harborMaster ? 1 : 0),
+                                },
+                              });
+                            }}
+                            className={`px-2 py-1.5 rounded-lg border text-[10.5px] font-bold flex items-center justify-between gap-1 cursor-pointer ${
+                              isVarOn
+                                ? 'bg-emerald-500/20 border-emerald-400 text-emerald-100'
+                                : 'bg-[#1a130e] border-stone-800 text-stone-400'
+                            }`}
+                          >
+                            <span className="truncate">{vItem.title}</span>
+                            <span>{isVarOn ? '✓' : '+'}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : hasExplorersPirates(config) ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                      {(
+                        [
+                          { mode: 'STANDARD_3_4', name: '2–4 Jugadores' },
+                          { mode: 'EXPANSION_5_6', name: '5–6 Jugadores' },
+                        ] as const
+                      ).map(({ mode, name }) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          disabled={!isHost}
+                          onClick={() => handleBoardModeSelect(mode)}
+                          className={`py-1.5 rounded-lg border text-xs font-bold cursor-pointer ${
+                            config.boardMode === mode
+                              ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100'
+                              : 'border-stone-800 bg-[#1a130e] text-stone-400'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {EXPLORERS_PIRATES_SCENARIOS.map((scen) => {
+                        const active =
+                          (config.explorersPiratesScenario || 'LAND_HO') === scen.id;
+                        return (
+                          <button
+                            key={scen.id}
+                            type="button"
+                            disabled={!isHost}
+                            onClick={() =>
+                              dispatchAction({
+                                type: 'UPDATE_CONFIG',
+                                config: {
+                                  expansionModule: 'EXPLORERS_AND_PIRATES',
+                                  enabledExpansions: ['BASE', 'EXPLORERS_AND_PIRATES'],
+                                  explorersPiratesScenario: scen.id,
+                                  victoryPointsTarget: scen.recommendedVP,
+                                },
+                              })
+                            }
+                            className={`px-3 py-2 rounded-xl border text-left flex items-center justify-between gap-2 cursor-pointer ${
+                              active
+                                ? 'bg-cyan-500/25 border-cyan-400 text-cyan-100'
+                                : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                            }`}
+                          >
+                            <span className="text-xs font-bold truncate">{scen.title}</span>
+                            <span className="text-[10px] font-mono font-black text-amber-300 shrink-0">
+                              {scen.recommendedVP} PV
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : hasCitiesKnights(config) ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          { mode: 'STANDARD_3_4', name: '3–4 Jugadores' },
+                          { mode: 'EXPANSION_5_6', name: '5–6 Jugadores' },
+                        ] as const
+                      ).map(({ mode, name }) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          disabled={!isHost}
+                          onClick={() => handleBoardModeSelect(mode)}
+                          className={`py-2.5 rounded-xl border text-xs font-bold cursor-pointer ${
+                            config.boardMode === mode
+                              ? 'border-emerald-400 bg-emerald-900/35 text-emerald-100'
+                              : 'border-stone-800 bg-[#1a130e] text-stone-400'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: {
+                            citiesKnightsVoluntaryDefense: !config.citiesKnightsVoluntaryDefense,
+                          },
+                        })
+                      }
+                      className={`w-full px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer ${
+                        config.citiesKnightsVoluntaryDefense
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-100'
+                          : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                      }`}
+                    >
+                      <span>Variante Doña Urraca (defensa voluntaria)</span>
+                      <span>{config.citiesKnightsVoluntaryDefense ? '✓' : 'Off'}</span>
+                    </button>
+                    <div className="grid grid-cols-3 gap-1.5 pt-1">
+                      {(['PAPER', 'CLOTH', 'COIN'] as const).map((c) => (
+                        <div
+                          key={c}
+                          className="p-2 rounded-xl bg-[#1a130e] border border-[#c89b3c]/25 flex flex-col items-center gap-1"
+                        >
+                          <ResourceIcon resource={c} size={24} />
+                          <span className="text-[10px] font-bold text-amber-100">
+                            {RESOURCE_META[c].name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        { mode: 'STANDARD_3_4', label: 'Estándar 3-4J', desc: '19 hex' },
+                        { mode: 'EXPANSION_5_6', label: 'Ampliado 5-6J', desc: '30 hex' },
+                        { mode: 'MEGA_RADIUS_3', label: 'Gran Isla', desc: '37 hex' },
+                        { mode: 'CUSTOM', label: 'Personalizado', desc: 'Editor libre' },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.mode}
+                        type="button"
+                        disabled={!isHost}
+                        onClick={() => handleBoardModeSelect(item.mode)}
+                        className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                          config.boardMode === item.mode
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-100'
+                            : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                        }`}
+                      >
+                        <div className="text-xs font-black">{item.label}</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">{item.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {mobileTab === 'MAP' && (
+            <div className="flex-1 min-h-0 flex flex-col gap-1.5">
+              <div className="flex-1 min-h-0 relative rounded-xl overflow-hidden border border-[#c89b3c]/30 bg-[#0b1b29]">
+                <HexBoardSVG
+                  board={board}
+                  players={players}
+                  lowEndPcMode={lowEndPcMode}
+                  barbarians={gameState.barbarians}
+                  explorersPirates={gameState.explorersPirates}
+                  editorTool={isHost ? editorTool : undefined}
+                  onCustomSwapHexes={(hexIdA, hexIdB) =>
+                    dispatchAction({ type: 'CUSTOM_SWAP_HEXES', hexIdA, hexIdB })
+                  }
+                  onCustomSetTerrain={(hexId, terrain) =>
+                    dispatchAction({ type: 'CUSTOM_SET_HEX_TERRAIN', hexId, terrain })
+                  }
+                  onCustomSetNumber={(hexId, numberToken) =>
+                    dispatchAction({ type: 'CUSTOM_SET_HEX_NUMBER', hexId, numberToken })
+                  }
+                  onCustomSetPort={(edgeId, portType) =>
+                    dispatchAction({ type: 'CUSTOM_SET_PORT', edgeId, portType })
+                  }
+                />
+              </div>
+
+              {isHost && (
+                <div className="shrink-0 flex items-center gap-1.5">
+                  {config.expansionModule === 'SEAFARERS' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        dispatchAction({ type: 'GENERATE_BOARD', randomizeVariableSetup: false })
+                      }
+                      className="px-2.5 py-2 rounded-xl bg-sky-950 border border-sky-600/60 text-sky-200 text-[11px] font-bold cursor-pointer"
+                    >
+                      Inicial
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      dispatchAction({
+                        type: 'GENERATE_BOARD',
+                        preventAdjacentRedNumbers: config.preventAdjacentRedNumbers,
+                        desertInCenter:
+                          config.expansionModule === 'SEAFARERS'
+                            ? false
+                            : config.desertInCenter !== false,
+                        randomizeVariableSetup:
+                          config.expansionModule === 'SEAFARERS' ? true : undefined,
+                      })
+                    }
+                    className="flex-1 py-2 px-3 rounded-xl bg-[#241a12] border border-[#c89b3c]/50 text-amber-100 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Dices className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Regenerar mapa</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {mobileTab === 'PLAYERS' && (
+            <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+              {isHost && (
+                <div className="shrink-0 flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1">
+                    {players.length < config.maxPlayers && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            dispatchAction({ type: 'ADD_BOT', difficulty: selectedDifficulty })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg bg-indigo-500/25 border border-indigo-400/50 text-indigo-100 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Bot className="w-3.5 h-3.5" />
+                          <span>+ Bot</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            dispatchAction({
+                              type: 'FILL_ROOM_WITH_BOTS',
+                              difficulty: selectedDifficulty,
+                            })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-200 text-[11px] font-bold cursor-pointer"
+                        >
+                          Rellenar
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-0.5 bg-[#1a130e] p-0.5 rounded-lg border border-stone-800">
+                    {(
+                      [
+                        { id: 'EASY', label: 'Fácil' },
+                        { id: 'MEDIUM', label: 'Normal' },
+                        { id: 'HARD', label: 'Difícil' },
+                      ] as const
+                    ).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDifficulty(d.id);
+                          dispatchAction({ type: 'SET_GLOBAL_BOT_DIFFICULTY', difficulty: d.id });
+                        }}
+                        className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
+                          (config.defaultBotDifficulty || selectedDifficulty) === d.id
+                            ? 'bg-amber-500 text-stone-950'
+                            : 'text-stone-400'
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
+                {players.map((p) => {
+                  const botDiff: BotDifficulty = p.botDifficulty || selectedDifficulty;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between px-2.5 py-1.5 rounded-xl border"
+                      style={playerCardStyle(p.color)}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AvatarIcon avatar={p.avatar} className="w-5 h-5 shrink-0" />
+                        <span className="text-xs font-black text-white truncate">{p.name}</span>
+                        {p.id === playerId && (
+                          <span className="text-[9px] px-1 rounded bg-black/50 text-amber-200 font-bold">
+                            Tú
+                          </span>
+                        )}
+                        {p.isHost && <Crown className="w-3 h-3 text-amber-300 shrink-0" />}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isHost && p.isBot && (
+                          <div className="flex items-center gap-0.5 bg-black/45 p-0.5 rounded">
+                            {(
+                              [
+                                { id: 'EASY', label: 'F' },
+                                { id: 'MEDIUM', label: 'N' },
+                                { id: 'HARD', label: 'D' },
+                              ] as const
+                            ).map((d) => (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() =>
+                                  dispatchAction({
+                                    type: 'SET_BOT_DIFFICULTY',
+                                    targetPlayerId: p.id,
+                                    difficulty: d.id,
+                                  })
+                                }
+                                className={`w-5 h-5 rounded text-[9.5px] font-black cursor-pointer ${
+                                  botDiff === d.id
+                                    ? 'bg-amber-400 text-stone-950'
+                                    : 'text-stone-400'
+                                }`}
+                              >
+                                {d.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {isHost && p.id !== playerId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              dispatchAction({ type: 'REMOVE_PLAYER', targetPlayerId: p.id })
+                            }
+                            className="p-1 rounded text-red-200 hover:bg-red-950/50 cursor-pointer"
+                            aria-label="Expulsar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {mobileTab === 'RULES' && (
+            <div className="flex-1 min-h-0 flex flex-col gap-2 justify-start overflow-hidden">
+              {/* PV Target */}
+              <div className="space-y-1 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/90">
+                  Puntos de victoria
+                </span>
+                <div className="flex gap-1">
+                  {vpOptions.map((pts) => (
+                    <button
+                      key={pts}
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { victoryPointsTarget: pts },
+                        })
+                      }
+                      className={`flex-1 py-1.5 rounded-lg border text-[11px] font-black tabular-nums cursor-pointer ${
+                        config.victoryPointsTarget === pts
+                          ? 'bg-[#c89b3c] border-amber-300 text-stone-950'
+                          : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                      }`}
+                    >
+                      {pts}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Turn Timer */}
+              <div className="space-y-1 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/90">
+                  Tiempo de turno
+                </span>
+                <div className="grid grid-cols-5 gap-1">
+                  {(
+                    [
+                      { val: 30, label: '30s' },
+                      { val: 60, label: '60s' },
+                      { val: 90, label: '90s' },
+                      { val: 120, label: '120s' },
+                      { val: null, label: '∞' },
+                    ] as const
+                  ).map((item) => (
+                    <button
+                      key={String(item.val)}
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { turnTimerSeconds: item.val },
+                        })
+                      }
+                      className={`py-1.5 rounded-lg border text-[11px] font-black cursor-pointer ${
+                        config.turnTimerSeconds === item.val
+                          ? 'bg-[#c89b3c] border-amber-300 text-stone-950'
+                          : 'bg-[#1a130e] border-stone-800 text-stone-300'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Restriction Level */}
+              <div className="space-y-1 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/90">
+                  Acciones por turno
+                </span>
+                <div className="grid grid-cols-3 gap-1">
+                  {(
+                    [
+                      { id: 'LEVEL_1_FREE', label: 'Libre' },
+                      { id: 'LEVEL_2_LIMITED', label: 'Limitado' },
+                      { id: 'LEVEL_3_STRICT', label: 'Estricto' },
+                    ] as const
+                  ).map((lvl) => (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() =>
+                        dispatchAction({
+                          type: 'UPDATE_CONFIG',
+                          config: { turnActionRestriction: lvl.id },
+                        })
+                      }
+                      className={`py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer ${
+                        (config.turnActionRestriction || 'LEVEL_1_FREE') === lvl.id
+                          ? 'bg-emerald-500/25 border-emerald-400 text-emerald-100'
+                          : 'bg-[#1a130e] border-stone-800 text-stone-400'
+                      }`}
+                    >
+                      {lvl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Compact 2-Column Rule Toggles */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { minSettlementDistance: config.minSettlementDistance === 2 ? 1 : 2 },
+                    })
+                  }
+                  className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="text-stone-300">Distancia</span>
+                  <span className="text-amber-300">
+                    {config.minSettlementDistance === 1 ? '1 arista' : '2 aristas'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: {
+                        robberDiscardMode: config.robberDiscardMode === 'MANUAL' ? 'RANDOM' : 'MANUAL',
+                      },
+                    })
+                  }
+                  className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="text-stone-300">Descarte 7</span>
+                  <span className="text-amber-300">
+                    {config.robberDiscardMode === 'RANDOM' ? 'Azar' : 'Manual'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { allowInstantDevCards: !config.allowInstantDevCards },
+                    })
+                  }
+                  className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="text-stone-300">Des. rápido</span>
+                  <span className={config.allowInstantDevCards ? 'text-emerald-300' : 'text-stone-400'}>
+                    {config.allowInstantDevCards ? 'Sí' : 'No'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: { maxOneDevCardPerTurn: !config.maxOneDevCardPerTurn },
+                    })
+                  }
+                  className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="text-stone-300">Des./turno</span>
+                  <span className="text-amber-300">
+                    {config.maxOneDevCardPerTurn ? 'Máx 1' : 'Libre'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() =>
+                    dispatchAction({
+                      type: 'UPDATE_CONFIG',
+                      config: {
+                        initialSettlementsGiveResources:
+                          config.initialSettlementsGiveResources === false,
+                      },
+                    })
+                  }
+                  className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="text-stone-300">Casas inic.</span>
+                  <span className="text-emerald-300">
+                    {config.initialSettlementsGiveResources === false ? 'Sin rec.' : 'Con rec.'}
+                  </span>
+                </button>
+
+                {config.expansionModule !== 'SEAFARERS' &&
+                config.expansionModule !== 'BARBARIANS' &&
+                config.expansionModule !== 'EXPLORERS_AND_PIRATES' ? (
+                  <button
+                    type="button"
+                    disabled={!isHost}
+                    onClick={() =>
+                      dispatchAction({
+                        type: 'UPDATE_CONFIG',
+                        config: { desertInCenter: config.desertInCenter === false },
+                      })
+                    }
+                    className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                  >
+                    <span className="text-stone-300">Desierto</span>
+                    <span className="text-amber-300">
+                      {config.desertInCenter === false ? 'Azar' : 'Centro'}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!isHost || allowsAdjacentReds || requiresSeparatedReds}
+                    onClick={() =>
+                      dispatchAction({
+                        type: 'UPDATE_CONFIG',
+                        config: { preventAdjacentRedNumbers: !config.preventAdjacentRedNumbers },
+                      })
+                    }
+                    className="px-2.5 py-2 rounded-xl bg-[#1a130e] border border-stone-800 flex items-center justify-between text-[11px] font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="text-stone-300">6 y 8 sep.</span>
+                    <span className="text-emerald-300">
+                      {requiresSeparatedReds || (!allowsAdjacentReds && config.preventAdjacentRedNumbers)
+                        ? 'Sí'
+                        : 'No'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Fixed Compact Bottom Action Bar */}
+        <div className="shrink-0 pt-1.5 border-t border-[#c89b3c]/25 flex items-center gap-2">
+          {isHost ? (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  dispatchAction({ type: 'START_WITH_BOTS', difficulty: selectedDifficulty })
+                }
+                className="flex-1 py-2.5 px-3 rounded-xl border border-emerald-500/45 bg-[#12261b] text-emerald-100 text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Bot className="w-4 h-4" />
+                <span>Con bots</span>
+              </button>
+              <button
+                type="button"
+                disabled={!canStartNow}
+                onClick={() => dispatchAction({ type: 'START_GAME' })}
+                className={`flex-[1.3] py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer ${
+                  canStartNow
+                    ? 'bg-emerald-500 text-stone-950'
+                    : 'bg-[#231912] text-stone-500 border border-stone-800 cursor-not-allowed'
+                }`}
+              >
+                <Play className="w-4 h-4 fill-current" />
+                <span>Iniciar ({players.length}/{config.maxPlayers})</span>
+              </button>
+            </>
+          ) : (
+            <div className="w-full text-center py-2 rounded-xl bg-[#1d150e] border border-[#c89b3c]/35 text-amber-200 text-xs font-bold">
+              Esperando al anfitrión…
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="room-lobby h-screen h-[100dvh] w-screen flex flex-col bg-[#110c08] text-stone-100 overflow-hidden">

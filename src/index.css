@@ -287,126 +287,98 @@ html[data-perf-tier='lite'] .animate-ping {
 
 /* ============================================================================
    Mobile Portrait & Small Touch Screens (<= 767px)
-   Prioritizes full-bleed map, thumb-zone controls, and zero overlapping HUDs.
+   Full-bleed map, clean floating controls, full iPhone notch safe-area support,
+   and ZERO overlaps across every phone width and orientation.
    ============================================================================ */
-@media (max-width: 767px) {
+@media (max-width: 767px), ((max-height: 500px) and (max-width: 960px)) {
   .game-screen {
     width: 100%;
     height: 100dvh;
   }
 
-  .game-screen .tablet-header {
-    min-height: 76px;
-    padding: max(6px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
-    gap: 5px;
-  }
-  .tablet-header-title {
-    font-size: 14px;
-  }
-  .tablet-header-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-  .tablet-header > div:last-child {
-    gap: 4px;
-  }
-  .tablet-header-btn {
-    min-height: 40px;
-    min-width: 40px;
-    padding: 8px;
-    font-size: 11px;
-    gap: 4px;
-  }
-  .tablet-header-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-  .tablet-header-btn span {
-    display: none;
-  }
-  .game-screen .tablet-header-instruction {
-    min-height: 26px;
-    max-height: 42px;
-    padding: 4px 8px;
-    font-size: 11px;
-    line-height: 1.3;
-    white-space: normal;
+  /* Hide zoom +/-/reset controls on mobile (2-finger pinch & double-tap remain active) */
+  .game-screen .tablet-zoom-controls,
+  .mobile-room-lobby .tablet-zoom-controls {
+    display: none !important;
   }
 
-  .game-turn-timer {
-    padding: 4px;
-    gap: 2px;
-  }
-  .game-turn-timer > svg,
-  .game-turn-timer .h-1\.5,
-  .game-turn-timer .flex.justify-between > span:first-child {
-    display: none;
-  }
-  .game-turn-timer .w-20 {
-    width: 34px;
-  }
-  .game-turn-timer .flex.justify-between {
-    justify-content: center;
-    margin: 0;
+  /* Scrollable single-row Players Dropdown (NO bank, NO chronicles on mobile) */
+  .game-screen .mobile-players-dropdown {
+    position: fixed !important;
+    top: calc(max(6px, env(safe-area-inset-top)) + 40px) !important;
+    right: max(8px, env(safe-area-inset-right)) !important;
+    bottom: auto !important;
+    width: min(290px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right))) !important;
+    max-height: calc(100dvh - 135px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    z-index: 35 !important;
   }
 
-  /* Slide-over Players / Bank / Chronicles Drawer */
-  .game-screen .tablet-sidebar {
-    width: min(320px, calc(100vw - 16px));
-    top: 52px;
-    bottom: 8px;
-    right: 8px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  /* Force compact single-row player profile cards (tablet 6P style) for ALL player counts on mobile */
+  .game-screen .mobile-players-dropdown .tablet-player-single-row {
+    display: flex !important;
   }
-  .tablet-player-list {
+  .game-screen .mobile-players-dropdown .desktop-player-card-content,
+  .game-screen .mobile-players-dropdown .profile-card-fan {
+    display: none !important;
+  }
+  .game-screen .mobile-players-dropdown .tablet-player-card {
+    padding: 0.35rem 0.55rem !important;
+    border-radius: 0.75rem !important;
+    min-height: 38px !important;
+  }
+
+  /* Portrait Mobile Bottom Floating Geometry (zero overlap even on 360px phones with 8 C&K cards):
+     - Row 1 (very bottom): Transparent floating material cards centered across width
+     - Row 2 (directly above cards): Bottom-left Expansion pill + Acciones above it; Bottom-right Pasar */
+  .game-screen .mobile-floating-hand {
+    left: max(6px, env(safe-area-inset-left));
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(5px, env(safe-area-inset-bottom));
+  }
+  .game-screen .mobile-expansion-hud {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 52px);
+  }
+  .game-screen .mobile-actions-anchor {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 52px);
+  }
+  .game-screen .mobile-actions-anchor.with-expansion-pill {
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 88px);
+  }
+  .game-screen .mobile-floating-endturn {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 52px);
+  }
+
+  /* Right-opening submenus (Construir / Caballeros / Escenario / Flota) anchored cleanly beside Acciones */
+  .game-screen .mobile-right-drawer {
+    position: fixed !important;
+    left: calc(max(8px, env(safe-area-inset-left)) + 132px) !important;
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 52px) !important;
+    width: min(230px, calc(100vw - 144px - env(safe-area-inset-left) - env(safe-area-inset-right))) !important;
+    max-height: calc(100dvh - 68px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
     overflow-y: auto;
   }
-  .profile-card-fan {
-    display: none;
-  }
-  .game-players-toggle {
-    min-height: 42px;
-    padding: 8px 10px;
-    font-size: 11px;
-  }
 
-  /* Compact Expansion HUD Pill (top-left, NEVER stretched vertically) */
-  .game-screen .cities-knights-hud {
-    top: 8px;
-    bottom: auto;
-    left: 8px;
-    width: min(215px, calc(100vw - 122px));
-    border-radius: 10px;
-    padding: 8px 10px;
-  }
-  .game-screen .cities-knights-hud .ck-mobile-summary {
-    display: block;
-  }
-  .game-screen .cities-knights-hud .ck-hud-details,
-  .game-screen .cities-knights-hud > .ck-special-build {
-    display: none;
-  }
-
-  /* Expansion Modals on Mobile: Full-bleed comfortable sheets */
+  /* Expansion Modals on Mobile: Full-bleed safe-area sheets */
   .cities-knights-dialog {
-    padding: 8px;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
   .cities-knights-dialog > div {
     max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    padding: 14px;
+    padding: 12px;
     border-radius: 16px;
   }
   .cities-knights-dialog h2 {
-    font-size: 16px;
+    font-size: 15px;
   }
   .cities-knights-dialog input {
     max-width: 100%;
     font-size: 16px;
   }
   .cities-knights-dialog button {
-    min-height: 42px;
+    min-height: 36px;
   }
   .cities-knights-dialog .ck-tabs {
     display: grid;
@@ -414,151 +386,65 @@ html[data-perf-tier='lite'] .animate-ping {
     gap: 6px;
   }
   .cities-knights-dialog .ck-tabs button {
-    padding: 8px 4px;
+    padding: 6px 4px;
     font-size: 11px;
-  }
-
-  /* Dice, Dev Deck & Catan Events HUD stays visible across ALL expansions (compact right column) */
-  .game-screen .game-dice-hud {
-    top: 54px;
-    right: 8px;
-    gap: 6px;
-    transform: scale(0.84);
-    transform-origin: top right;
-  }
-
-  /* Bottom-Left Thumb Controls & Fixed Bottom-Sheet Drawers */
-  .game-build-controls {
-    left: 8px;
-    bottom: 8px;
-  }
-  .game-screen .tablet-action-box {
-    width: min(47vw, 184px);
-    padding: 5px;
-    gap: 4px;
-    border-radius: 12px;
-  }
-  .game-screen .tablet-action-btn {
-    min-height: 42px;
-    padding: 8px 9px;
-    font-size: 11px;
-  }
-  .game-screen .tablet-action-btn svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  /* Drawers open cleanly as bottom sheets spanning viewport width on phones */
-  .game-screen .tablet-drawer {
-    position: fixed;
-    left: 8px;
-    right: 8px;
-    bottom: calc(104px + env(safe-area-inset-bottom));
-    width: auto;
-    max-width: none;
-    max-height: min(68dvh, 460px);
-    overflow-y: auto;
-    padding: 12px;
-    border-radius: 16px;
-  }
-
-  /* Zoom Controls tucked bottom-right opposite action box */
-  .game-screen .tablet-zoom-controls {
-    left: auto;
-    right: 8px;
-    bottom: 8px;
-    padding: 4px;
-    gap: 2px;
-  }
-  .game-screen .tablet-zoom-controls button {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 8px;
-  }
-
-  /* Bottom Resource & End Turn Thumb Bar */
-  .game-screen .tablet-footer {
-    height: auto;
-    min-height: 96px;
-    padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-  .tablet-footer > .hidden.sm\:block {
-    display: none;
-  }
-  .game-resource-hand {
-    min-width: 0;
-    flex: 0 0 100%;
-    width: 100%;
-  }
-  .game-desktop-hand {
-    display: none;
-  }
-  .game-mobile-hand {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-  .game-end-turn {
-    flex: 0 0 100%;
-    width: 100%;
-    min-width: 0;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .game-mobile-turn {
-    display: block;
-  }
-  .game-screen .tablet-end-turn-btn {
-    min-height: 42px;
-    padding: 8px 14px;
-    font-size: 12px;
   }
 }
 
 /* ============================================================================
-   Mobile Landscape (short height <= 500px, width < 960px)
-   Maximizes playable board height for large 63-96 hex expansion maps.
+   Mobile Landscape (short height <= 500px, width <= 960px)
+   Single ultra-clean floating bottom row maximizes vertical playable map space,
+   with full notch safe-area insets on left & right sides!
    ============================================================================ */
 @media (max-height: 500px) and (max-width: 960px) {
-  .game-screen .tablet-header {
-    min-height: 44px;
-    padding-top: max(4px, env(safe-area-inset-top));
+  /* MainMenu landscape: side-by-side 2-column zero-scroll layout */
+  .mobile-main-menu .mobile-main-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: center;
+    max-width: 720px;
+    gap: 10px;
+  }
+
+  /* RoomLobby landscape: combine header & tabs onto one sleek bar */
+  .mobile-room-lobby .mobile-lobby-top {
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding-bottom: 4px;
   }
-  .game-screen .tablet-header-instruction {
-    display: none;
+  .mobile-room-lobby .mobile-lobby-top > div:last-child {
+    flex: 1;
+    max-width: 380px;
   }
-  .game-screen .tablet-footer {
-    min-height: 58px;
-    flex-wrap: nowrap;
-    padding-top: 4px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
+
+  /* GameScreen landscape: single clean floating bottom line (Expansion/Acciones left | Cards center | Pasar right) */
+  .game-screen .mobile-floating-hand {
+    left: calc(max(8px, env(safe-area-inset-left)) + 112px);
+    right: calc(max(8px, env(safe-area-inset-right)) + 86px);
+    bottom: max(5px, env(safe-area-inset-bottom));
   }
-  .game-resource-hand {
-    flex: 1 1 auto;
-    width: auto;
+  .game-screen .mobile-expansion-hud {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: max(5px, env(safe-area-inset-bottom));
   }
-  .game-end-turn {
-    flex: 0 0 auto;
-    width: auto;
+  .game-screen .mobile-actions-anchor {
+    left: max(8px, env(safe-area-inset-left));
+    bottom: max(5px, env(safe-area-inset-bottom));
   }
-  .game-mobile-turn {
-    display: none;
+  .game-screen .mobile-actions-anchor.with-expansion-pill {
+    bottom: calc(max(5px, env(safe-area-inset-bottom)) + 38px);
   }
-  .game-screen .cities-knights-hud {
-    top: 6px;
-    bottom: auto;
-    left: 6px;
-    padding: 6px 8px;
+  .game-screen .mobile-floating-endturn {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(5px, env(safe-area-inset-bottom));
   }
-  .game-screen .ck-hud-details {
-    display: none;
+  .game-screen .mobile-right-drawer {
+    bottom: max(5px, env(safe-area-inset-bottom)) !important;
+    max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
-  .game-screen .tablet-drawer {
-    bottom: calc(64px + env(safe-area-inset-bottom));
-    max-height: 72dvh;
+  .game-screen .mobile-players-dropdown {
+    max-height: calc(100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 }

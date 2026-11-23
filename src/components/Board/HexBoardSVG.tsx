@@ -2111,9 +2111,9 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                     {/* Floating Reduction Badge */}
                     <g transform="translate(0, -34)">
                       <rect
-                        x={-52}
+                        x={-48}
                         y={-11}
-                        width={104}
+                        width={96}
                         height={20}
                         rx={7}
                         fill="rgba(127, 29, 29, 0.96)"
@@ -2128,7 +2128,7 @@ export const HexBoardSVG: React.FC<HexBoardSVGProps> = ({
                         fontSize="8.5"
                         fontWeight="900"
                       >
-                        🔥 CIUDAD → POBLADO
+                        CIUDAD → POBLADO
                       </text>
                     </g>
                   </g>
