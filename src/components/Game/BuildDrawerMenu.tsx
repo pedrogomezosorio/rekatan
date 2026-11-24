@@ -385,7 +385,11 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full ${isMobile ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors opacity-100 ${
+        className={`tablet-action-btn w-full ${
+          isMobile
+            ? 'h-[32px] px-2 text-[10px] leading-none whitespace-nowrap'
+            : 'px-3 py-2 text-xs'
+        } rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors opacity-100 ${
           isOpen
             ? 'bg-[#d4af37] text-stone-950 border-[#f1d98c] cursor-pointer'
             : anyOptionAvailable && !disabledBeforeDice
@@ -393,8 +397,8 @@ export const BuildDrawerMenu: React.FC<BuildDrawerMenuProps> = ({
             : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/40 text-amber-100 cursor-pointer'
         }`}
       >
-        <span className="flex items-center gap-1.5 truncate">
-          <Hammer className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Hammer className={isMobile ? 'w-3 h-3 shrink-0' : 'w-3.5 h-3.5 shrink-0'} />
           <span>Construir</span>
           {anyOptionAvailable && !disabledBeforeDice && (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 ring-1 ring-stone-950/60 shrink-0" />

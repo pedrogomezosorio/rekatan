@@ -275,16 +275,20 @@ export const KnightsDrawerMenu: React.FC<KnightsDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full ${isMobile ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${
+        className={`tablet-action-btn w-full ${
+          isMobile
+            ? 'h-[32px] px-2 text-[10px] leading-none whitespace-nowrap'
+            : 'px-3 py-2 text-xs'
+        } rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${
           isOpen
             ? 'bg-[#362618] border-[#d4af37] text-amber-100'
             : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/50 text-amber-200 shadow'
         }`}
         title="Acciones de Caballeros: Colocar, Ascender, Activar, Expulsar Ladrón y Mover"
       >
-        <span className="flex items-center gap-1.5 truncate">
-          <Swords className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
-          <span className="truncate tabular-nums">
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Swords className={`${isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#d4af37] shrink-0`} />
+          <span className="tabular-nums">
             {isMobile ? `Caballeros (${myDefense})` : `Caballeros (${myDefense} Def.)`}
           </span>
         </span>

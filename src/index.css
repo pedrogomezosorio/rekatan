@@ -354,9 +354,9 @@ html[data-perf-tier='lite'] .animate-ping {
   /* Right-opening submenus (Construir / Caballeros / Escenario / Flota) anchored cleanly beside Acciones */
   .game-screen .mobile-right-drawer {
     position: fixed !important;
-    left: calc(max(8px, env(safe-area-inset-left)) + 132px) !important;
+    left: calc(max(8px, env(safe-area-inset-left)) + 144px) !important;
     bottom: calc(max(5px, env(safe-area-inset-bottom)) + 52px) !important;
-    width: min(230px, calc(100vw - 144px - env(safe-area-inset-left) - env(safe-area-inset-right))) !important;
+    width: min(225px, calc(100vw - 156px - env(safe-area-inset-left) - env(safe-area-inset-right))) !important;
     max-height: calc(100dvh - 68px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
     overflow-y: auto;
   }

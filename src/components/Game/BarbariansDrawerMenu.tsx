@@ -449,12 +449,18 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
     mb.scenario === 'FISHERMEN_OF_CATAN'
       ? `Pesca (${totalFish})`
       : mb.scenario === 'RIVERS_OF_CATAN'
-        ? `Ríos (${pb.goldCoins} oros)`
+        ? isMobile
+          ? `Ríos (${pb.goldCoins})`
+          : `Ríos (${pb.goldCoins} oros)`
         : mb.scenario === 'THE_CARAVANS'
           ? `Caravanas (${mb.camelsRemaining})`
           : mb.scenario === 'BARBARIAN_ATTACK'
-            ? `Caballeros (${pb.prisonersCount} pris.)`
-            : `Carromato (Nv.${pb.wagonLevel} · ${pb.wagonMpRemaining} PM)`;
+            ? isMobile
+              ? `Caballeros (${pb.prisonersCount})`
+              : `Caballeros (${pb.prisonersCount} pris.)`
+            : isMobile
+              ? `Carromato Nv.${pb.wagonLevel}`
+              : `Carromato (Nv.${pb.wagonLevel} · ${pb.wagonMpRemaining} PM)`;
 
   return (
     <div className="relative flex items-center w-full">
@@ -579,15 +585,19 @@ export const BarbariansDrawerMenu: React.FC<BarbariansDrawerMenuProps> = ({
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full ${isMobile ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${isOpen
+        className={`tablet-action-btn w-full ${
+          isMobile
+            ? 'h-[32px] px-2 text-[10px] leading-none whitespace-nowrap'
+            : 'px-3 py-2 text-xs'
+        } rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${isOpen
           ? 'bg-[#362618] border-[#d4af37] text-amber-100'
           : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/50 text-amber-200 shadow'
           }`}
         title="Acciones del escenario de Mercaderes y Bárbaros"
       >
-        <span className="flex items-center gap-1.5 truncate">
-          <Swords className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
-          <span className="truncate tabular-nums">{buttonLabel}</span>
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Swords className={`${isMobile ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-[#d4af37] shrink-0`} />
+          <span className="tabular-nums">{buttonLabel}</span>
         </span>
         {!isMobile && (
           <span className="px-1.5 py-0.5 rounded bg-black/35 font-mono text-[9px] text-amber-300/80">

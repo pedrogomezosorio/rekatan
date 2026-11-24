@@ -413,20 +413,24 @@ export const ExplorersPiratesDrawerMenu: React.FC<ExplorersPiratesDrawerMenuProp
       <button
         type="button"
         onClick={onToggleOpen}
-        className={`tablet-action-btn w-full ${isMobile ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${
+        className={`tablet-action-btn w-full ${
+          isMobile
+            ? 'h-[32px] px-2 text-[10px] leading-none whitespace-nowrap'
+            : 'px-3 py-2 text-xs'
+        } rounded-lg border font-bold flex items-center justify-between gap-1.5 transition-colors cursor-pointer active:scale-98 opacity-100 ${
           isOpen
             ? 'bg-[#362618] border-[#d4af37] text-amber-100'
             : 'bg-[#241a12] hover:bg-[#2f2217] border-[#c89b3c]/50 text-amber-200 shadow'
         }`}
         title="Flota, Colonos, Unidades y Exploración Marítima"
       >
-        <span className="flex items-center gap-1.5 truncate">
+        <span className="flex items-center gap-1.5 min-w-0">
           <img
             src={getEPShipToken(me.color)}
             alt="Flota"
-            className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full object-cover shrink-0 border border-amber-300/60"
+            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full object-cover shrink-0 border border-amber-300/60`}
           />
-          <span className="truncate tabular-nums">
+          <span className="tabular-nums">
             {isMobile ? `Flota (${myShips.length}/3)` : `Flota (${myShips.length}/3 · ${pep.goldCoins} oros)`}
           </span>
         </span>
