@@ -7,6 +7,7 @@ import {
   ResourceFlightEvent,
   ResourceType,
   RobberStealEvent,
+  TradeCardType,
 } from '../../shared/types';
 import type { EventDie, ImprovementBranch, ProgressCardType } from '../../shared/citiesKnightsTypes';
 import { BRANCH_META, PROGRESS_CARDS } from '../../shared/citiesKnightsConfig';
@@ -170,6 +171,15 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
   const [activeDiceStage, setActiveDiceStage] = useState<DiceRollStage | null>(null);
   const [activeFlightItems, setActiveFlightItems] = useState<PositionedResourceFlight[]>([]);
   const [activeDevCardFlights, setActiveDevCardFlights] = useState<DevCardFlight[]>([]);
+  const [mobileGainToast, setMobileGainToast] = useState<{
+    id: string;
+    entries: Array<{
+      playerId: string;
+      color: string;
+      isMe: boolean;
+      items: Array<{ resource: TradeCardType; amount: number }>;
+    }>;
+  } | null>(null);
   const [centralAlertQueue, setCentralAlertQueue] = useState<CentralAlertPayload[]>([]);
   const [activeDiscards, setActiveDiscards] = useState<DiscardAnimationEvent[]>([]);
   const [activeSteal, setActiveSteal] = useState<RobberStealEvent | null>(null);
@@ -353,9 +363,55 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       });
     }
 
-    // 3. Adaptive Resource Distribution (full / balanced / lite)
+    // 3. Adaptive Resource Distribution (full / balanced / lite / mobile discreet pill)
     if (ev.flights && ev.flights.length > 0) {
       const flightsToRun = [...ev.flights];
+      const isSetupOrBuildEvent =
+        gameState.phase.startsWith('SETUP_') ||
+        Boolean(ev.builtItem) ||
+        flightsToRun.some((f) => f.id.startsWith('FLIGHT_SETUP_'));
+
+      if (isMobile) {
+        // On mobile: suppress alerts on initial houses and constructions completely;
+        // for dice/production gains, show a single ultra-discreet micro-pill at top-center.
+        if (!isSetupOrBuildEvent) {
+          const waitForDiceMs = shouldSpinDice ? 3550 : 120;
+          const runId = ++sequenceRunIdRef.current;
+          scheduleTimeout(() => {
+            if (sequenceRunIdRef.current !== runId) return;
+            const liveState = latestGameStateRef.current;
+            const byPlayer = new Map<string, Map<TradeCardType, number>>();
+            for (const f of flightsToRun) {
+              if (!byPlayer.has(f.playerId)) byPlayer.set(f.playerId, new Map());
+              const rMap = byPlayer.get(f.playerId)!;
+              rMap.set(f.resource, (rMap.get(f.resource) || 0) + f.amount);
+            }
+            const entries = Array.from(byPlayer.entries())
+              .map(([pid, rMap]) => {
+                const pl = liveState.players.find((p) => p.id === pid);
+                return {
+                  playerId: pid,
+                  color: pl ? PLAYER_COLORS[pl.color]?.primary || '#c89b3c' : '#c89b3c',
+                  isMe: pid === currentPlayerId,
+                  items: Array.from(rMap.entries()).map(([resource, amount]) => ({
+                    resource,
+                    amount,
+                  })),
+                };
+              })
+              .sort((a, b) => Number(b.isMe) - Number(a.isMe));
+
+            // Prefer showing local player's gain if present, else compact rival summary (max 2 players)
+            const mine = entries.filter((e) => e.isMe);
+            const visibleEntries = mine.length > 0 ? mine : entries.slice(0, 2);
+            const toastId = `MOBILE_GAIN_${ev.nonce}_${Date.now()}`;
+            setMobileGainToast({ id: toastId, entries: visibleEntries });
+            scheduleTimeout(() => {
+              setMobileGainToast((curr) => (curr?.id === toastId ? null : curr));
+            }, 1900);
+          }, waitForDiceMs);
+        }
+      } else {
       const perfTier =
         typeof document !== 'undefined'
           ? (document.documentElement.dataset.perfTier as 'full' | 'balanced' | 'lite' | undefined)
@@ -437,6 +493,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           }
         })();
       }
+      }
     }
 
     // 4. Robber Discard Loss Animation
@@ -449,7 +506,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
       setActiveSteal(ev.steal);
     }
 
-    // 6. Development / Progress Card Purchase/Draw Sliding & Spinning Flight Animation
+    // 6. Development / Progress Card Purchase/Draw Sliding & Spinning Flight Animation (Desktop/Tablet only)
     const progressList =
       ev.progressFlights && ev.progressFlights.length > 0
         ? ev.progressFlights
@@ -457,7 +514,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         ? [ev.progressFlight]
         : [];
 
-    if (progressList.length > 0) {
+    if (!isMobile && progressList.length > 0) {
       const waitMs = shouldSpinDice ? 3000 : 100;
       progressList.forEach((pf, idx) => {
         scheduleTimeout(() => {
@@ -496,7 +553,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
           }, 2600);
         }, waitMs + idx * 550);
       });
-    } else if (ev.type === 'DEV_CARD_BOUGHT' && ev.buyerPlayerId) {
+    } else if (!isMobile && ev.type === 'DEV_CARD_BOUGHT' && ev.buyerPlayerId) {
       const liveState = latestGameStateRef.current;
       const buyerId = ev.buyerPlayerId;
       const origin = resolveDeckScreenCenter();
@@ -526,7 +583,7 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         setActiveDevCardFlights((prev) => prev.filter((f) => f.id !== flightId));
       }, 2600);
     }
-  }, [gameState.lastEvent, gameState.phase, currentPlayerId, gameState.players, gameState.board.hexes]);
+  }, [gameState.lastEvent, gameState.phase, currentPlayerId, gameState.players, gameState.board.hexes, isMobile]);
 
   // Dice Animation State Machine: 1.0s spinning -> 2.0s landed display
   useEffect(() => {
@@ -600,25 +657,31 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
 
   return (
     <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
-      {/* 1. SLOW EXTRA-LARGE CENTER-SCREEN DICE ROLL OVERLAY (1s SPINNING + 2.5s LANDED DISPLAY, CENTERED WITH INTERNAL BACKDROP BLUR) */}
+      {/* 1. SLOW EXTRA-LARGE CENTER-SCREEN DICE ROLL OVERLAY */}
       <AnimatePresence>
         {activeDiceStage && (
           <motion.div
             key={`giant-dice-${lastSeenNonceRef.current}`}
-            initial={{ opacity: 0, scale: 0.7 }}
+            initial={{ opacity: 0, scale: isMobile ? 0.92 : 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none ${
+              isMobile ? 'bg-black/75' : ''
+            }`}
           >
             <div
               className={`relative flex flex-col items-center justify-center ${
                 isMobile
-                  ? 'px-5 py-3.5 rounded-2xl border-2 max-w-[82vw]'
-                  : 'px-10 sm:px-14 py-7 rounded-3xl border-4'
-              } shadow-[0_25px_80px_rgba(0,0,0,0.92)] backdrop-blur-xl ${
+                  ? 'px-5 py-3.5 rounded-2xl border-2 max-w-[82vw] opacity-100'
+                  : 'px-10 sm:px-14 py-7 rounded-3xl border-4 backdrop-blur-xl'
+              } shadow-[0_25px_80px_rgba(0,0,0,0.95)] ${
                 activeDiceStage.isSeven
-                  ? 'bg-[#2b0808]/92 border-red-500'
+                  ? isMobile
+                    ? 'bg-[#260707] border-red-500'
+                    : 'bg-[#2b0808]/92 border-red-500'
+                  : isMobile
+                  ? 'bg-[#160f0a] border-[#d4af37]'
                   : 'bg-[#1a110a]/94 border-[#d4af37]'
               }`}
             >
@@ -728,9 +791,45 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 2. SEQUENTIAL RESOURCE DISTRIBUTION ANIMATION (DOUBLED TO 4.0s PER FLIGHT FROM HEX TO EXACT PLAYER CASILLERO) */}
+      {/* 2. DISCREET TOP-CENTER MICRO-PILL FOR MOBILE PRODUCTION GAINS */}
       <AnimatePresence>
-        {activeFlightItems.map((flight) => (
+        {isMobile && mobileGainToast && (
+          <motion.div
+            key={mobileGainToast.id}
+            initial={{ opacity: 0, y: -8, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.94 }}
+            transition={{ duration: 0.2 }}
+            className="fixed left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-1.5 px-2.5 h-7 rounded-full bg-[#160f0a]/92 border border-[#d4af37]/50 shadow-lg"
+            style={{
+              top: 'max(7px, env(safe-area-inset-top))',
+              maxWidth: 'calc(100vw - 210px)',
+            }}
+          >
+            {mobileGainToast.entries.map((entry) => (
+              <div key={entry.playerId} className="flex items-center gap-1 shrink-0">
+                <span
+                  className="w-2 h-2 rounded-full shrink-0 border border-white/60"
+                  style={{ backgroundColor: entry.color }}
+                />
+                {entry.items.slice(0, 4).map((it) => (
+                  <span
+                    key={it.resource}
+                    className="inline-flex items-center gap-0.5 text-[10px] font-black text-amber-100 tabular-nums"
+                  >
+                    <span>+{it.amount}</span>
+                    <ResourceIcon resource={it.resource} size={12} />
+                  </span>
+                ))}
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. SEQUENTIAL RESOURCE DISTRIBUTION ANIMATION (DESKTOP / TABLET) */}
+      <AnimatePresence>
+        {!isMobile && activeFlightItems.map((flight) => (
           <ResourceDistributionFlightCard
             key={flight.instanceKey}
             flight={flight}
@@ -740,9 +839,9 @@ export const OverlayAnimations: React.FC<OverlayAnimationsProps> = ({
         ))}
       </AnimatePresence>
 
-      {/* 2B. DEVELOPMENT CARD PURCHASE SLIDING & ROTATING ANIMATION (FROM DECK TO LEFT CASILLERO) */}
+      {/* 2B. DEVELOPMENT CARD PURCHASE SLIDING & ROTATING ANIMATION (DESKTOP / TABLET) */}
       <AnimatePresence>
-        {activeDevCardFlights.map((flight) => (
+        {!isMobile && activeDevCardFlights.map((flight) => (
           <DevCardPurchaseFlightCard
             key={flight.id}
             flight={flight}

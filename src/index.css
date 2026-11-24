@@ -72,9 +72,10 @@ html[data-perf-tier='lite'] .animate-ping {
 }
 
 /* ============================================================================
-   Tablet Touchscreen Layout (768px+ coarse pointers; PC/Mac fine pointers untouched)
+   Tablet Touchscreen Layout (768px+ & height > 500px coarse pointers;
+   excludes landscape phones <= 500px height and PC/Mac fine pointers)
    ============================================================================ */
-@media (pointer: coarse) and (min-width: 768px) {
+@media (pointer: coarse) and (min-width: 768px) and (min-height: 501px) {
   button, [role="button"], a {
     touch-action: manipulation;
   }

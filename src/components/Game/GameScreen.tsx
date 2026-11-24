@@ -2359,7 +2359,9 @@ export const GameScreen: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-4"
+                className={`absolute inset-0 z-30 flex items-center justify-center p-4 ${
+                  isMobile ? 'bg-black/75' : 'bg-black/50 backdrop-blur-[2px]'
+                }`}
               >
                 {isMobile ? (
                   <motion.div
@@ -2367,7 +2369,7 @@ export const GameScreen: React.FC = () => {
                     animate={{ scale: 1, y: 0, opacity: 1 }}
                     exit={{ scale: 0.9, opacity: 0 }}
                     transition={{ type: 'spring', stiffness: 340, damping: 24 }}
-                    className="w-full max-w-[225px] rounded-2xl bg-[#18110b]/96 border-2 border-[#d4af37] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.92)] space-y-3"
+                    className="w-full max-w-[225px] rounded-2xl bg-[#160f0a] border-2 border-[#d4af37] p-4 text-center shadow-[0_18px_50px_rgba(0,0,0,0.96)] space-y-3 opacity-100"
                   >
                     <div className="flex items-center justify-center gap-2.5">
                       <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-50 to-amber-300 border border-amber-500 flex items-center justify-center text-stone-950 shadow">
@@ -2812,7 +2814,7 @@ export const GameScreen: React.FC = () => {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 8, scale: 0.96 }}
                           transition={{ duration: 0.14 }}
-                          className="absolute bottom-[calc(100%+6px)] left-0 w-[124px] p-1.5 rounded-xl bg-[#160f0a] border border-[#d4af37]/75 shadow-[0_14px_36px_rgba(0,0,0,0.95)] flex flex-col gap-1 opacity-100"
+                          className="absolute bottom-[calc(100%+6px)] left-0 w-[138px] p-1.5 rounded-xl bg-[#160f0a] border border-[#d4af37]/75 shadow-[0_14px_36px_rgba(0,0,0,0.95)] flex flex-col gap-1 opacity-100"
                         >
                           <BuildDrawerMenu
                             isOpen={isBuildDrawerOpen}
@@ -2855,22 +2857,22 @@ export const GameScreen: React.FC = () => {
                               setTradeModalInitialTab('BANK');
                               setShowTradeModal(true);
                             }}
-                            className={`w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-between gap-1 transition-colors opacity-100 ${
+                            className={`w-full h-8 px-2 rounded-lg border text-[10px] leading-none font-bold flex items-center justify-between gap-1 whitespace-nowrap transition-colors opacity-100 ${
                               isPausedByHost || (isMyTurn && isWaitingForMandatoryDice)
                                 ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
                                 : 'bg-[#b85a27] border-[#e2a46f]/70 text-amber-50 cursor-pointer'
                             }`}
                           >
-                            <span className="flex items-center gap-1.5 truncate">
+                            <span className="flex items-center gap-1.5 min-w-0">
                               {hasAnyPort ? (
-                                <Anchor className="w-3.5 h-3.5 shrink-0" />
+                                <Anchor className="w-3 h-3 shrink-0" />
                               ) : (
-                                <Flame className="w-3.5 h-3.5 shrink-0" />
+                                <Flame className="w-3 h-3 shrink-0" />
                               )}
-                              <span className="truncate">Comercio</span>
+                              <span>Intercambiar</span>
                             </span>
                             {gameState.activeTradeOffers.length > 0 && (
-                              <span className="px-1 rounded-full bg-red-600 text-white text-[9px] font-bold">
+                              <span className="px-1 py-0.5 rounded-full bg-red-600 text-white text-[8.5px] font-bold leading-none shrink-0">
                                 {gameState.activeTradeOffers.length}
                               </span>
                             )}
@@ -2883,10 +2885,12 @@ export const GameScreen: React.FC = () => {
                                 closeAllMobileActions();
                                 setShowWonders(true);
                               }}
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-[#c89b3c]/50 bg-[#2a1d11] text-amber-100 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                              className="w-full h-8 px-2 rounded-lg border border-[#c89b3c]/50 bg-[#2a1d11] text-amber-100 text-[10px] leading-none font-bold flex items-center justify-between gap-1 whitespace-nowrap cursor-pointer"
                             >
-                              <Award className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
-                              <span className="truncate">Maravillas</span>
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <Award className="w-3 h-3 text-[#d4af37] shrink-0" />
+                                <span>Maravillas</span>
+                              </span>
                             </button>
                           )}
 
@@ -2904,19 +2908,21 @@ export const GameScreen: React.FC = () => {
                                   setShowDevModal(true);
                                 }
                               }}
-                              className={`w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 transition-colors opacity-100 ${
+                              className={`w-full h-8 px-2 rounded-lg border text-[10px] leading-none font-bold flex items-center justify-between gap-1 whitespace-nowrap transition-colors opacity-100 ${
                                 isPausedByHost || (!isCitiesKnights && isMyTurn && isWaitingForMandatoryDice)
                                   ? 'bg-stone-900 border-stone-800 text-stone-500 cursor-not-allowed'
                                   : 'bg-[#241a12] border-[#c89b3c]/45 text-amber-200 cursor-pointer'
                               }`}
                             >
-                              <Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0" />
-                              <span className="truncate tabular-nums">
-                                {isCitiesKnights
-                                  ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
-                                  : usesScenarioDevDeck
-                                  ? `Cartas (${me.barbarians?.scenarioDevCards.filter((c) => !c.played).length ?? 0})`
-                                  : `Des. (${unplayedDevCount})`}
+                              <span className="flex items-center gap-1.5 min-w-0 tabular-nums">
+                                <Sparkles className="w-3 h-3 text-[#d4af37] shrink-0" />
+                                <span>
+                                  {isCitiesKnights
+                                    ? `Progreso (${me.citiesKnights?.progressCards.length ?? 0})`
+                                    : usesScenarioDevDeck
+                                    ? `Cartas (${me.barbarians?.scenarioDevCards.filter((c) => !c.played).length ?? 0})`
+                                    : `Desarrollo (${unplayedDevCount})`}
+                                </span>
                               </span>
                             </button>
                           )}
